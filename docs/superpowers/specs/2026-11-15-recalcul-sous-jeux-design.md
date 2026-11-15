@@ -1,7 +1,7 @@
 # Recalcul des sous-jeux à la demande (issue #12)
 
 Date : 2026-11-15
-Statut : en revue (vérification builder faite)
+Statut : validé
 
 ## Contexte et pourquoi
 
@@ -136,7 +136,10 @@ de couleurs avant d'appliquer les poids ; `weights(p)` reste aligné sur
 - Le rapport carte par carte d'un nœud de chance au-delà de la profondeur
   demanderait un sous-jeu par carte (44 à 46) : non affiché, avec une phrase
   qui l'explique.
-- Dialogue de sauvegarde : profondeur par défaut « jusqu'à la turn ».
+- Dialogue de sauvegarde : profondeur par défaut « jusqu'à la turn ». Texte de
+  « flop seul » explicite : impossible d'aller au-delà du flop, idéal pour les
+  rapports de flops (chantier suivant). Texte de « jusqu'à la turn » : les
+  rivers sont recalculées à la demande.
 
 ### Tests
 
