@@ -35,8 +35,8 @@ export const depthLabel = (depth: SolutionDepth): string => {
 export const depthLoss = (depth: SolutionDepth): string => {
   return {
     river: "Everything is kept.",
-    turn: "No river strategies: the solution stops at the river card.",
-    flop: "No turn or river strategies, and no turn card report.",
+    turn: "Rivers are re-solved on demand when you pick them.",
+    flop: "Cannot go past the flop. Best for flop reports.",
   }[depth];
 };
 

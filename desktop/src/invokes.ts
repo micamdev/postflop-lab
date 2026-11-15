@@ -444,3 +444,22 @@ export const libraryExport = async (name: string, path: string) => {
 export const libraryOpenFolder = async () => {
   await invoke("library_open_folder");
 };
+
+/* On-demand river re-solve */
+
+/** Re-solves the river `card` at `history` (a river past the saved depth). */
+export const gameResolveSubgame = async (
+  history: number[],
+  card: number,
+  reachedExploitability: number | null
+): Promise<"solve" | "empty"> => {
+  return await invoke("game_resolve_subgame", {
+    history,
+    card,
+    reachedExploitability,
+  });
+};
+
+export const gameCancelSubgame = async () => {
+  await invoke("game_cancel_subgame");
+};
