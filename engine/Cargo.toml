@@ -19,3 +19,14 @@ zstd = { version = "0.12.4", optional = true, default-features = false }
 default = ["bincode", "rayon"]
 custom-alloc = []
 rayon = ["dep:rayon", "zstd?/zstdmt"]
+
+[dev-dependencies]
+mimalloc = "0.1.52"
+
+[[bench]]
+name = "reference_spot"
+harness = false
+
+[[bench]]
+name = "reference_spot_mimalloc"
+harness = false
