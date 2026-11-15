@@ -4,12 +4,10 @@
 //! as JSON, so listing the library only reads file headers. The displayed name is the file name.
 //! All functions take the library folder as a parameter so they can be tested on a temporary one.
 
-// TEMPORARY: the Tauri commands using this module come in the next commit.
-#![allow(dead_code)]
-
 use postflop_solver::*;
 use serde::{Deserialize, Serialize};
-use std::fs;
+use std::fs::{self, File};
+use std::io::{BufWriter, Write};
 use std::path::{Path, PathBuf};
 
 /// File extension of saved solutions.
@@ -127,13 +125,46 @@ fn write_atomically(
     Ok(dest)
 }
 
-/// Saves a solved game in the library under `name`.
+/// Counts the bytes written through it and reports the running total.
+struct ProgressWriter<W: Write, F: FnMut(u64)> {
+    inner: W,
+    written: u64,
+    progress: F,
+}
+
+impl<W: Write, F: FnMut(u64)> Write for ProgressWriter<W, F> {
+    fn write(&mut self, buf: &[u8]) -> std::io::Result<usize> {
+        let n = self.inner.write(buf)?;
+        self.written += n as u64;
+        (self.progress)(self.written);
+        Ok(n)
+    }
+
+    fn flush(&mut self) -> std::io::Result<()> {
+        self.inner.flush()
+    }
+}
+
+/// Saves a solved game in the library under `name` (tests use it; the app reports progress).
+#[cfg(test)]
 pub fn save(
     dir: &Path,
     name: &str,
     game: &PostFlopGame,
     meta: &SolutionMeta,
     overwrite: bool,
+) -> Result<PathBuf, String> {
+    save_with_progress(dir, name, game, meta, overwrite, |_| {})
+}
+
+/// Like [`save`], calling `progress` with the number of bytes written so far.
+pub fn save_with_progress(
+    dir: &Path,
+    name: &str,
+    game: &PostFlopGame,
+    meta: &SolutionMeta,
+    overwrite: bool,
+    progress: impl FnMut(u64),
 ) -> Result<PathBuf, String> {
     let name = sanitize_name(name)?;
     fs::create_dir_all(dir).map_err(|e| format!("Failed to create the library folder: {e}"))?;
@@ -142,7 +173,16 @@ pub fn save(
     }
     let memo = serde_json::to_string(meta).map_err(|e| e.to_string())?;
     write_atomically(dir, &name, |tmp| {
-        save_data_to_file(game, &memo, tmp, Some(COMPRESSION_LEVEL))
+        let file = File::create(tmp).map_err(|e| format!("Failed to create file: {e}"))?;
+        let mut writer = ProgressWriter {
+            inner: BufWriter::new(file),
+            written: 0,
+            progress,
+        };
+        save_data_into_std_write(game, &memo, &mut writer, Some(COMPRESSION_LEVEL))?;
+        writer
+            .flush()
+            .map_err(|e| format!("Failed to write file: {e}"))
     })
 }
 

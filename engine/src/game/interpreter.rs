@@ -237,6 +237,20 @@ impl PostFlopGame {
         self.node().player()
     }
 
+    /// Returns whether a card can be dealt at the current position with the stored data.
+    ///
+    /// This is `false` past the storage mode of a truncated save: at any chance node when only
+    /// the flop is stored, and at the river deal when only the flop and the turn are stored.
+    /// [`play`] panics in that case, so check this first when the storage mode may be truncated.
+    ///
+    /// [`play`]: #method.play
+    #[inline]
+    pub fn can_deal_card(&self) -> bool {
+        let turn_dealt = self.turn != NOT_DEALT;
+        !(self.storage_mode == BoardState::Flop
+            || (turn_dealt && self.storage_mode == BoardState::Turn))
+    }
+
     /// Returns the current board.
     ///
     /// The returned vector is of length 3, 4, or 5. The flop cards, the turn card, and the river
@@ -266,11 +280,13 @@ impl PostFlopGame {
     ///   - If the current node is not a chance node, plays the `action`-th action of
     ///     [`available_actions`].
     ///
-    /// Panics if the memory is not yet allocated or the current node is a terminal node.
+    /// Panics if the memory is not yet allocated, the current node is a terminal node, or the
+    /// current node is a chance node past the storage mode (see [`can_deal_card`]).
     ///
     /// **Time complexity:** *O*(#(OOP private hands) + #(IP private hands))
     ///
     /// [`available_actions`]: #method.available_actions
+    /// [`can_deal_card`]: #method.can_deal_card
     pub fn play(&mut self, action: usize) {
         if self.state < State::MemoryAllocated {
             panic!("Memory is not allocated");
@@ -282,12 +298,11 @@ impl PostFlopGame {
 
         // chance node
         if self.is_chance_node() {
-            let is_turn = self.turn == NOT_DEALT;
-            if self.storage_mode == BoardState::Flop
-                || (!is_turn && self.storage_mode == BoardState::Turn)
-            {
+            if !self.can_deal_card() {
                 panic!("Storage mode is not compatible");
             }
+
+            let is_turn = self.turn == NOT_DEALT;
 
             let actual_card = if action == usize::MAX {
                 self.possible_cards().trailing_zeros() as Card

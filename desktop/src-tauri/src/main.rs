@@ -5,10 +5,12 @@
 
 mod bunching;
 mod library;
+mod library_commands;
 mod range;
 mod solver;
 mod tree;
 use crate::bunching::*;
+use crate::library_commands::*;
 use crate::range::*;
 use crate::solver::*;
 use crate::tree::*;
@@ -72,7 +74,17 @@ fn main() {
             game_actions_after,
             game_possible_cards,
             game_get_results,
-            game_get_chance_reports
+            game_get_chance_reports,
+            game_storage_mode,
+            library_list,
+            library_save_estimate,
+            library_save,
+            library_load,
+            library_rename,
+            library_delete,
+            library_import,
+            library_export,
+            library_open_folder
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");
