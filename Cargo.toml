@@ -2,6 +2,10 @@
 members = ["engine", "desktop/src-tauri"]
 resolver = "2"
 
+[workspace.package]
+# Same as rust-toolchain.toml: the only version built and tested.
+rust-version = "1.100"
+
 [profile.release]
 codegen-units = 1
 panic = "abort"

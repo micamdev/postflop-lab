@@ -196,7 +196,11 @@ const chartOptions = computed((): ChartOptions<"bar"> => {
   const style = ["strategy", "eq", "eqr"].includes(option)
     ? "percent"
     : "decimal";
-  const format = { style, useGrouping: false, minimumFractionDigits: 0 };
+  const format: Intl.NumberFormatOptions = {
+    style,
+    useGrouping: false,
+    minimumFractionDigits: 0,
+  };
 
   const titleText =
     props.displayPlayer.toUpperCase() +
@@ -216,6 +220,7 @@ const chartOptions = computed((): ChartOptions<"bar"> => {
     normalized: true,
     scales: {
       y: {
+        type: "linear",
         stacked: true,
         min: ["ev", "eqr"].includes(option) ? undefined : 0,
         max: option === "strategy" ? 1 : undefined,
@@ -244,7 +249,7 @@ const chartOptions = computed((): ChartOptions<"bar"> => {
             return ranks[rank] + suits[suit];
           },
           label(context) {
-            const value = context.parsed.y;
+            const value = context.parsed.y ?? 0;
             let label = context.dataset.label ?? "";
             if (label) label += ": ";
             if (["strategy-combos", "ev"].includes(option)) {

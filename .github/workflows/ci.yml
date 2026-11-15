@@ -11,24 +11,30 @@ env:
 
 jobs:
   rust:
-    # Windows: the users' platform, and avoids Tauri 1's webkit2gtk-4.0
-    # dependency, which recent Ubuntu runners no longer ship.
+    # Windows: the users' platform.
     runs-on: windows-latest
     steps:
       - uses: actions/checkout@v4
 
+      # Version read from "packageManager" in desktop/package.json.
+      - uses: pnpm/action-setup@v4
+        with:
+          package_json_file: desktop/package.json
+
       - uses: actions/setup-node@v4
         with:
-          node-version: 22
-          cache: npm
-          cache-dependency-path: desktop/package-lock.json
+          node-version: 24
+          cache: pnpm
+          cache-dependency-path: desktop/pnpm-lock.yaml
 
       # The Tauri build embeds desktop/dist, so the front end comes first.
+      - name: Install front-end dependencies
+        working-directory: desktop
+        run: pnpm install --frozen-lockfile
+
       - name: Build front end
         working-directory: desktop
-        run: |
-          npm ci
-          npm run build
+        run: pnpm build
 
       # Reads rust-toolchain.toml (version, rustfmt, clippy) and caches target/.
       - uses: actions-rust-lang/setup-rust-toolchain@v1
@@ -57,12 +63,16 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
+      - uses: pnpm/action-setup@v4
+        with:
+          package_json_file: desktop/package.json
+
       - uses: actions/setup-node@v4
         with:
-          node-version: 22
-          cache: npm
-          cache-dependency-path: desktop/package-lock.json
+          node-version: 24
+          cache: pnpm
+          cache-dependency-path: desktop/pnpm-lock.yaml
 
-      - run: npm ci
-      - run: npm run lint
-      - run: npx vue-tsc --noEmit
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm lint
+      - run: pnpm exec vue-tsc --noEmit

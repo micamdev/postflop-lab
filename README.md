@@ -11,18 +11,19 @@ saved solutions, node locking and a modern interface.
 ## Development
 
 Prerequisites (Windows): [rustup](https://rustup.rs/), Visual Studio Build
-Tools with the "Desktop development with C++" workload, Node.js 22+.
+Tools with the "Desktop development with C++" workload, Node.js 24+, pnpm
+(`corepack enable` installs the version pinned in `desktop/package.json`).
 The Rust version is pinned in `rust-toolchain.toml` and installed by rustup
 automatically.
 
 ```sh
 # The Tauri build embeds desktop/dist: build the front end before any cargo build.
 cd desktop
-npm ci
-npm run build
+pnpm install
+pnpm build
 
 # Run the app in development mode
-npm run tauri dev
+pnpm tauri dev
 
 # Rust checks (from the repository root)
 cargo fmt --all --check

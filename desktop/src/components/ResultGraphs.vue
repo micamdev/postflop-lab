@@ -243,8 +243,11 @@ const chartData = computed((): ChartData<"line", Point[]> => {
 const chartOptions = computed((): ChartOptions<"line"> => {
   const content = props.displayOptions.contentGraphs;
   const styleY = content === "ev" ? "decimal" : "percent";
-  const formatX = { style: "percent", minimumFractionDigits: 0 };
-  const formatY = {
+  const formatX: Intl.NumberFormatOptions = {
+    style: "percent",
+    minimumFractionDigits: 0,
+  };
+  const formatY: Intl.NumberFormatOptions = {
     style: styleY,
     useGrouping: false,
     minimumFractionDigits: 0,
@@ -265,6 +268,7 @@ const chartOptions = computed((): ChartOptions<"line"> => {
         },
       },
       y: {
+        type: "linear",
         min: content === "eq" ? 0 : undefined,
         max: content === "eq" ? 1 : undefined,
         suggestedMin: content === "ev" ? 0 : undefined,
@@ -297,7 +301,7 @@ const chartOptions = computed((): ChartOptions<"line"> => {
             return "";
           },
           label(context) {
-            const value = context.parsed.y;
+            const value = context.parsed.y ?? 0;
             const cardPair = (context.raw as { label: number }).label;
             if (props.displayPlayer === ["oop", "ip"][context.datasetIndex]) {
               tableScrollTarget.value = cardPair;
