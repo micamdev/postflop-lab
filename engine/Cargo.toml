@@ -3,6 +3,7 @@ name = "postflop-solver"
 version = "0.1.0"
 authors = ["Wataru Inariba"]
 edition = "2021"
+rust-version.workspace = true
 description = "An open-source postflop solver for Texas hold'em poker"
 documentation = "https://b-inary.github.io/postflop_solver/postflop_solver/"
 repository = "https://github.com/b-inary/postflop-solver"

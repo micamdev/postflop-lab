@@ -9,3 +9,6 @@ dist/
 .DS_Store
 Thumbs.db
 *.log
+
+# Tauri 2 generated files
+/desktop/src-tauri/gen/schemas/

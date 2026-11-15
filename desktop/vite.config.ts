@@ -11,16 +11,16 @@ export default defineConfig({
   server: {
     strictPort: true,
   },
-  // to make use of `TAURI_PLATFORM`, `TAURI_ARCH`, `TAURI_FAMILY`,
-  // `TAURI_PLATFORM_VERSION`, `TAURI_PLATFORM_TYPE` and `TAURI_DEBUG`
+  // to make use of `TAURI_ENV_PLATFORM`, `TAURI_ENV_ARCH`, `TAURI_ENV_FAMILY`,
+  // `TAURI_ENV_PLATFORM_VERSION`, `TAURI_ENV_PLATFORM_TYPE` and `TAURI_ENV_DEBUG`
   // env variables
-  envPrefix: ["VITE_", "TAURI_"],
+  envPrefix: ["VITE_", "TAURI_ENV_"],
   build: {
     // Tauri uses Chromium on Windows and WebKit on macOS and Linux
-    target: process.env.TAURI_PLATFORM == "windows" ? "chrome107" : "safari16",
+    target: process.env.TAURI_ENV_PLATFORM == "windows" ? "chrome107" : "safari16",
     // don't minify for debug builds
-    minify: !process.env.TAURI_DEBUG ? "esbuild" : false,
+    minify: !process.env.TAURI_ENV_DEBUG ? "esbuild" : false,
     // produce sourcemaps for debug builds
-    sourcemap: !!process.env.TAURI_DEBUG,
+    sourcemap: !!process.env.TAURI_ENV_DEBUG,
   },
 });
