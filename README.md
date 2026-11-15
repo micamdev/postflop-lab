@@ -27,7 +27,7 @@ pnpm tauri dev
 
 # Rust checks (from the repository root)
 cargo fmt --all --check
-cargo clippy --workspace --all-targets
+cargo clippy --workspace --all-targets --all-features -- -D warnings
 cargo test --workspace --release
 
 # Allocator benchmark (see docs/benchmarks/allocateur.md)

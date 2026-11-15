@@ -43,8 +43,7 @@ jobs:
         uses: actions-rust-lang/setup-rust-toolchain@v1
         with:
           target: ${{ matrix.target }}
-          # v1 defaults RUSTFLAGS to "-D warnings"; existing engine warnings
-          # are tolerated for now (chantier 0 spec).
+          # Warnings are gated by CI; a release build should not fail on one.
           rustflags: ""
 
       - name: Install dependencies (Linux)
