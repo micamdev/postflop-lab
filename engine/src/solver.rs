@@ -159,7 +159,10 @@ fn solve_recursive<T: Game>(
 
     // allocate memory for storing the counterfactual values
     #[cfg(feature = "custom-alloc")]
-    let cfv_actions = MutexLike::new(StackVec::with_capacity_in(num_actions * num_hands, StackAlloc));
+    let cfv_actions = MutexLike::new(StackVec::with_capacity_in(
+        num_actions * num_hands,
+        StackAlloc,
+    ));
     #[cfg(not(feature = "custom-alloc"))]
     let cfv_actions = MutexLike::new(Vec::with_capacity(num_actions * num_hands));
 
