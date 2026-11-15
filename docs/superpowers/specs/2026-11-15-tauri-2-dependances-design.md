@@ -1,7 +1,7 @@
 # Chantier 1 — Tauri 2 et mise à jour des dépendances
 
 Date : 2026-11-15
-Statut : en revue
+Statut : validé
 
 ## Contexte et pourquoi
 
@@ -120,11 +120,10 @@ Node : 24 (LTS active) en CI et en local ; Vite 8 exige ≥ 20.19.
 - `ci.yml` : pnpm, Node 24. Les étapes réécrites séparent les commandes
   (corrige au passage l'issue #6).
 - `release.yml` : pnpm, Node 24, Linux en **`ubuntu-24.04`** avec
-  `libwebkit2gtk-4.1-dev` (Tauri 2). L'exécutable Windows garde le nom
-  `Postflop Lab.exe` : en Tauri 2 il prendrait sinon le nom du paquet Cargo
-  (`postflop-lab.exe`), donc `mainBinaryName: "Postflop Lab"` dans
-  `tauri.conf.json` *(choix de Claude : l'app reste identique pour
-  l'utilisateur)*. Noms d'artefacts revérifiés par un build local.
+  `libwebkit2gtk-4.1-dev` (Tauri 2). L'exécutable Windows prend le nom par
+  défaut de Tauri 2, celui du paquet Cargo : `postflop-lab.exe` (décidé avec
+  l'utilisateur ; pas de `mainBinaryName`). Les noms des installeurs suivent
+  toujours `productName`. Noms d'artefacts revérifiés par un build local.
 
 ### 6. Vérification
 
