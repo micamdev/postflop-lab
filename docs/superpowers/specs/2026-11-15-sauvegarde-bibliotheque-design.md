@@ -1,7 +1,7 @@
 # Chantier 2 — Sauvegarde, chargement et bibliothèque de solutions
 
 Date : 2026-11-15
-Statut : en revue
+Statut : validé
 
 ## Contexte et pourquoi
 
@@ -18,18 +18,31 @@ sert aussi de fondation au chantier suivant (lots de flops et rapport
 agrégé), qui lira cette même bibliothèque.
 
 Fil conducteur, donné par l'utilisateur : le bon compromis entre simplicité,
-fiabilité, performance et professionnalisme.
+fiabilité, performance et professionnalisme. Ambition : **l'équivalent d'un
+GTO+ gratuit**, en suivant ses bonnes pratiques plutôt qu'en réinventant.
+
+GTO+ annonce des sauvegardes de quelques centaines de Ko grâce au recalcul
+des données à la demande, et une fonction « Recalc Lines » qui recalcule les
+runouts turn/river sans re-résoudre l'arbre ([gtoplus.com](https://www.gtoplus.com/)).
+Ce chantier pose la sauvegarde à profondeur choisie ; le recalcul à la
+demande vient juste après (voir feuille de route).
 
 ## Feuille de route mise à jour (décidée avec l'utilisateur)
 
 1. Chantier 2 (celui-ci) : sauvegarde, chargement, bibliothèque.
-2. **Chantier 3 (nouveau) : lots de flops et rapport agrégé** — résoudre un
+2. **Recalcul des sous-jeux à la demande** (à la « Recalc Lines » de GTO+) :
+   en arrivant sur une partie non sauvegardée d'une solution tronquée (ou sur
+   demande), l'app re-résout ce sous-jeu à partir des ranges, du pot et des
+   tapis du nœud. Une fois en place, la profondeur par défaut de la
+   sauvegarde passe de « complète » à « jusqu'à la turn » (voire « flop
+   seul »), pour des fichiers légers comme dans GTO+.
+3. **Chantier 3 (nouveau) : lots de flops et rapport agrégé** — résoudre un
    ensemble de flops avec des arbres simplifiés, puis afficher par flop la
    fréquence et les tailles de c-bet, les équités/EV et un indicateur
    d'avantage de nuts. Remplace l'usage actuel des rapports agrégés de
    GTO Wizard.
-3. Node lock (sur toutes les turns).
-4. Refonte de l'UI.
+4. Node lock (sur toutes les turns).
+5. Refonte de l'UI.
 
 Une librairie de solutions pré-résolues à distribuer est écartée : trop de
 calcul pour la machine de l'utilisateur et un sujet de distribution à part.
@@ -129,7 +142,8 @@ calcul pour la machine de l'utilisateur et un sujet de distribution à part.
 - Possible une fois la résolution terminée (finalisée). Bouton
   « Sauvegarder » dans l'écran Run Solver.
 - Dialogue : nom (proposé par défaut à partir du board), profondeur
-  (complète / jusqu'à la turn / flop seul, selon ce que l'arbre permet). Pour
+  (complète / jusqu'à la turn / flop seul, selon ce que l'arbre permet ;
+  **« complète » par défaut** tant que le recalcul à la demande n'existe pas). Pour
   chaque profondeur : la RAM nécessaire pour recharger (`target_memory_usage`,
   exacte) et la taille de fichier (approximative). Le dialogue dit ce que
   chaque profondeur fait perdre : **« flop seul » perd le rapport carte par
