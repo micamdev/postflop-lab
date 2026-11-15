@@ -159,7 +159,10 @@ fn solve_recursive<T: Game>(
 
     // allocate memory for storing the counterfactual values
     #[cfg(feature = "custom-alloc")]
-    let cfv_actions = MutexLike::new(Vec::with_capacity_in(num_actions * num_hands, StackAlloc));
+    let cfv_actions = MutexLike::new(StackVec::with_capacity_in(
+        num_actions * num_hands,
+        StackAlloc,
+    ));
     #[cfg(not(feature = "custom-alloc"))]
     let cfv_actions = MutexLike::new(Vec::with_capacity(num_actions * num_hands));
 
@@ -167,7 +170,7 @@ fn solve_recursive<T: Game>(
     if node.is_chance() {
         // update the reach probabilities
         #[cfg(feature = "custom-alloc")]
-        let mut cfreach_updated = Vec::with_capacity_in(cfreach.len(), StackAlloc);
+        let mut cfreach_updated = StackVec::with_capacity_in(cfreach.len(), StackAlloc);
         #[cfg(not(feature = "custom-alloc"))]
         let mut cfreach_updated = Vec::with_capacity(cfreach.len());
         mul_slice_scalar_uninit(
@@ -191,7 +194,7 @@ fn solve_recursive<T: Game>(
 
         // use 64-bit floating point values
         #[cfg(feature = "custom-alloc")]
-        let mut result_f64 = Vec::with_capacity_in(num_hands, StackAlloc);
+        let mut result_f64 = StackVec::with_capacity_in(num_hands, StackAlloc);
         #[cfg(not(feature = "custom-alloc"))]
         let mut result_f64 = Vec::with_capacity(num_hands);
 
@@ -358,8 +361,8 @@ fn solve_recursive<T: Game>(
 /// Computes the strategy by regret-matching algorithm.
 #[cfg(feature = "custom-alloc")]
 #[inline]
-fn regret_matching(regret: &[f32], num_actions: usize) -> Vec<f32, StackAlloc> {
-    let mut strategy = Vec::with_capacity_in(regret.len(), StackAlloc);
+fn regret_matching(regret: &[f32], num_actions: usize) -> StackVec<f32> {
+    let mut strategy = StackVec::with_capacity_in(regret.len(), StackAlloc);
     let uninit = strategy.spare_capacity_mut();
     uninit.iter_mut().zip(regret).for_each(|(s, r)| {
         s.write(max(*r, 0.0));
@@ -367,7 +370,7 @@ fn regret_matching(regret: &[f32], num_actions: usize) -> Vec<f32, StackAlloc> {
     unsafe { strategy.set_len(regret.len()) };
 
     let row_size = regret.len() / num_actions;
-    let mut denom = Vec::with_capacity_in(row_size, StackAlloc);
+    let mut denom = StackVec::with_capacity_in(row_size, StackAlloc);
     sum_slices_uninit(denom.spare_capacity_mut(), &strategy);
     unsafe { denom.set_len(row_size) };
 
@@ -406,12 +409,12 @@ fn regret_matching(regret: &[f32], num_actions: usize) -> Vec<f32> {
 /// Computes the strategy by regret-matching algorithm.
 #[cfg(feature = "custom-alloc")]
 #[inline]
-fn regret_matching_compressed(regret: &[i16], num_actions: usize) -> Vec<f32, StackAlloc> {
-    let mut strategy = Vec::with_capacity_in(regret.len(), StackAlloc);
+fn regret_matching_compressed(regret: &[i16], num_actions: usize) -> StackVec<f32> {
+    let mut strategy = StackVec::with_capacity_in(regret.len(), StackAlloc);
     strategy.extend(regret.iter().map(|&r| r.max(0) as f32));
 
     let row_size = strategy.len() / num_actions;
-    let mut denom = Vec::with_capacity_in(row_size, StackAlloc);
+    let mut denom = StackVec::with_capacity_in(row_size, StackAlloc);
     sum_slices_uninit(denom.spare_capacity_mut(), &strategy);
     unsafe { denom.set_len(row_size) };
 

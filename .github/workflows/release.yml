@@ -1,0 +1,74 @@
+name: Release
+on:
+  push:
+    tags:
+      - 'v*'
+  workflow_dispatch:
+
+permissions:
+  contents: write # create the draft release and upload assets
+
+jobs:
+  release:
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - platform: windows-latest
+            target: x86_64-pc-windows-msvc
+          # Tauri 1 needs libwebkit2gtk-4.0, not available on Ubuntu 24.04.
+          - platform: ubuntu-22.04
+            target: x86_64-unknown-linux-gnu
+    runs-on: ${{ matrix.platform }}
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Setup node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: desktop/package-lock.json
+
+      # Reads rust-toolchain.toml.
+      - name: Setup Rust
+        uses: actions-rust-lang/setup-rust-toolchain@v1
+        with:
+          target: ${{ matrix.target }}
+          # v1 defaults RUSTFLAGS to "-D warnings"; existing engine warnings
+          # are tolerated for now (chantier 0 spec).
+          rustflags: ""
+
+      - name: Install dependencies (Linux)
+        if: matrix.platform == 'ubuntu-22.04'
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y libgtk-3-dev libwebkit2gtk-4.0-dev librsvg2-dev
+
+      - name: Install app dependencies
+        working-directory: desktop
+        run: npm ci
+
+      - name: Build the app
+        working-directory: desktop
+        run: npm run tauri build -- --target ${{ matrix.target }}
+
+      - name: Upload artifacts (Windows)
+        if: matrix.platform == 'windows-latest'
+        uses: softprops/action-gh-release@v2
+        with:
+          draft: true
+          files: |
+            target/x86_64-pc-windows-msvc/release/Postflop Lab.exe
+            target/x86_64-pc-windows-msvc/release/bundle/msi/Postflop Lab_*_x64_en-US.msi
+
+      - name: Upload artifacts (Linux)
+        if: matrix.platform == 'ubuntu-22.04'
+        uses: softprops/action-gh-release@v2
+        with:
+          draft: true
+          files: |
+            target/x86_64-unknown-linux-gnu/release/bundle/deb/postflop-lab_*_amd64.deb
+            target/x86_64-unknown-linux-gnu/release/bundle/appimage/postflop-lab_*_amd64.AppImage

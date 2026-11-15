@@ -1,0 +1,68 @@
+name: CI
+
+on:
+  pull_request:
+    branches: [dev, main]
+  push:
+    branches: [dev, main]
+
+env:
+  CARGO_TERM_COLOR: always
+
+jobs:
+  rust:
+    # Windows: the users' platform, and avoids Tauri 1's webkit2gtk-4.0
+    # dependency, which recent Ubuntu runners no longer ship.
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: desktop/package-lock.json
+
+      # The Tauri build embeds desktop/dist, so the front end comes first.
+      - name: Build front end
+        working-directory: desktop
+        run: |
+          npm ci
+          npm run build
+
+      # Reads rust-toolchain.toml (version, rustfmt, clippy) and caches target/.
+      - uses: actions-rust-lang/setup-rust-toolchain@v1
+        with:
+          # v1 defaults RUSTFLAGS to "-D warnings"; existing engine warnings
+          # are tolerated for now (chantier 0 spec).
+          rustflags: ""
+
+      - name: Format
+        run: cargo fmt --all --check
+
+      - name: Clippy
+        run: cargo clippy --workspace --all-targets
+
+      - name: Test
+        run: cargo test --workspace --release
+
+      - name: Test engine with custom-alloc
+        run: cargo test -p postflop-solver --release --features custom-alloc -- --test-threads 1
+
+  front:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: desktop
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: desktop/package-lock.json
+
+      - run: npm ci
+      - run: npm run lint
+      - run: npx vue-tsc --noEmit

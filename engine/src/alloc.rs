@@ -1,4 +1,5 @@
-use std::alloc::{self, AllocError, Allocator, Layout};
+use allocator_api2::alloc::{AllocError, Allocator};
+use std::alloc::{self, Layout};
 use std::cell::RefCell;
 use std::ptr::NonNull;
 use std::slice;
@@ -21,6 +22,9 @@ pub(crate) fn align_up(size: usize) -> usize {
 /// manner, and it panics if this assumption is not satisfied.
 #[derive(Clone)]
 pub(crate) struct StackAlloc;
+
+/// A `Vec` backed by [`StackAlloc`].
+pub(crate) type StackVec<T> = allocator_api2::vec::Vec<T, StackAlloc>;
 
 struct StackAllocData {
     index: usize,
