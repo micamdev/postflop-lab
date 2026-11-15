@@ -65,6 +65,8 @@ pub fn weighted_average(slice: &[f32], weights: &[f32]) -> f64 {
     sum / weight_sum
 }
 
+// Tauri commands receive their arguments one by one from the front end.
+#[allow(clippy::too_many_arguments)]
 #[tauri::command(async)]
 pub fn game_init(
     range_state: tauri::State<Mutex<RangeManager>>,

@@ -990,14 +990,13 @@ impl FromStr for Range {
     }
 }
 
-impl ToString for Range {
-    #[inline]
-    fn to_string(&self) -> String {
+impl std::fmt::Display for Range {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         let mut result = Vec::new();
         self.pairs_strings(&mut result);
         self.nonpairs_strings(&mut result);
         self.suit_specified_strings(&mut result);
-        result.join(",")
+        f.write_str(&result.join(","))
     }
 }
 

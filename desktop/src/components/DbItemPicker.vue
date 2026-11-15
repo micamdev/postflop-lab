@@ -1237,7 +1237,7 @@ const importJson = async () => {
   let obj: { version: number; name: string; data: JsonItem[] };
   try {
     obj = JSON.parse(text);
-  } catch (e) {
+  } catch {
     importError.value = "Parse error (invalid JSON)";
     return;
   }
