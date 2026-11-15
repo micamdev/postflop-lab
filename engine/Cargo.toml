@@ -32,3 +32,8 @@ harness = false
 [[bench]]
 name = "reference_spot_mimalloc"
 harness = false
+
+[lints.clippy]
+# Index-based loops are deliberate in the solver's numeric code (several
+# slices indexed in lockstep); upstream's CI allowed this lint too.
+needless_range_loop = "allow"

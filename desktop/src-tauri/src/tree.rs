@@ -81,6 +81,8 @@ pub fn default_action_tree() -> ActionTree {
     ActionTree::new(tree_config).unwrap()
 }
 
+// Tauri commands receive their arguments one by one from the front end.
+#[allow(clippy::too_many_arguments)]
 #[tauri::command]
 pub fn tree_new(
     tree_state: tauri::State<Mutex<ActionTree>>,
