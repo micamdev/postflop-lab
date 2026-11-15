@@ -50,6 +50,10 @@
       Run Solver
     </button>
 
+    <button :class="itemStyle('library')" @click="store.sideView = 'library'">
+      Library
+    </button>
+
     <button :class="itemStyle('about')" @click="store.sideView = 'about'">
       About
     </button>

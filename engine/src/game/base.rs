@@ -117,6 +117,15 @@ impl Game for PostFlopGame {
 }
 
 impl PostFlopGame {
+    /// Returns whether the bunching effect is enabled.
+    ///
+    /// Bunching data is not saved with the game: a game with the bunching effect cannot be saved
+    /// and reloaded faithfully.
+    #[inline]
+    pub fn is_bunching_enabled(&self) -> bool {
+        self.bunching_num_dead_cards > 0
+    }
+
     /// Creates a new empty [`PostFlopGame`].
     ///
     /// Use of this method is strongly discouraged because an instance created by this method is

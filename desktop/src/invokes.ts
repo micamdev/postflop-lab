@@ -348,3 +348,99 @@ export const gameGetChanceReports = async (
     strategy: reports.strategy,
   };
 };
+
+/* Solution library */
+
+export type SolutionSummary = {
+  equity: number[];
+  ev: number[];
+  root_player: string;
+  root_actions: string[];
+  root_frequencies: number[];
+};
+
+export type SolutionMeta = {
+  schema: number;
+  app_version: string;
+  /** Seconds since the Unix epoch. */
+  created_at: number;
+  board: number[];
+  ranges: string[];
+  tree_config: Record<string, unknown>;
+  depth: "river" | "turn" | "flop";
+  exploitability: number;
+  iterations: number;
+  precision: "32" | "16";
+  summary: SolutionSummary;
+};
+
+export type LibraryEntry = {
+  name: string;
+  file_size: number;
+  meta: SolutionMeta | null;
+  error: string | null;
+};
+
+/** Error of save, rename and import when the target name is taken. */
+export const ERR_EXISTS = "exists";
+
+/** Error prefix of libraryLoad when the current game was already freed. */
+export const ERR_GAME_FREED = "game freed";
+
+/** Rejects with a message if the solution cannot be loaded; touches nothing. */
+export const libraryCheckLoad = async (name: string) => {
+  await invoke("library_check_load", { name });
+};
+
+export const gameStorageMode = async (): Promise<"river" | "turn" | "flop"> => {
+  return await invoke("game_storage_mode");
+};
+
+export const libraryList = async (): Promise<LibraryEntry[]> => {
+  return await invoke("library_list");
+};
+
+/** For each depth the tree allows: [depth, memory needed to reload in bytes]. */
+export const librarySaveEstimate = async (): Promise<[string, number][]> => {
+  return await invoke("library_save_estimate");
+};
+
+export const librarySave = async (
+  name: string,
+  depth: string,
+  overwrite: boolean,
+  frontMeta: {
+    treeConfig: Record<string, unknown>;
+    iterations: number;
+    exploitability: number;
+  }
+) => {
+  await invoke("library_save", { name, depth, overwrite, frontMeta });
+};
+
+export const libraryLoad = async (name: string): Promise<SolutionMeta> => {
+  return await invoke("library_load", { name });
+};
+
+export const libraryRename = async (from: string, to: string) => {
+  await invoke("library_rename", { from, to });
+};
+
+export const libraryDelete = async (name: string) => {
+  await invoke("library_delete", { name });
+};
+
+export const libraryImport = async (
+  path: string,
+  overwrite: boolean
+): Promise<string> => {
+  return await invoke("library_import", { path, overwrite });
+};
+
+export const libraryExport = async (name: string, path: string) => {
+  await invoke("library_export", { name, path });
+};
+
+export const libraryOpenFolder = async () => {
+  await invoke("library_open_folder");
+};

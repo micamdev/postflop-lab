@@ -46,6 +46,8 @@ export type SpotChance = {
   }[];
   pot: number;
   stack: number;
+  /** Past the saved depth of a truncated save: no card can be dealt. */
+  isBeyondDepth?: boolean;
 };
 
 export type SpotPlayer = {

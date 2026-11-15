@@ -1,3 +1,4 @@
+use crate::library::SolutionSummary;
 use crate::range::*;
 use postflop_solver::*;
 use rayon::ThreadPool;
@@ -247,28 +248,100 @@ pub fn game_finalize(
     pool.install(|| finalize(&mut *game_state.lock().unwrap()));
 }
 
-#[tauri::command]
-pub fn game_apply_history(game_state: tauri::State<Mutex<PostFlopGame>>, history: Vec<usize>) {
-    let mut game = game_state.lock().unwrap();
+/// Error returned when a position needs a card that a truncated save does not store.
+pub const ERR_BEYOND_DEPTH: &str = "beyond saved depth";
+
+/// Plays `action`, refusing to deal a card past the saved depth (where `play` would panic and
+/// poison the game's mutex).
+fn play_checked(game: &mut PostFlopGame, action: usize) -> Result<(), String> {
+    if game.is_chance_node() && !game.can_deal_card() {
+        return Err(ERR_BEYOND_DEPTH.to_string());
+    }
+    game.play(action);
+    Ok(())
+}
+
+/// Plays `actions` from the current position; on failure, goes back to where it started.
+fn play_all_checked(
+    game: &mut PostFlopGame,
+    actions: impl IntoIterator<Item = usize>,
+) -> Result<(), String> {
+    let start = game.history().to_vec();
+    for action in actions {
+        if let Err(e) = play_checked(game, action) {
+            game.apply_history(&start);
+            return Err(e);
+        }
+    }
+    Ok(())
+}
+
+/// Like `PostFlopGame::apply_history`, but refuses positions past the saved depth: the game is
+/// then left at its previous position.
+pub fn apply_history_checked(game: &mut PostFlopGame, history: &[usize]) -> Result<(), String> {
+    let previous = game.history().to_vec();
+    game.back_to_root();
+    if let Err(e) = play_all_checked(game, history.iter().copied()) {
+        game.apply_history(&previous);
+        return Err(e);
+    }
+    Ok(())
+}
+
+/// Root summary of a solved game (equity, EV, root action frequencies), saved in the library
+/// metadata. Leaves the game at its current position.
+pub fn compute_summary(game: &mut PostFlopGame) -> SolutionSummary {
+    let history = game.history().to_vec();
+    game.back_to_root();
+    game.cache_normalized_weights();
+
+    let mut summary = SolutionSummary::default();
+    for player in 0..2 {
+        let weights = game.normalized_weights(player);
+        summary.equity[player] = weighted_average(&game.equity(player), weights);
+        summary.ev[player] = weighted_average(&game.expected_values(player), weights);
+    }
+
+    summary.root_player = current_player(game);
+    if !game.is_terminal_node() && !game.is_chance_node() {
+        summary.root_actions = actions(game);
+        let player = game.current_player();
+        let weights = game.normalized_weights(player);
+        let strategy = game.strategy();
+        let num_hands = game.private_cards(player).len();
+        summary.root_frequencies = strategy
+            .chunks_exact(num_hands)
+            .map(|row| weighted_average(row, weights))
+            .collect();
+    }
+
     game.apply_history(&history);
+    summary
+}
+
+#[tauri::command]
+pub fn game_apply_history(
+    game_state: tauri::State<Mutex<PostFlopGame>>,
+    history: Vec<usize>,
+) -> Result<(), String> {
+    let mut game = game_state.lock().unwrap();
+    apply_history_checked(&mut game, &history)
 }
 
 #[tauri::command]
 pub fn game_total_bet_amount(
     game_state: tauri::State<Mutex<PostFlopGame>>,
     append: Vec<isize>,
-) -> [i32; 2] {
+) -> Result<[i32; 2], String> {
     let mut game = game_state.lock().unwrap();
     if append.is_empty() {
-        return game.total_bet_amount();
+        return Ok(game.total_bet_amount());
     }
     let history = game.history().to_vec();
-    for &action in &append {
-        game.play(action_usize(action));
-    }
+    play_all_checked(&mut game, append.iter().map(|&a| action_usize(a)))?;
     let ret = game.total_bet_amount();
     game.apply_history(&history);
-    ret
+    Ok(ret)
 }
 
 fn actions(game: &PostFlopGame) -> Vec<String> {
@@ -296,18 +369,40 @@ fn actions(game: &PostFlopGame) -> Vec<String> {
 pub fn game_actions_after(
     game_state: tauri::State<Mutex<PostFlopGame>>,
     append: Vec<isize>,
-) -> Vec<String> {
+) -> Result<Vec<String>, String> {
     let mut game = game_state.lock().unwrap();
     if append.is_empty() {
-        return actions(&game);
+        return Ok(actions(&game));
     }
     let history = game.history().to_vec();
-    for &action in &append {
-        game.play(action_usize(action));
-    }
+    play_all_checked(&mut game, append.iter().map(|&a| action_usize(a)))?;
     let ret = actions(&game);
     game.apply_history(&history);
-    ret
+    Ok(ret)
+}
+
+/// Saved depth of the current game: "river" (complete), "turn" or "flop".
+#[tauri::command]
+pub fn game_storage_mode(game_state: tauri::State<Mutex<PostFlopGame>>) -> String {
+    let game = game_state.lock().unwrap();
+    depth_name(game.storage_mode()).to_string()
+}
+
+pub fn depth_name(mode: BoardState) -> &'static str {
+    match mode {
+        BoardState::Flop => "flop",
+        BoardState::Turn => "turn",
+        BoardState::River => "river",
+    }
+}
+
+pub fn depth_from_name(name: &str) -> Result<BoardState, String> {
+    match name {
+        "flop" => Ok(BoardState::Flop),
+        "turn" => Ok(BoardState::Turn),
+        "river" => Ok(BoardState::River),
+        _ => Err(format!("Unknown depth: {name}")),
+    }
 }
 
 #[tauri::command]
@@ -447,9 +542,12 @@ pub fn game_get_chance_reports(
     game_state: tauri::State<Mutex<PostFlopGame>>,
     append: Vec<isize>,
     num_actions: usize,
-) -> GameChanceReportsResponse {
+) -> Result<GameChanceReportsResponse, String> {
     let mut game = game_state.lock().unwrap();
     let history = game.history().to_vec();
+    if !game.can_deal_card() {
+        return Err(ERR_BEYOND_DEPTH.to_string());
+    }
 
     let mut status = vec![0; 52]; // 0: not possible, 1: empty, 2: not empty
     let mut combos = [vec![0.0; 52], vec![0.0; 52]];
@@ -465,8 +563,10 @@ pub fn game_get_chance_reports(
         }
 
         game.play(chance);
-        for &action in &append[1..] {
-            game.play(action_usize(action));
+        let after = append[1..].iter().map(|&a| action_usize(a));
+        if let Err(e) = play_all_checked(&mut game, after) {
+            game.apply_history(&history);
+            return Err(e);
         }
 
         let trunc = |&w: &f32| if w < 0.0005 { 0.0 } else { w };
@@ -525,12 +625,89 @@ pub fn game_get_chance_reports(
         game.apply_history(&history);
     }
 
-    GameChanceReportsResponse {
+    Ok(GameChanceReportsResponse {
         status,
         combos,
         equity,
         ev,
         eqr,
         strategy,
+    })
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::library;
+
+    /// A small game starting on the turn, solved in a few iterations.
+    fn turn_game() -> PostFlopGame {
+        let card_config = CardConfig {
+            range: ["AA,KK,QQ".parse().unwrap(), "QQ-TT,AQs".parse().unwrap()],
+            flop: flop_from_str("Td9d6h").unwrap(),
+            turn: card_from_str("Qc").unwrap(),
+            river: NOT_DEALT,
+        };
+        let bet = ("50%", "").try_into().unwrap();
+        let tree_config = TreeConfig {
+            initial_state: BoardState::Turn,
+            starting_pot: 60,
+            effective_stack: 300,
+            turn_bet_sizes: [bet, Default::default()],
+            ..Default::default()
+        };
+        let action_tree = ActionTree::new(tree_config).unwrap();
+        let mut game = PostFlopGame::with_config(card_config, action_tree).unwrap();
+        game.allocate_memory(false);
+        for i in 0..30 {
+            solve_step(&game, i);
+        }
+        finalize(&mut game);
+        game
+    }
+
+    #[test]
+    fn apply_history_beyond_turn_save_is_err() {
+        let dir = tempfile::tempdir().unwrap();
+        let mut game = turn_game();
+        game.set_target_storage_mode(BoardState::Turn).unwrap();
+        let mut meta = library::tests::meta(1);
+        meta.depth = "turn".to_string();
+        library::save(dir.path(), "turn-only", &game, &meta, false).unwrap();
+        let (mut loaded, _) = library::load(dir.path(), "turn-only", u64::MAX).unwrap();
+
+        // Check, check: the river chance node, which a turn-only save cannot deal.
+        apply_history_checked(&mut loaded, &[0, 0]).unwrap();
+        assert!(loaded.is_chance_node());
+        let river = loaded.possible_cards().trailing_zeros() as usize;
+        assert_eq!(
+            apply_history_checked(&mut loaded, &[0, 0, river]).unwrap_err(),
+            ERR_BEYOND_DEPTH
+        );
+        // The game is still usable, at the last valid position.
+        assert_eq!(loaded.history(), &[0, 0]);
+        apply_history_checked(&mut loaded, &[]).unwrap();
+        assert!(!loaded.is_chance_node());
+    }
+
+    #[test]
+    fn apply_history_on_complete_game_is_unchanged() {
+        let mut game = turn_game();
+        apply_history_checked(&mut game, &[0, 0, usize::MAX]).unwrap();
+        assert_eq!(game.current_board().len(), 5);
+    }
+
+    #[test]
+    fn summary_frequencies_sum_to_one() {
+        let mut game = turn_game();
+        game.apply_history(&[0]);
+        let summary = compute_summary(&mut game);
+        let total: f64 = summary.root_frequencies.iter().sum();
+        assert!((total - 1.0).abs() < 1e-4, "{total}");
+        assert_eq!(summary.root_player, "oop");
+        assert_eq!(summary.root_actions.len(), summary.root_frequencies.len());
+        assert!(summary.equity.iter().all(|e| (0.0..=1.0).contains(e)));
+        // compute_summary leaves the game where it was.
+        assert_eq!(game.history(), &[0]);
     }
 }
