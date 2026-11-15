@@ -26,12 +26,16 @@ pub struct SubgameCache {
     pub active: Option<SubgameKey>,
     /// Full history of the current position, as the front end sees it.
     pub current: Vec<usize>,
+    /// Incremented by `clear`: a subgame solved for an older main game is not inserted.
+    pub generation: u64,
 }
 
 impl SubgameCache {
     /// Forgets every subgame: the main game changed.
     pub fn clear(&mut self) {
+        let generation = self.generation + 1;
         *self = Self::default();
+        self.generation = generation;
     }
 }
 
@@ -236,13 +240,13 @@ pub fn total_bet_amount(
 }
 
 #[cfg(test)]
-mod tests {
+pub(crate) mod tests {
     use super::*;
     use crate::subgame::{build_subgame, solve_subgame};
     use std::sync::atomic::AtomicBool;
 
     /// Turn game (Td9d6h Qc) solved, then saved "up to the turn" and reloaded.
-    fn turn_only_game() -> PostFlopGame {
+    pub(crate) fn turn_only_game() -> PostFlopGame {
         let card_config = CardConfig {
             range: [
                 "AA,KK,QQ,AK".parse().unwrap(),

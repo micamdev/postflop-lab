@@ -10,6 +10,7 @@ mod range;
 mod session;
 mod solver;
 mod subgame;
+mod subgame_commands;
 mod tree;
 use crate::bunching::*;
 use crate::library_commands::*;
@@ -32,6 +33,7 @@ fn main() {
         .manage(Mutex::new(None as Option<BunchingData>))
         .manage(Mutex::new(PostFlopGame::default()))
         .manage(Mutex::new(session::SubgameCache::default()))
+        .manage(subgame_commands::SubgameControl::default())
         .manage(Mutex::new(ThreadPoolBuilder::new().build().unwrap()))
         .invoke_handler(tauri::generate_handler![
             os_name,
@@ -79,6 +81,8 @@ fn main() {
             game_get_results,
             game_get_chance_reports,
             game_storage_mode,
+            subgame_commands::game_resolve_subgame,
+            subgame_commands::game_cancel_subgame,
             library_list,
             library_save_estimate,
             library_save,

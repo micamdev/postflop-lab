@@ -4,9 +4,6 @@
 //! both players' ranges weighted by their probability of reaching the node, the pot and stacks
 //! at the node, and the river bet sizes of the solution's tree configuration.
 
-// TEMPORARY: the navigation routing and commands using this module come in the next commits.
-#![allow(dead_code)]
-
 use postflop_solver::*;
 use std::collections::HashMap;
 use std::sync::atomic::{AtomicBool, Ordering};
