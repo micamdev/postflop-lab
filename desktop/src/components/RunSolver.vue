@@ -286,7 +286,18 @@
       </button>
     </div>
 
-    <div v-if="store.hasSolverRun" class="mt-6">
+    <div v-if="store.solutionInfo?.loaded" class="mt-6">
+      <div class="font-semibold">
+        Solution loaded from the library: {{ store.solutionInfo.name }}
+      </div>
+      Saved depth: {{ depthLabel(store.solutionDepth) }}
+      <br />
+      Iterations: {{ store.solutionInfo.iterations }}
+      <br />
+      Exploitability: {{ store.solutionInfo.exploitability.toFixed(2) }}
+    </div>
+
+    <div v-else-if="store.hasSolverRun" class="mt-6">
       <div class="flex items-center">
         <span
           v-if="store.isSolverRunning || store.isFinalizing"
@@ -296,12 +307,12 @@
           store.isSolverRunning
             ? "Solver running..."
             : store.isFinalizing
-            ? "Finalizing..."
-            : store.isSolverPaused
-            ? "Solver paused."
-            : store.isSolverError
-            ? solverErrorText
-            : "Solver finished."
+              ? "Finalizing..."
+              : store.isSolverPaused
+                ? "Solver paused."
+                : store.isSolverError
+                  ? solverErrorText
+                  : "Solver finished."
         }}
       </div>
       {{ iterationText }}
@@ -310,6 +321,27 @@
       <br />
       {{ timeText }}
     </div>
+
+    <div v-if="store.isSolverFinished" class="flex items-center gap-3 mt-4">
+      <button
+        class="button-base button-green"
+        :disabled="!canSave"
+        @click="isSaveDialogOpen = true"
+      >
+        Save
+      </button>
+      <span v-if="saveDisabledReason" class="text-sm text-gray-600">
+        {{ saveDisabledReason }}
+      </span>
+      <span v-else-if="store.isSolutionSaved" class="text-sm text-gray-600">
+        Saved in the library.
+      </span>
+    </div>
+
+    <SaveSolutionDialog
+      v-if="isSaveDialogOpen"
+      @close="isSaveDialogOpen = false"
+    />
   </div>
 </template>
 
@@ -331,6 +363,8 @@ import {
   readableLineString,
 } from "../utils";
 import * as invokes from "../invokes";
+import { depthLabel } from "../library";
+import SaveSolutionDialog from "./SaveSolutionDialog.vue";
 
 import { Tippy } from "vue-tippy";
 import { QuestionMarkCircleIcon } from "@heroicons/vue/20/solid";
@@ -474,6 +508,28 @@ const pauseFlag = ref(false);
 const currentIteration = ref(-1);
 const exploitability = ref(Number.POSITIVE_INFINITY);
 const elapsedTimeMs = ref(-1);
+const isSaveDialogOpen = ref(false);
+
+/** Why the current solution cannot be saved, or "" if it can. */
+const saveDisabledReason = computed(() => {
+  if (store.isBunchingEnabled && store.bunchingFlop.length > 0) {
+    return "Solutions computed with the bunching effect cannot be saved.";
+  }
+  if (store.solutionDepth !== "river") {
+    return "This solution was loaded from a partial save.";
+  }
+  return "";
+});
+const canSave = computed(
+  () => store.isSolverFinished && !saveDisabledReason.value
+);
+
+/** Forgets the previous solution when a new tree is built or solved. */
+const resetSolutionInfo = () => {
+  store.solutionInfo = null;
+  store.isSolutionSaved = false;
+  store.solutionDepth = "river";
+};
 
 let startTime = 0;
 let exploitabilityUpdated = false;
@@ -545,6 +601,7 @@ const timeText = computed(() => {
 
 const buildTree = async () => {
   isTreeBuilt.value = false;
+  resetSolutionInfo();
 
   const configError = checkConfig(config);
   if (configError !== null) {
@@ -624,6 +681,7 @@ const buildTree = async () => {
 };
 
 const runSolver = async () => {
+  resetSolutionInfo();
   terminateFlag.value = false;
   pauseFlag.value = false;
   currentIteration.value = -1;
@@ -701,6 +759,12 @@ const resumeSolver = async () => {
   await invokes.gameFinalize();
 
   store.isFinalizing = false;
+  store.solutionInfo = {
+    name: null,
+    loaded: false,
+    iterations: currentIteration.value,
+    exploitability: exploitability.value,
+  };
   store.isSolverFinished = true;
 
   const end = performance.now();

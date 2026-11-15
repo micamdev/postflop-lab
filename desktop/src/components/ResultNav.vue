@@ -17,12 +17,12 @@
         (spot.index === selectedChanceIndex
           ? 'border-red-600 cursor-default'
           : spot.index === selectedSpotIndex
-          ? 'border-blue-600 cursor-default'
-          : spot.type === 'chance' &&
-            isSelectedChanceSkipped &&
-            spot.index > selectedChanceIndex
-          ? 'border-gray-400 cursor-default'
-          : 'border-gray-400 cursor-pointer')
+            ? 'border-blue-600 cursor-default'
+            : spot.type === 'chance' &&
+                isSelectedChanceSkipped &&
+                spot.index > selectedChanceIndex
+              ? 'border-gray-400 cursor-default'
+              : 'border-gray-400 cursor-pointer')
       "
       @click="selectSpot(spot.index, false)"
     >
@@ -34,8 +34,8 @@
             (spot.index === selectedChanceIndex
               ? ''
               : isSelectedChanceSkipped && spot.index > selectedChanceIndex
-              ? 'opacity-70'
-              : 'group-hover:opacity-100 opacity-70')
+                ? 'opacity-70'
+                : 'group-hover:opacity-100 opacity-70')
           "
         >
           {{ spot.player.toUpperCase() }}
@@ -55,6 +55,12 @@
             >
               {{ card.rank + card.suit }}
             </span>
+            <div
+              v-if="spot.type === 'chance' && spot.isBeyondDepth"
+              class="text-xs font-normal text-center text-gray-500 whitespace-normal"
+            >
+              Not saved
+            </div>
             <template
               v-if="spot.type === 'chance' && spot.selectedIndex !== -1"
             >
@@ -117,8 +123,8 @@
               spot.index === selectedChanceIndex
                 ? ''
                 : isSelectedChanceSkipped && spot.index > selectedChanceIndex
-                ? 'opacity-70'
-                : 'group-hover:opacity-100 opacity-70'
+                  ? 'opacity-70'
+                  : 'group-hover:opacity-100 opacity-70'
             "
           >
             <div>Pot {{ spot.pot }}</div>
@@ -236,12 +242,19 @@
         </div>
       </template>
     </div>
+
+    <div
+      v-if="navError"
+      class="self-center px-3 text-sm text-red-500 whitespace-normal"
+    >
+      {{ navError }}
+    </div>
   </div>
 </template>
 
 <script setup lang="ts">
 import { computed, nextTick, toRefs, ref, watch } from "vue";
-import { useSavedConfigStore } from "../store";
+import { useSavedConfigStore, useStore } from "../store";
 import { cardText, average, colorString } from "../utils";
 import * as invokes from "../invokes";
 
@@ -336,6 +349,10 @@ const emit = defineEmits<{
 const navDiv = ref<HTMLDivElement | null>(null);
 
 const config = useSavedConfigStore();
+const store = useStore();
+
+// Message shown when navigation fails (e.g. past the saved depth of a partial save).
+const navError = ref("");
 const { isHandlerUpdated, dealtCard } = toRefs(props);
 
 const spots = ref<Spot[]>([]);
@@ -406,6 +423,23 @@ watch(isHandlerUpdated, async () => {
 });
 
 const selectSpot = async (
+  spotIndex: number,
+  needSplice: boolean,
+  fromDeal = false
+) => {
+  navError.value = "";
+  try {
+    await selectSpotUnsafe(spotIndex, needSplice, fromDeal);
+  } catch (e) {
+    emit("update:is-locked", false);
+    navError.value =
+      String(e) === "beyond saved depth"
+        ? "This solution was not saved that deep."
+        : `Error: ${e}`;
+  }
+};
+
+const selectSpotUnsafe = async (
   spotIndex: number,
   needSplice: boolean,
   fromDeal = false
@@ -660,6 +694,31 @@ const spliceSpotsChance = async (spotIndex: number) => {
   const turnSpot = spots.value
     .slice(0, spotIndex)
     .find((spot) => spot.player === "turn") as SpotTurn | undefined;
+
+  // A partial save cannot deal this card: show the chance node without cards and stop there.
+  // Its position (ranges, equity, EV before the card) stays viewable.
+  const dealing = turnSpot ? "river" : "turn";
+  if (
+    store.solutionDepth === "flop" ||
+    (store.solutionDepth === "turn" && dealing === "river")
+  ) {
+    spots.value.splice(spotIndex, spots.value.length, {
+      type: "chance",
+      index: spotIndex,
+      player: dealing,
+      selectedIndex: -1,
+      prevPlayer: prevSpot.player,
+      cards: Array.from({ length: 52 }, (_, i) => ({
+        card: i,
+        isSelected: false,
+        isDead: true,
+      })),
+      pot: config.startingPot + 2 * totalBetAmountAppended[0],
+      stack: config.effectiveStack - totalBetAmountAppended[0],
+      isBeyondDepth: true,
+    });
+    return;
+  }
 
   let append: number[] = [];
   if (selectedChanceIndexTmp !== -1) {

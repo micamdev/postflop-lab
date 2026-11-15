@@ -10,7 +10,21 @@ export type SideView =
   | "tree-config"
   | "bunching"
   | "run-solver"
+  | "library"
   | "about";
+
+/** Saved depth of a solution: complete ("river"), up to the turn, or flop only. */
+export type SolutionDepth = "river" | "turn" | "flop";
+
+/** The solution currently in memory, solved in this session or loaded from the library. */
+export type SolutionInfo = {
+  /** Library name, or null if solved in this session. */
+  name: string | null;
+  /** Whether it was loaded from the library (not solved in this session). */
+  loaded: boolean;
+  iterations: number;
+  exploitability: number;
+};
 
 export const saveConfigTmp = () => {
   const config = useConfigStore();
@@ -92,6 +106,7 @@ export const useStore = defineStore("app", {
       "tree-config": ["Tree Configuration"],
       bunching: ["Bunching Effect"],
       "run-solver": ["Run Solver"],
+      library: ["Library"],
     },
     ranges: Array.from({ length: 6 }, () =>
       Array.from({ length: 13 * 13 }, () => 0)
@@ -104,6 +119,9 @@ export const useStore = defineStore("app", {
     isSolverFinished: false,
     isSolverError: false,
     isFinalizing: false,
+    solutionDepth: "river" as SolutionDepth,
+    solutionInfo: null as SolutionInfo | null,
+    isSolutionSaved: false,
   }),
 
   getters: {
