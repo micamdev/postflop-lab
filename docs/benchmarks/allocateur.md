@@ -25,6 +25,14 @@ Commandes :
 | (c) stable + mimalloc | `cargo bench -p postflop-solver --bench reference_spot_mimalloc` |
 | (d) stable + `custom-alloc` sur `allocator-api2` | `cargo bench -p postflop-solver --bench reference_spot --features custom-alloc` |
 
+(a) ne se rejoue plus tel quel depuis la branche : après le port, sa commande
+compile le code porté. Pour (a), la lancer dans un worktree sur `a8b81f4`
+(`git worktree add --detach <dossier> a8b81f4`).
+
+Limites du protocole : un seul spot (turn, sans compression) ; (a) n'inclut
+pas les flags `-Z build-std … panic_immediate_abort` du build de release
+d'origine.
+
 ## Machine
 
 - CPU : Intel Core i7-1165G7 (4 cœurs, 8 threads), 16 Go RAM, Windows 11, sur secteur
@@ -46,8 +54,7 @@ Médianes par série (ms) :
 
 Exploitabilité finale identique pour toutes les variantes : 0,0710.
 
-L'écart intra-série atteint ~20 % (throttling) : des écarts < 3 % entre
-variantes sont à considérer comme équivalents.
+L'écart intra-série atteint ~20 % (throttling).
 
 ### Campagne 2 : (a), (c), (d)
 
@@ -75,9 +82,10 @@ aucune ne se détache de façon reproductible.
 
 **Option retenue : (b), allocateur système sur Rust stable.**
 
-- (b) est à +0,9 % de (a) et (d) à +1,5 %, sous le seuil de bruit de 3 % ;
-  (c) oscille entre −5,5 % et +6,6 %. Aucune option ne bat (b) de façon
-  reproductible.
+- (b) est à +0,9 % de (a) et (d) à +1,5 %, mais le bruit entre campagnes
+  atteint ~±6 % ((c) passe de −5,5 % à +6,6 %) : ces écarts ne sont pas
+  significatifs. Toutes les options sont dans ±7 % de (a), sous les 10 % de
+  la règle, et aucune ne bat (b) de façon reproductible.
 - À performances égales, (b) est la plus simple : pas de dépendance en plus,
   pas d'allocateur `unsafe` sur le chemin chaud de l'app.
 - Le port (d) reste dans le moteur : la feature `custom-alloc` compile et est

@@ -5,6 +5,9 @@ on:
       - 'v*'
   workflow_dispatch:
 
+permissions:
+  contents: write # create the draft release and upload assets
+
 jobs:
   release:
     strategy:
@@ -34,6 +37,9 @@ jobs:
         uses: actions-rust-lang/setup-rust-toolchain@v1
         with:
           target: ${{ matrix.target }}
+          # v1 defaults RUSTFLAGS to "-D warnings"; existing engine warnings
+          # are tolerated for now (chantier 0 spec).
+          rustflags: ""
 
       - name: Install dependencies (Linux)
         if: matrix.platform == 'ubuntu-22.04'

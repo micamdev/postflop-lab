@@ -32,6 +32,10 @@ jobs:
 
       # Reads rust-toolchain.toml (version, rustfmt, clippy) and caches target/.
       - uses: actions-rust-lang/setup-rust-toolchain@v1
+        with:
+          # v1 defaults RUSTFLAGS to "-D warnings"; existing engine warnings
+          # are tolerated for now (chantier 0 spec).
+          rustflags: ""
 
       - name: Format
         run: cargo fmt --all --check
