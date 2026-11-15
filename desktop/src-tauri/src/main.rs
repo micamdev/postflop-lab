@@ -8,6 +8,7 @@ mod library;
 mod library_commands;
 mod range;
 mod solver;
+mod subgame;
 mod tree;
 use crate::bunching::*;
 use crate::library_commands::*;
