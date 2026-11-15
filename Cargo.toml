@@ -6,3 +6,14 @@ resolver = "2"
 codegen-units = 1
 panic = "abort"
 strip = true
+
+# The solver is unusably slow unoptimized: optimize it (and its hot
+# dependencies) even in dev builds, so `npm run tauri dev` solves at
+# release-like speed while the app crate keeps fast incremental builds.
+[profile.dev.package.postflop-solver]
+opt-level = 3
+debug-assertions = false
+overflow-checks = false
+
+[profile.dev.package.rayon-core]
+opt-level = 3
