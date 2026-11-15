@@ -17,3 +17,10 @@ overflow-checks = false
 
 [profile.dev.package.rayon-core]
 opt-level = 3
+
+# The engine's solver functions are generic, so they are monomorphized (and
+# compiled) in the app crate: optimize it too, or solving stays slow in dev.
+[profile.dev.package.postflop-lab]
+opt-level = 3
+debug-assertions = false
+overflow-checks = false
