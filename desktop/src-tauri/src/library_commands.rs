@@ -2,6 +2,7 @@
 
 use crate::library::{self, LibraryEntry, SolutionMeta, META_SCHEMA};
 use crate::range::RangeManager;
+use crate::session::SubgameCache;
 use crate::solver::{compute_summary, depth_from_name, depth_name};
 use postflop_solver::*;
 use serde::{Deserialize, Serialize};
@@ -179,6 +180,7 @@ pub fn library_load(
     app: AppHandle,
     game_state: tauri::State<Mutex<PostFlopGame>>,
     range_state: tauri::State<Mutex<RangeManager>>,
+    cache_state: tauri::State<Mutex<SubgameCache>>,
     name: String,
 ) -> Result<SolutionMeta, String> {
     let dir = library_dir(&app)?;
@@ -188,7 +190,8 @@ pub fn library_load(
     // Refuse before touching the current game if the solution cannot fit.
     check_load(&dir, &name, max_memory)?;
 
-    // Free the current game first so both never coexist in memory.
+    // Free the current game (and its subgames) first so both never coexist in memory.
+    cache_state.lock().unwrap().clear();
     *game = PostFlopGame::new();
     let (loaded, meta) =
         library::load(&dir, &name, max_memory).map_err(|e| format!("{ERR_GAME_FREED}: {e}"))?;

@@ -7,6 +7,7 @@ mod bunching;
 mod library;
 mod library_commands;
 mod range;
+mod session;
 mod solver;
 mod subgame;
 mod tree;
@@ -30,6 +31,7 @@ fn main() {
         .manage(Mutex::new(default_action_tree()))
         .manage(Mutex::new(None as Option<BunchingData>))
         .manage(Mutex::new(PostFlopGame::default()))
+        .manage(Mutex::new(session::SubgameCache::default()))
         .manage(Mutex::new(ThreadPoolBuilder::new().build().unwrap()))
         .invoke_handler(tauri::generate_handler![
             os_name,
