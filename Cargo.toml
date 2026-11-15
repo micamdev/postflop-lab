@@ -1,0 +1,8 @@
+[workspace]
+members = ["engine", "desktop/src-tauri"]
+resolver = "2"
+
+[profile.release]
+codegen-units = 1
+panic = "abort"
+strip = true
