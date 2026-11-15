@@ -15,7 +15,7 @@ use crate::tree::*;
 use postflop_solver::*;
 use rayon::{ThreadPool, ThreadPoolBuilder};
 use std::sync::Mutex;
-use sysinfo::{System, SystemExt};
+use sysinfo::System;
 
 fn main() {
     tauri::Builder::default()
@@ -95,11 +95,14 @@ fn os_name() -> String {
     "linux".to_string()
 }
 
+/// Returns `(available, total)` memory in bytes, or `(0, 0)` if it cannot be read
+/// (sysinfo >= 0.40 can fail; a panic would abort the whole app in release).
 #[tauri::command]
 fn memory() -> (u64, u64) {
-    let mut system = System::new_all();
-    system.refresh_memory();
-    (system.available_memory(), system.total_memory())
+    System::new().map_or((0, 0), |mut system| {
+        system.refresh_memory();
+        (system.available_memory(), system.total_memory())
+    })
 }
 
 #[tauri::command]

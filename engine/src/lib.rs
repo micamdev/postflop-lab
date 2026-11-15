@@ -32,7 +32,7 @@
 //! [Discounted CFR]: https://arxiv.org/abs/1809.04040
 //!
 //! # Crate features
-//! - `bincode`: Uses [bincode] crate (2.0.0-rc.3) to serialize and deserialize the `PostFlopGame` struct.
+//! - `bincode`: Uses [bincode] crate (2.0) to serialize and deserialize the `PostFlopGame` struct.
 //!   This feature is required to save and load the game tree.
 //!   Enabled by default.
 //! - `custom-alloc`: Uses custom memory allocator in solving process (stack allocator built on [allocator-api2]).

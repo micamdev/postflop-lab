@@ -92,3 +92,17 @@ aucune ne se détache de façon reproductible.
   testée sur stable. Si un spot plus gros (flop) montrait un écart, on
   l'activerait côté app en une ligne :
   `postflop-solver = { path = "../../engine", features = ["custom-alloc"] }`.
+
+## Contrôle chantier 1 (mise à jour des dépendances Rust)
+
+Après la montée de rayon 1.12, bincode 2.0.1, zstd 0.14, etc. (2026-11-15,
+même machine), variante (b) :
+
+- 3 exécutions seules : 2635, 2689, 2668 ms (médiane 2668, +7,6 % vs 2480).
+  Hors de la marge de ±7 %, donc contrôle A/B ci-dessous.
+- A/B intercalé avec le commit d'avant la mise à jour (`0fe55f6`), 4 séries :
+  avant 2375, 2313, 2254, 2316 ms (médiane ≈ 2314) ; après 2289, 2316, 2270,
+  2316 ms (médiane ≈ 2302).
+
+Conclusion : aucune régression ; l'écart des exécutions seules venait de
+l'état de la machine. Exploitabilité inchangée (0,0710).
