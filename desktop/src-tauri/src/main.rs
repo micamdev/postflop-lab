@@ -4,6 +4,7 @@
 )]
 
 mod bunching;
+mod library;
 mod range;
 mod solver;
 mod tree;
