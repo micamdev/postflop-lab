@@ -70,3 +70,17 @@ mimalloc passe de −5,5 % (campagne 1) à +6,6 % (campagne 2) : sur cette
 machine, le bruit est du même ordre que les écarts entre allocateurs. Toutes
 les options stables restent dans ±7 % de (a), donc sous le seuil des 10 %, et
 aucune ne se détache de façon reproductible.
+
+## Décision
+
+**Option retenue : (b), allocateur système sur Rust stable.**
+
+- (b) est à +0,9 % de (a) et (d) à +1,5 %, sous le seuil de bruit de 3 % ;
+  (c) oscille entre −5,5 % et +6,6 %. Aucune option ne bat (b) de façon
+  reproductible.
+- À performances égales, (b) est la plus simple : pas de dépendance en plus,
+  pas d'allocateur `unsafe` sur le chemin chaud de l'app.
+- Le port (d) reste dans le moteur : la feature `custom-alloc` compile et est
+  testée sur stable. Si un spot plus gros (flop) montrait un écart, on
+  l'activerait côté app en une ligne :
+  `postflop-solver = { path = "../../engine", features = ["custom-alloc"] }`.
