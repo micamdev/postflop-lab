@@ -33,6 +33,8 @@ Commandes :
 
 ## Résultats
 
+### Campagne 1 : (a), (b), (c)
+
 Médianes par série (ms) :
 
 | Variante | S1 | S2 | S3 | S4 | S5 | **Médiane** | Écart vs (a) |
@@ -40,9 +42,31 @@ Médianes par série (ms) :
 | (a) nightly + custom-alloc | 2533 | 2228 | 2459 | 2176 | 2493 | **2459** | — |
 | (b) stable, système | 2441 | 2498 | 2455 | 2601 | 2480 | **2480** | +0,9 % |
 | (c) stable + mimalloc | 2385 | 2236 | 2351 | 2323 | 2299 | **2323** | −5,5 % |
-| (d) stable + custom-alloc (allocator-api2) | à mesurer (Task 3) | | | | | | |
+| (d) stable + custom-alloc (allocator-api2) | voir campagne 2 | | | | | | |
 
 Exploitabilité finale identique pour toutes les variantes : 0,0710.
 
 L'écart intra-série atteint ~20 % (throttling) : des écarts < 3 % entre
 variantes sont à considérer comme équivalents.
+
+### Campagne 2 : (a), (c), (d)
+
+Après le port de `custom-alloc` sur `allocator-api2`, (a) n'est plus
+reproductible depuis la branche : il a été mesuré dans un worktree temporaire
+sur le commit d'avant le port (`a8b81f4`). (a), (c) et (d) ont été intercalés
+en 5 séries à ordre tournant.
+
+| Variante | S1 | S2 | S3 | S4 | S5 | **Médiane** | Écart vs (a) |
+|---|---|---|---|---|---|---|---|
+| (a) nightly + custom-alloc | 2310 | 2326 | 2409 | 2416 | 2358 | **2358** | — |
+| (c) stable + mimalloc | 2524 | 2514 | 2468 | 2424 | 2931 | **2514** | +6,6 % |
+| (d) stable + custom-alloc (allocator-api2) | 2394 | 2348 | 2479 | 2819 | 2310 | **2394** | +1,5 % |
+
+Exploitabilité finale identique : 0,0710.
+
+### Lecture
+
+mimalloc passe de −5,5 % (campagne 1) à +6,6 % (campagne 2) : sur cette
+machine, le bruit est du même ordre que les écarts entre allocateurs. Toutes
+les options stables restent dans ±7 % de (a), donc sous le seuil des 10 %, et
+aucune ne se détache de façon reproductible.
