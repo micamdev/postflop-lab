@@ -384,6 +384,14 @@ export type LibraryEntry = {
 /** Error of save, rename and import when the target name is taken. */
 export const ERR_EXISTS = "exists";
 
+/** Error prefix of libraryLoad when the current game was already freed. */
+export const ERR_GAME_FREED = "game freed";
+
+/** Rejects with a message if the solution cannot be loaded; touches nothing. */
+export const libraryCheckLoad = async (name: string) => {
+  await invoke("library_check_load", { name });
+};
+
 export const gameStorageMode = async (): Promise<"river" | "turn" | "flop"> => {
   return await invoke("game_storage_mode");
 };

@@ -481,7 +481,8 @@ const selectSpotUnsafe = async (
       riverIndex === -1 ? null : (spots.value[riverIndex] as SpotChance);
     selectedChanceIndexTmp = -1;
 
-    if (riverSpot) {
+    // A "Not saved" river spot keeps no card to deal.
+    if (riverSpot && !riverSpot.isBeyondDepth) {
       const history = spots.value
         .slice(1, riverIndex)
         .map((spot) => spot.selectedIndex);
@@ -520,7 +521,13 @@ const selectSpotUnsafe = async (
   }
 
   // update indices of selected spot and selected chance
-  if (!needSplice && spots.value[spotIndex].type === "chance") {
+  const targetSpot = spots.value[spotIndex];
+  if (
+    !needSplice &&
+    targetSpot.type === "chance" &&
+    // A "Not saved" spot is shown like a player spot: its position only.
+    !targetSpot.isBeyondDepth
+  ) {
     selectedChanceIndexTmp = spotIndex;
     if (selectedSpotIndexTmp < spotIndex + 1) {
       selectedSpotIndexTmp = spotIndex + 1;
@@ -533,7 +540,10 @@ const selectSpotUnsafe = async (
       selectedChanceIndexTmp = spots.value
         .slice(0, spotIndex)
         .findIndex(
-          (spot) => spot.type === "chance" && spot.selectedIndex === -1
+          (spot) =>
+            spot.type === "chance" &&
+            spot.selectedIndex === -1 &&
+            !spot.isBeyondDepth
         );
     }
   }

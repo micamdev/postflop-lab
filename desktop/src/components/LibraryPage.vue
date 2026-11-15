@@ -1,7 +1,11 @@
 <template>
   <div>
     <div class="flex gap-3">
-      <button class="button-base button-blue" @click="importFile">
+      <button
+        class="button-base button-blue"
+        :disabled="store.isLibraryBusy"
+        @click="importFile"
+      >
         Import...
       </button>
       <button class="button-base button-blue" @click="openFolder">
@@ -82,7 +86,7 @@
               <button
                 v-if="entry.meta"
                 class="link mr-3"
-                :disabled="!!busyText"
+                :disabled="store.isLibraryBusy"
                 @click="load(entry.name)"
               >
                 Load
@@ -90,6 +94,7 @@
               <button
                 v-if="entry.meta"
                 class="link mr-3"
+                :disabled="store.isLibraryBusy"
                 @click="startRename(entry.name)"
               >
                 Rename
@@ -97,11 +102,16 @@
               <button
                 v-if="entry.meta"
                 class="link mr-3"
+                :disabled="store.isLibraryBusy"
                 @click="exportFile(entry.name)"
               >
                 Export
               </button>
-              <button class="link text-red-500" @click="remove(entry.name)">
+              <button
+                class="link text-red-500"
+                :disabled="store.isLibraryBusy"
+                @click="remove(entry.name)"
+              >
                 Delete
               </button>
             </template>

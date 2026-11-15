@@ -79,6 +79,7 @@ fn main() {
             library_list,
             library_save_estimate,
             library_save,
+            library_check_load,
             library_load,
             library_rename,
             library_delete,

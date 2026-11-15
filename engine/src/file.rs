@@ -250,25 +250,66 @@ pub fn load_data_from_std_read<T: FileData, R: Read>(
         compression, memo, ..
     } = read_header::<T, R>(reader, max_memory_usage)?;
 
-    // The data itself is bounded by `max_memory_usage` through the header estimate only: its
-    // fields are large by nature (up to several GB), so no fixed decoding limit applies.
     #[cfg(not(feature = "zstd"))]
     if compression {
         return Err("Compression is not supported".to_string());
     }
 
+    // The header estimate is only a number stated by the file: the data is decoded with a
+    // limit derived from `max_memory_usage` too, so a corrupt length inside the data cannot
+    // trigger an allocation larger than the memory the caller allows.
     #[cfg(not(feature = "zstd"))]
-    let data: T = decode_from_std_read(reader, "Failed to read data")?;
+    let data: T = decode_bounded(reader, max_memory_usage, "Failed to read data")?;
     #[cfg(feature = "zstd")]
     let data: T = if !compression {
-        decode_from_std_read(reader, "Failed to read data")?
+        decode_bounded(reader, max_memory_usage, "Failed to read data")?
     } else {
         let mut zstd_decoder = zstd::stream::Decoder::new(reader)
             .map_err(|e| format!("Failed to create zstd decoder: {}", e))?;
-        decode_from_std_read(&mut zstd_decoder, "Failed to read data")?
+        decode_bounded(&mut zstd_decoder, max_memory_usage, "Failed to read data")?
     };
 
     Ok((data, memo))
+}
+
+/// Decodes with a bincode limit of at least twice `max_memory_usage` (a power of two, since
+/// bincode takes the limit as a const parameter); without `max_memory_usage`, no limit.
+fn decode_bounded<D: Decode<()>, R: Read>(
+    reader: &mut R,
+    max_memory_usage: Option<u64>,
+    err_msg: &str,
+) -> Result<D, String> {
+    let Some(max_memory_usage) = max_memory_usage else {
+        return decode_from_std_read(reader, err_msg);
+    };
+    let exp = max_memory_usage
+        .saturating_mul(2)
+        .checked_next_power_of_two()
+        .map_or(64, |p| p.trailing_zeros())
+        .max(20);
+
+    macro_rules! decode_with_exp {
+        ($($e:literal),*) => {
+            match exp {
+                $($e => bincode::decode_from_std_read(
+                    reader,
+                    bincode::config::standard().with_limit::<{ 1usize << $e }>(),
+                ),)*
+                // Beyond the ladder (or on 32-bit targets): the address space is the limit.
+                _ => bincode::decode_from_std_read(reader, bincode::config::standard()),
+            }
+        };
+    }
+
+    #[cfg(target_pointer_width = "64")]
+    let result = decode_with_exp!(
+        20, 21, 22, 23, 24, 25, 26, 27, 28, 29, 30, 31, 32, 33, 34, 35, 36, 37, 38, 39, 40, 41, 42,
+        43, 44, 45, 46, 47, 48
+    );
+    #[cfg(not(target_pointer_width = "64"))]
+    let result = decode_with_exp!(20, 21, 22, 23, 24, 25, 26, 27, 28, 29, 30);
+
+    result.map_err(|e| format!("{}: {}", err_msg, e))
 }
 
 /// Loads data from a file.
@@ -538,5 +579,29 @@ mod tests {
     fn bunching_flag() {
         let game = small_solved_game();
         assert!(!game.is_bunching_enabled());
+    }
+
+    #[test]
+    fn bounded_decode_rejects_huge_length() {
+        // A byte vector claiming 1 TiB, as a corrupt storage length would.
+        let mut bytes = Vec::new();
+        bincode::encode_into_std_write(1u64 << 40, &mut bytes, bincode::config::standard())
+            .unwrap();
+        let result: Result<Vec<u8>, String> =
+            decode_bounded(&mut bytes.as_slice(), Some(1 << 20), "Failed to read data");
+        let err = result.unwrap_err();
+        assert!(err.contains("LimitExceeded"), "{err}");
+    }
+
+    #[test]
+    fn load_with_estimated_limit_succeeds() {
+        // The body limit derived from max_memory_usage must not reject a valid file.
+        let game = small_solved_game();
+        let path = tmp_path("exact-limit.plab");
+        save_data_to_file(&game, "", &path, None).unwrap();
+        let limit = game.target_memory_usage();
+        let result = load_data_from_file::<PostFlopGame, _>(&path, Some(limit));
+        std::fs::remove_file(&path).unwrap();
+        assert!(result.is_ok(), "{:?}", result.err());
     }
 }

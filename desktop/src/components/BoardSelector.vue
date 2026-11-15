@@ -38,8 +38,8 @@
 </template>
 
 <script setup lang="ts">
-import { ref } from "vue";
-import { useConfigStore } from "../store";
+import { ref, watch } from "vue";
+import { useConfigStore, useStore } from "../store";
 import { cardText, parseCardString } from "../utils";
 import BoardSelectorCard from "./BoardSelectorCard.vue";
 
@@ -67,6 +67,9 @@ const setBoardTextFromButtons = () => {
     .map(({ rank, suitLetter }) => rank + suitLetter)
     .join(", ");
 };
+
+// A loaded solution replaced the board: refresh the text.
+watch(() => useStore().solutionLoadCount, setBoardTextFromButtons);
 
 const onBoardTextChange = () => {
   config.board = [];

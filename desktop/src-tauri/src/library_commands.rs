@@ -117,6 +117,21 @@ pub fn library_save(
     result.map(|_| ())
 }
 
+/// Error prefix of `library_load` when the current game was freed before the load failed: the
+/// front end must then forget the current tree and results.
+pub const ERR_GAME_FREED: &str = "game freed";
+
+/// Memory the current game frees when replaced (0 if it holds no solution). For a solved or
+/// loaded game this is the memory its stored data needs (`target_memory_usage`), which also
+/// fits partial saves; `memory_usage` would over-count those.
+fn current_game_memory(game: &PostFlopGame) -> u64 {
+    if game.is_solved() || game.is_ready() {
+        game.target_memory_usage()
+    } else {
+        0
+    }
+}
+
 /// Memory a loaded solution may use: what is available now plus what the current game frees.
 /// On macOS, as in the Run Solver screen, the limit is 70% of the total memory.
 fn max_load_memory(current_game: &PostFlopGame) -> u64 {
@@ -124,17 +139,39 @@ fn max_load_memory(current_game: &PostFlopGame) -> u64 {
     if cfg!(target_os = "macos") {
         return total / 10 * 7;
     }
-    let current = if current_game.is_ready() {
-        let (uncompressed, compressed) = current_game.memory_usage();
-        if current_game.is_compression_enabled() {
-            compressed
-        } else {
-            uncompressed
-        }
-    } else {
-        0
-    };
-    available + current
+    available + current_game_memory(current_game)
+}
+
+fn gb(bytes: u64) -> String {
+    format!("{:.2} GB", bytes as f64 / (1u64 << 30) as f64)
+}
+
+/// Checks that a solution can be loaded (readable header, enough memory), without touching
+/// the current game.
+fn check_load(dir: &std::path::Path, name: &str, max_memory: u64) -> Result<(), String> {
+    let header = load_header_from_file::<PostFlopGame, _>(
+        dir.join(format!("{name}.{}", library::EXTENSION)),
+    )?;
+    if header.estimated_memory_usage > max_memory {
+        return Err(format!(
+            "Not enough memory: this solution needs {}, {} available",
+            gb(header.estimated_memory_usage),
+            gb(max_memory)
+        ));
+    }
+    Ok(())
+}
+
+/// Checks that a solution can be loaded, so the front end can keep the current results if not.
+#[tauri::command]
+pub fn library_check_load(
+    app: AppHandle,
+    game_state: tauri::State<Mutex<PostFlopGame>>,
+    name: String,
+) -> Result<(), String> {
+    let dir = library_dir(&app)?;
+    let game = game_state.lock().unwrap();
+    check_load(&dir, &name, max_load_memory(&game))
 }
 
 #[tauri::command(async)]
@@ -149,19 +186,12 @@ pub fn library_load(
     let max_memory = max_load_memory(&game);
 
     // Refuse before touching the current game if the solution cannot fit.
-    let header = load_header_from_file::<PostFlopGame, _>(
-        dir.join(format!("{name}.{}", library::EXTENSION)),
-    )?;
-    if header.estimated_memory_usage > max_memory {
-        return Err(format!(
-            "Not enough memory: the solution needs {} bytes, {} available",
-            header.estimated_memory_usage, max_memory
-        ));
-    }
+    check_load(&dir, &name, max_memory)?;
 
     // Free the current game first so both never coexist in memory.
     *game = PostFlopGame::new();
-    let (loaded, meta) = library::load(&dir, &name, max_memory)?;
+    let (loaded, meta) =
+        library::load(&dir, &name, max_memory).map_err(|e| format!("{ERR_GAME_FREED}: {e}"))?;
     let ranges = loaded.card_config().range;
     *game = loaded;
     let mut range_manager = range_state.lock().unwrap();
@@ -197,4 +227,18 @@ pub fn library_open_folder(app: AppHandle) -> Result<(), String> {
     app.opener()
         .open_path(dir.to_string_lossy(), None::<&str>)
         .map_err(|e| format!("Failed to open the folder: {e}"))
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::library::tests::small_game;
+
+    #[test]
+    fn solved_game_memory_is_counted() {
+        let game = small_game(true);
+        assert!(game.is_solved());
+        assert_eq!(current_game_memory(&game), game.target_memory_usage());
+        assert_eq!(current_game_memory(&PostFlopGame::new()), 0);
+    }
 }

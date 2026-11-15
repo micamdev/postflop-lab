@@ -122,6 +122,12 @@ export const useStore = defineStore("app", {
     solutionDepth: "river" as SolutionDepth,
     solutionInfo: null as SolutionInfo | null,
     isSolutionSaved: false,
+    /** A library operation (load) holds the game: solver controls are locked. */
+    isLibraryBusy: false,
+    /** Incremented when the game no longer matches the tree built in Run Solver. */
+    treeResetCount: 0,
+    /** Incremented after a solution is loaded: range and board texts refresh. */
+    solutionLoadCount: 0,
   }),
 
   getters: {

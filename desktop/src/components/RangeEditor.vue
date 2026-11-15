@@ -135,7 +135,7 @@
 </template>
 
 <script setup lang="ts">
-import { ref } from "vue";
+import { ref, watch } from "vue";
 import { useStore } from "../store";
 import { ranks, trimRegex, rangeRegex } from "../utils";
 import * as invokes from "../invokes";
@@ -183,6 +183,9 @@ const onUpdate = async () => {
   numCombos.value = await invokes.rangeNumCombos(props.player);
   rangeTextError.value = "";
 };
+
+// A loaded solution replaced the ranges: refresh the text and the combo count.
+watch(() => store.solutionLoadCount, onUpdate);
 
 const update = async (row: number, col: number, weight: number) => {
   const idx = 13 * (row - 1) + col - 1;

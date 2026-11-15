@@ -15,7 +15,12 @@
     />
     <button
       class="ml-3 button-base button-blue"
-      :disabled="isTreeBuilding || store.isSolverRunning || store.isFinalizing"
+      :disabled="
+        isTreeBuilding ||
+        store.isSolverRunning ||
+        store.isFinalizing ||
+        store.isLibraryBusy
+      "
       @click="buildTree"
     >
       Build New Tree
@@ -225,6 +230,7 @@
         class="button-base button-blue"
         :disabled="
           store.hasSolverRun ||
+          store.isLibraryBusy ||
           store.isBunchingRunning ||
           memoryUsageSelected > maxMemoryUsage ||
           !areFlopMatching ||
@@ -346,7 +352,7 @@
 </template>
 
 <script setup lang="ts">
-import { computed, ref } from "vue";
+import { computed, ref, watch } from "vue";
 import {
   useStore,
   useConfigStore,
@@ -522,6 +528,22 @@ const saveDisabledReason = computed(() => {
 });
 const canSave = computed(
   () => store.isSolverFinished && !saveDisabledReason.value
+);
+
+// The game was replaced (solution loaded) or freed (failed load): the tree built here, its
+// memory figures and the solver state no longer apply.
+watch(
+  () => store.treeResetCount,
+  () => {
+    isTreeBuilt.value = false;
+    treeStatus.value = "Module not loaded";
+    memoryUsageRaw.value = 0;
+    memoryUsageRawCompressed.value = 0;
+    memoryUsageBunching.value = 0;
+    currentIteration.value = -1;
+    exploitability.value = Number.POSITIVE_INFINITY;
+    elapsedTimeMs.value = -1;
+  }
 );
 
 /** Forgets the previous solution when a new tree is built or solved. */
