@@ -1,11 +1,12 @@
 [package]
-name = "desktop-postflop"
+name = "postflop-lab"
 version = "0.2.7"
-description = "The most advanced open-source GTO solver"
-authors = ["Wataru Inariba"]
+description = "Postflop GTO solver for study"
+authors = ["Wataru Inariba", "Michael Maccio"]
 license = "AGPL-3.0-or-later"
-repository = "https://github.com/b-inary/desktop-postflop/tree/main/src-tauri"
+repository = "https://github.com/micamdev/postflop-lab"
 edition = "2021"
+publish = false
 rust-version = "1.65"
 
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
