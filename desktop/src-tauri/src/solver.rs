@@ -258,8 +258,19 @@ pub const ERR_BEYOND_DEPTH: &str = "beyond saved depth";
 /// Plays `action`, refusing to deal a card past the saved depth (where `play` would panic and
 /// poison the game's mutex).
 fn play_checked(game: &mut PostFlopGame, action: usize) -> Result<(), String> {
-    if game.is_chance_node() && !game.can_deal_card() {
-        return Err(ERR_BEYOND_DEPTH.to_string());
+    // Every case where `play` would panic (which aborts the app inside a command) is an error.
+    if game.is_terminal_node() {
+        return Err("No action after a terminal node".to_string());
+    }
+    if game.is_chance_node() {
+        if !game.can_deal_card() {
+            return Err(ERR_BEYOND_DEPTH.to_string());
+        }
+        if action != usize::MAX && (action >= 52 || game.possible_cards() & (1 << action) == 0) {
+            return Err("This card cannot be dealt here".to_string());
+        }
+    } else if action >= game.available_actions().len() {
+        return Err("Invalid action".to_string());
     }
     game.play(action);
     Ok(())
@@ -708,6 +719,21 @@ mod tests {
         assert_eq!(loaded.history(), &[0, 0]);
         apply_history_checked(&mut loaded, &[]).unwrap();
         assert!(!loaded.is_chance_node());
+    }
+
+    #[test]
+    fn invalid_action_is_err_not_panic() {
+        let mut game = turn_game();
+        // Out-of-range action index at the root (OOP has 2 actions).
+        assert!(apply_history_checked(&mut game, &[99]).is_err());
+        // Action after a terminal node (check, bet, fold).
+        assert!(apply_history_checked(&mut game, &[1, 0, 0]).is_err());
+        // A card that cannot be dealt (the turn card itself).
+        let turn = card_from_str("Qc").unwrap() as usize;
+        assert!(apply_history_checked(&mut game, &[0, 0, turn]).is_err());
+        // The game is still usable and at the root.
+        assert_eq!(game.history(), &[] as &[usize]);
+        apply_history_checked(&mut game, &[0, 0, usize::MAX]).unwrap();
     }
 
     #[test]

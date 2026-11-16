@@ -547,7 +547,8 @@ const resolveAndDeal = async (card: number) => {
   spot.isResolved = true;
   spot.selectedIndex = card;
   spot.cards[card].isSelected = true;
-  // The current position is the chance node: the card leads into the subgame.
+  // Move to the river chance node first: in chance mode the current position is elsewhere.
+  await invokes.gameApplyHistory(history);
   const nextActions = await invokes.gameActionsAfter([card]);
   spliceSpotsPlayer(spot.index + 1, nextActions);
   await selectSpot(spot.index + 1, false);
@@ -599,8 +600,23 @@ const selectSpotUnsafe = async (
       riverIndex === -1 ? null : (spots.value[riverIndex] as SpotChance);
     selectedChanceIndexTmp = -1;
 
-    // A "Not saved" river spot keeps no card to deal.
-    if (riverSpot && !riverSpot.isBeyondDepth) {
+    // A re-solved river belonged to the previous turn card: offer the pick again.
+    if (riverSpot?.isResolved) {
+      reopenRiver(riverSpot);
+      // The spots after the river are gone: stay on the river spot (position only).
+      if (selectedSpotIndexTmp > riverSpot.index) {
+        selectedSpotIndexTmp = riverSpot.index;
+      }
+      if (spotIndex > riverSpot.index) {
+        spotIndex = riverSpot.index;
+      }
+    }
+    // Rivers past the depth of a flop save stay without cards; the others are refreshed
+    // (for a turn save, the rivers that can be re-solved with the new turn card).
+    if (
+      riverSpot &&
+      !(riverSpot.isBeyondDepth && store.solutionDepth !== "turn")
+    ) {
       const history = spots.value
         .slice(1, riverIndex)
         .map((spot) => spot.selectedIndex);
@@ -831,8 +847,20 @@ const spliceSpotsChance = async (spotIndex: number) => {
     (store.solutionDepth === "turn" && dealing === "river")
   ) {
     // Rivers of a turn save can be re-solved on demand: offer the possible ones.
-    const resolvable = store.solutionDepth === "turn" && dealing === "river";
-    const possible = resolvable ? await invokes.gamePossibleCards() : 0n;
+    // The river can be re-solved only if the turn card is known (not skipped).
+    const riverPrefix = spots.value
+      .slice(1, spotIndex)
+      .map((spot) => spot.selectedIndex);
+    const resolvable =
+      store.solutionDepth === "turn" &&
+      dealing === "river" &&
+      !riverPrefix.includes(-1);
+    let possible = 0n;
+    if (resolvable) {
+      // Possible rivers at the river chance node, whatever the current position.
+      await invokes.gameApplyHistory(riverPrefix);
+      possible = await invokes.gamePossibleCards();
+    }
     spots.value.splice(spotIndex, spots.value.length, {
       type: "chance",
       index: spotIndex,
