@@ -743,6 +743,9 @@ const runSolver = async () => {
  * `gamePrepareLockSolve`), with the current settings.
  */
 const runLockedSolve = async (compression: boolean) => {
+  // Before any await: the game is unsolved (also set by the lock editor).
+  store.isSolverFinished = false;
+  store.isSolverRunning = true;
   isCompressionEnabled.value = compression;
   [memoryUsageRaw.value, memoryUsageRawCompressed.value] =
     await invokes.gameMemoryUsage();

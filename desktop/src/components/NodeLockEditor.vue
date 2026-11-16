@@ -244,6 +244,7 @@ import { Results, SpotPlayer } from "../result-types";
 import { cardText, cardPairCellIndex, ranks, suitLetters } from "../utils";
 import { ask } from "../library";
 import SaveSolutionDialog from "./SaveSolutionDialog.vue";
+import { mirrorEdits } from "../lock-utils";
 
 const props = defineProps<{
   spot: SpotPlayer | null;
@@ -344,8 +345,13 @@ onMounted(async () => {
     const lock = await invokes.gameCaptureLock(props.line.history, {});
     const existing = existingLock(lock.key);
     if (existing) {
-      edits.value = Object.fromEntries(
-        existing.edited.map((combo) => [combo, existing.hands[combo]])
+      // A lock opened from the mirror turn names the same hands with swapped suits.
+      edits.value = mirrorEdits(
+        Object.fromEntries(
+          existing.edited.map((combo) => [combo, existing.hands[combo]])
+        ),
+        existing.history,
+        props.line.history
       );
     }
     baseLock.value = lock;
@@ -609,12 +615,17 @@ const startResolve = async () => {
     compression = await invokes.gamePrepareLockSolve(locks);
   } catch (e) {
     // The reference solution is untouched.
+    store.isLibraryBusy = false;
     resolveError.value = String(e);
     return;
   } finally {
     isBusy.value = false;
-    store.isLibraryBusy = false;
   }
+  // The game is now unsolved: mark the solver as running before releasing the library lock,
+  // so no other action (Run Solver, Build Tree, Load) can start in between.
+  store.isSolverFinished = false;
+  store.isSolverRunning = true;
+  store.isLibraryBusy = false;
   store.solutionLocks = locks;
   store.locks = [...locks];
   store.navView = "solver";
