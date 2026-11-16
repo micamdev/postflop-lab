@@ -1,7 +1,7 @@
 # Node lock — première version (nœud affiché)
 
 Date : 2026-11-16
-Statut : en revue (vérification builder faite)
+Statut : validé (sous réserve de l'utilisateur)
 
 ## Pourquoi
 
@@ -28,8 +28,13 @@ re-résoudre pour voir l'adversaire s'adapter.
 - Depuis la vue Results, à un **nœud joueur** de la solution courante, ouvrir
   un **éditeur de verrou** : sélectionner des mains et fixer leurs fréquences
   par action (ex. raise / call / fold).
-- Seules les mains modifiées sont verrouillées ; les autres restent libres et
-  le solveur les ajuste (verrou partiel, natif dans le moteur).
+- **Un verrou fige tout le nœud** (« Lock full range » de PioSolver) : les
+  mains modifiées prennent les fréquences saisies, les autres sont figées à
+  leur stratégie actuelle (celle de la solution affichée). Le solveur ne peut
+  donc pas compenser à ce nœud (ex. baisser le check-raise de 94s ne fait pas
+  check-raiser davantage 93s). *(Décidé avec l'utilisateur.)* Le joueur
+  verrouillé peut toujours ajuster ses autres décisions, plus tôt ou plus tard
+  dans l'arbre, et l'adversaire s'adapte : c'est le but.
 - Une **liste des verrous** de la solution (nœud, mains, fréquences), avec
   suppression.
 - **Re-résoudre avec les verrous** : l'app propose d'abord de sauvegarder la
@@ -43,6 +48,8 @@ re-résoudre pour voir l'adversaire s'adapter.
 ## Non-objectifs (issues)
 
 - Verrou sur **toutes les turns** d'un coup : issue #20.
+- Verrou partiel (« combo lock » : seules les mains touchées figées, le
+  solveur réoptimise les autres) : plus tard si besoin.
 - Fréquence globale répartie selon la perte d'EV, vue avant/après type
   « Compare Nodes » : plus tard.
 - Verrou dans une river recalculée à la demande ou au-delà de la profondeur
@@ -79,9 +86,11 @@ hands: { [combo: string]: number[] } }` :
   l'arbre, que le nœud est le même ; sinon le verrou est signalé invalide).
 - `hands` : par combo (ex. `"9s6s"`), la fréquence de chaque action (somme 1).
 - Côté moteur : à la reconstruction, pour chaque verrou, aller au nœud et
-  appeler `lock_current_strategy` avec un tableau `actions × mains` : les
-  fréquences pour les mains listées, une valeur non positive pour les autres
-  (non verrouillées).
+  appeler `lock_current_strategy` avec le tableau `actions × mains` complet :
+  les fréquences saisies pour les mains modifiées, la stratégie de la solution
+  de référence pour toutes les autres (toutes verrouillées).
+- Le verrou enregistre donc la stratégie complète du nœud (`hands` contient
+  toutes les mains présentes au nœud), pas seulement les mains modifiées.
 
 ### Éditeur (vue Results)
 
@@ -140,8 +149,9 @@ et coûterait mémoire et temps de calcul.)*
 
 ## Tests
 
-- Moteur / Rust : verrou partiel sur une main → après résolution, sa
-  stratégie est exactement celle verrouillée, les autres mains varient ;
+- Moteur / Rust : verrou d'un nœud complet avec une main modifiée → après
+  résolution, toutes les mains du nœud ont exactement la stratégie verrouillée
+  (la main modifiée à ses valeurs, les autres à leur stratégie de référence) ;
   verrou sur un nœud de turn après une carte isomorphe (turn « échangée ») →
   la bonne main est verrouillée ; verrou réduisant le check-raise d'OOP au
   flop → la fréquence de c-bet d'IP augmente (test de sens, sur un petit
