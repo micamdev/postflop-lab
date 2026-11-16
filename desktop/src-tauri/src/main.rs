@@ -6,6 +6,7 @@
 mod bunching;
 mod library;
 mod library_commands;
+mod locks;
 mod range;
 mod session;
 mod solver;
