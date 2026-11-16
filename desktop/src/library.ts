@@ -149,6 +149,9 @@ const replaceWithSolution = async (name: string): Promise<string | null> => {
   store.isSolutionSaved = true;
   store.treeResetCount++;
   store.solutionLoadCount++;
+  // The ranges and the tree now come from the solution, not from the explorer.
+  store.rangeSources = [null, null];
+  store.treeSource = null;
   store.isSolverFinished = true;
   store.navView = "results";
   return null;

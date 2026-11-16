@@ -1,0 +1,138 @@
+// Editing one player's range (0 OOP, 1 IP, 2–5 bunching fold ranges): grid painting, text,
+// weight, clear and invert, kept in sync with the engine and `store.ranges`.
+
+import { ref, watch } from "vue";
+import { useStore } from "./store";
+import * as invokes from "./invokes";
+import { parseRangeText } from "./range-text";
+
+type PaintMode = "none" | "enabling" | "disabling";
+
+export const useRangeEditing = (player: number) => {
+  const store = useStore();
+  const text = ref("");
+  const error = ref("");
+  const weight = ref(100);
+  const numCombos = ref(0);
+  let paintMode: PaintMode = "none";
+
+  /** The OOP or IP range no longer matches the saved one it came from. */
+  const markModified = () => {
+    const source = player < 2 ? store.rangeSources[player] : null;
+    if (source) source.modified = true;
+  };
+
+  const refresh = async () => {
+    text.value = await invokes.rangeToString(player);
+    numCombos.value = await invokes.rangeNumCombos(player);
+    error.value = "";
+  };
+
+  // A loaded solution replaced the ranges: refresh the text and the combo count.
+  watch(() => store.solutionLoadCount, refresh);
+
+  const setCell = async (row: number, col: number, cellWeight: number) => {
+    await invokes.rangeUpdate(player, row, col, cellWeight / 100);
+    store.ranges[player][13 * (row - 1) + col - 1] = cellWeight;
+    markModified();
+    await refresh();
+  };
+
+  /** Sets the range from `rangeText`; returns false (with `error`) if it cannot be read. */
+  const setFromText = async (rangeText: string): Promise<boolean> => {
+    const parsed = parseRangeText(rangeText);
+    if (!parsed.ok) {
+      error.value = parsed.error;
+      return false;
+    }
+    const errorString = await invokes.rangeFromString(player, parsed.text);
+    if (errorString) {
+      error.value = errorString;
+      return false;
+    }
+    const weights = await invokes.rangeGetWeights(player);
+    for (let i = 0; i < 13 * 13; ++i) {
+      store.ranges[player][i] = weights[i] * 100;
+    }
+    await refresh();
+    return true;
+  };
+
+  /** Applies the typed text. */
+  const applyText = async () => {
+    if (await setFromText(text.value)) markModified();
+  };
+
+  /** Loads a saved range; `source` is its explorer path (OOP and IP only). */
+  const loadText = async (
+    rangeText: string,
+    source: string[] | null = null
+  ): Promise<boolean> => {
+    text.value = rangeText;
+    if (!(await setFromText(rangeText))) return false;
+    if (player < 2) {
+      store.rangeSources[player] = source
+        ? { path: source, modified: false }
+        : null;
+    }
+    return true;
+  };
+
+  const startPaint = (row: number, col: number) => {
+    if (store.ranges[player][13 * (row - 1) + col - 1] !== weight.value) {
+      paintMode = "enabling";
+      void setCell(row, col, weight.value);
+    } else {
+      paintMode = "disabling";
+      void setCell(row, col, 0);
+    }
+  };
+
+  const paintOver = (row: number, col: number) => {
+    if (paintMode === "enabling") void setCell(row, col, weight.value);
+    else if (paintMode === "disabling") void setCell(row, col, 0);
+  };
+
+  const endPaint = () => {
+    paintMode = "none";
+  };
+
+  const clampWeight = () => {
+    weight.value = Math.round(Math.max(0, Math.min(100, weight.value)));
+  };
+
+  const clear = async () => {
+    await invokes.rangeClear(player);
+    store.ranges[player].fill(0);
+    text.value = "";
+    error.value = "";
+    weight.value = 100;
+    numCombos.value = 0;
+    markModified();
+  };
+
+  const invert = async () => {
+    await invokes.rangeInvert(player);
+    for (let i = 0; i < 13 * 13; ++i) {
+      store.ranges[player][i] = 100 - store.ranges[player][i];
+    }
+    markModified();
+    await refresh();
+  };
+
+  return {
+    text,
+    error,
+    weight,
+    numCombos,
+    applyText,
+    setCell,
+    loadText,
+    startPaint,
+    paintOver,
+    endPaint,
+    clampWeight,
+    clear,
+    invert,
+  };
+};

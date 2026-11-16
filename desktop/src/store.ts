@@ -8,6 +8,9 @@ export type NavView = "setup" | "results" | "library";
 export type SideView =
   "oop-range" | "ip-range" | "board" | "tree-config" | "bunching";
 
+/** A saved range or tree config the setup was loaded from. */
+export type RangeSource = { path: string[]; modified: boolean };
+
 /** Saved depth of a solution: complete ("river"), up to the turn, or flop only. */
 export type SolutionDepth = "river" | "turn" | "flop";
 
@@ -124,6 +127,10 @@ export const useStore = defineStore("app", {
     treeResetCount: 0,
     /** Incremented after a solution is loaded: range and board texts refresh. */
     solutionLoadCount: 0,
+    /** Where the OOP and IP ranges come from (explorer path), null if typed or loaded. */
+    rangeSources: [null, null] as [RangeSource | null, RangeSource | null],
+    /** Where the tree config comes from (explorer path), null if typed or loaded. */
+    treeSource: null as RangeSource | null,
     /** Locks the current solution was solved with. */
     solutionLocks: [] as NodeLock[],
     /** Locks for the next re-solve: the solution's locks plus pending changes. */
