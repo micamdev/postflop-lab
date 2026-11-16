@@ -364,7 +364,8 @@ const emit = defineEmits<{
     currentBoard: number[],
     results: Results,
     chanceReports: ChanceReports | null,
-    totalBetAmount: number[]
+    totalBetAmount: number[],
+    line: { history: number[]; label: string }
   ): void;
 }>();
 
@@ -487,6 +488,28 @@ const reopenRiver = (spot: SpotChance) => {
 };
 
 let resolveId = 0;
+
+/** History and readable line of the selected spot (e.g. "OOP Check, IP Bet 30, T♥"). */
+const selectedLine = () => {
+  const path = spots.value.slice(1, selectedSpotIndex.value);
+  const label = path
+    .map((spot) => {
+      if (spot.type === "chance") {
+        if (spot.selectedIndex === -1) return "?";
+        const card = cardText(spot.selectedIndex);
+        return card.rank + card.suit;
+      }
+      if (spot.type !== "player") return "";
+      const action = spot.actions[spot.selectedIndex];
+      const amount = action?.amount === "0" ? "" : ` ${action?.amount}`;
+      return `${spot.player.toUpperCase()} ${action?.name ?? "?"}${amount}`;
+    })
+    .join(", ");
+  return {
+    history: path.map((spot) => spot.selectedIndex),
+    label: label || "Root",
+  };
+};
 
 /**
  * Re-solves the river `card` at the selected "Pick a river" spot (past the saved depth), then
@@ -784,7 +807,8 @@ const selectSpotUnsafe = async (
     currentBoard.value,
     results,
     chanceReports,
-    totalBetAmount
+    totalBetAmount,
+    selectedLine()
   );
 
   // scroll to selected spot

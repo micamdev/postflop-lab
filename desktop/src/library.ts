@@ -6,6 +6,7 @@ import {
   saveConfigTmp,
   saveConfig,
   SolutionDepth,
+  setSolutionLocks,
 } from "./store";
 import * as invokes from "./invokes";
 
@@ -98,6 +99,7 @@ const replaceWithSolution = async (name: string): Promise<string | null> => {
     if (message.startsWith(invokes.ERR_GAME_FREED)) {
       // The previous game is gone: the tree built in Run Solver is no longer valid.
       store.treeResetCount++;
+      setSolutionLocks([]);
       return (
         "The solution could not be read (the file may be damaged): " +
         message.slice(invokes.ERR_GAME_FREED.length + 2)
@@ -122,6 +124,7 @@ const replaceWithSolution = async (name: string): Promise<string | null> => {
   }
 
   store.isBunchingEnabled = false;
+  setSolutionLocks(meta.locks ?? []);
   store.solutionDepth = meta.depth;
   store.solutionInfo = {
     name,

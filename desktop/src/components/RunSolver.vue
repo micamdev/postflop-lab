@@ -360,6 +360,7 @@ import {
   useSavedConfigStore,
   saveConfigTmp,
   saveConfig,
+  setSolutionLocks,
 } from "../store";
 import {
   MAX_AMOUNT,
@@ -671,6 +672,7 @@ const buildTree = async () => {
   }
 
   saveConfig();
+  setSolutionLocks([]);
 
   [memoryUsageRaw.value, memoryUsageRawCompressed.value] =
     await invokes.gameMemoryUsage();
@@ -735,6 +737,42 @@ const runSolver = async () => {
 
   await resumeSolver();
 };
+
+/**
+ * Solves the game prepared with locks (tree rebuilt, memory allocated, locks placed by
+ * `gamePrepareLockSolve`), with the current settings.
+ */
+const runLockedSolve = async (compression: boolean) => {
+  isCompressionEnabled.value = compression;
+  [memoryUsageRaw.value, memoryUsageRawCompressed.value] =
+    await invokes.gameMemoryUsage();
+  memoryUsageBunching.value = 0;
+  // Already allocated: the memory was checked before (gamePrepareLockSolve).
+  maxMemoryUsage.value = Number.POSITIVE_INFINITY;
+  isTreeBuilt.value = true;
+  treeStatus.value = "Tree rebuilt from the solution (with its locks)";
+
+  resetSolutionInfo();
+  store.isSolverFinished = false;
+  store.isSolverPaused = false;
+  store.isSolverError = false;
+  terminateFlag.value = false;
+  pauseFlag.value = false;
+  elapsedTimeMs.value = 0;
+  startTime = 0;
+
+  currentIteration.value = 0;
+  exploitability.value = Math.max(await invokes.gameExploitability(), 0);
+  exploitabilityUpdated = true;
+  await resumeSolver();
+};
+
+watch(
+  () => store.lockSolveRequest,
+  async (request) => {
+    if (request) await runLockedSolve(request.compression);
+  }
+);
 
 const resumeSolver = async () => {
   store.isSolverRunning = true;

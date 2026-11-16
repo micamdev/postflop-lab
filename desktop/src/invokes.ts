@@ -372,6 +372,8 @@ export type SolutionMeta = {
   iterations: number;
   precision: "32" | "16";
   summary: SolutionSummary;
+  /** Locks the solution was solved with (absent from schema 1 files). */
+  locks?: NodeLock[];
 };
 
 export type LibraryEntry = {
@@ -462,4 +464,40 @@ export const gameResolveSubgame = async (
 
 export const gameCancelSubgame = async () => {
   await invoke("game_cancel_subgame");
+};
+
+/* Node lock */
+
+/** A lock on one player node: the full strategy of every hand at the node. */
+export type NodeLock = {
+  /** Line to the node, as played (actions and cards). */
+  history: number[];
+  /** Same line with the turn replaced by its representative: same key, same node. */
+  key: number[];
+  player: "oop" | "ip";
+  actions: string[];
+  /** Frequency of each action, per combo (e.g. "9s6s"); each sums to 1. */
+  hands: Record<string, number[]>;
+  /** Combos edited by the user; the others keep the strategy at capture time. */
+  edited: string[];
+  /** Readable line to the node (display only). */
+  label: string;
+};
+
+/** Captures a lock on the node at `history`, with `edits` (combo → frequencies) applied. */
+export const gameCaptureLock = async (
+  history: number[],
+  edits: Record<string, number[]>
+): Promise<NodeLock> => {
+  return await invoke("game_capture_lock", { history, edits });
+};
+
+/**
+ * Replaces the current solution by its tree, rebuilt with `locks` placed (memory allocated).
+ * Returns whether the 16-bit precision is used. On error the current solution is untouched.
+ */
+export const gamePrepareLockSolve = async (
+  locks: NodeLock[]
+): Promise<boolean> => {
+  return await invoke("game_prepare_lock_solve", { locks });
 };

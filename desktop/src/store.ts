@@ -1,5 +1,6 @@
 import { defineStore } from "pinia";
 import { sanitizeBetString } from "./utils";
+import type { NodeLock } from "./invokes";
 
 export type NavView = "solver" | "results";
 
@@ -128,6 +129,12 @@ export const useStore = defineStore("app", {
     treeResetCount: 0,
     /** Incremented after a solution is loaded: range and board texts refresh. */
     solutionLoadCount: 0,
+    /** Locks the current solution was solved with. */
+    solutionLocks: [] as NodeLock[],
+    /** Locks for the next re-solve: the solution's locks plus pending changes. */
+    locks: [] as NodeLock[],
+    /** Set to start the solve loop on a game prepared with locks (its precision). */
+    lockSolveRequest: null as { id: number; compression: boolean } | null,
   }),
 
   getters: {
@@ -252,3 +259,10 @@ export const useSavedConfigStore = defineStore("savedConfig", {
     removedLines: "",
   }),
 });
+
+/** Sets the locks of the current solution; pending lock changes are dropped. */
+export const setSolutionLocks = (locks: NodeLock[]) => {
+  const store = useStore();
+  store.solutionLocks = locks;
+  store.locks = [...locks];
+};
