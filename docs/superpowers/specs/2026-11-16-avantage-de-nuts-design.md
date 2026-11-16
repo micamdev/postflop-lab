@@ -1,7 +1,7 @@
 # Avantage de range et de nuts dans l'onglet Compare
 
 Date : 2026-11-16
-Statut : en revue
+Statut : validé
 
 ## Pourquoi
 
