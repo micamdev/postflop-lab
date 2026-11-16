@@ -1,6 +1,7 @@
 //! Tauri commands of the solution library. File handling lives in `library`.
 
 use crate::library::{self, LibraryEntry, SolutionMeta, META_SCHEMA};
+use crate::lock_commands::CurrentLocks;
 use crate::range::RangeManager;
 use crate::session::SubgameCache;
 use crate::solver::{compute_summary, depth_from_name, depth_name};
@@ -61,6 +62,7 @@ pub fn library_save_estimate(
 pub fn library_save(
     app: AppHandle,
     game_state: tauri::State<Mutex<PostFlopGame>>,
+    locks_state: tauri::State<CurrentLocks>,
     name: String,
     depth: String,
     overwrite: bool,
@@ -104,6 +106,7 @@ pub fn library_save(
         }
         .to_string(),
         summary: compute_summary(&mut game),
+        locks: locks_state.0.lock().unwrap().clone(),
     };
 
     game.set_target_storage_mode(depth_from_name(&depth)?)?;
@@ -181,6 +184,7 @@ pub fn library_load(
     game_state: tauri::State<Mutex<PostFlopGame>>,
     range_state: tauri::State<Mutex<RangeManager>>,
     cache_state: tauri::State<Mutex<SubgameCache>>,
+    locks_state: tauri::State<CurrentLocks>,
     name: String,
 ) -> Result<SolutionMeta, String> {
     let dir = library_dir(&app)?;
@@ -193,10 +197,12 @@ pub fn library_load(
     // Free the current game (and its subgames) first so both never coexist in memory.
     cache_state.lock().unwrap().clear();
     *game = PostFlopGame::new();
+    locks_state.0.lock().unwrap().clear();
     let (loaded, meta) =
         library::load(&dir, &name, max_memory).map_err(|e| format!("{ERR_GAME_FREED}: {e}"))?;
     let ranges = loaded.card_config().range;
     *game = loaded;
+    *locks_state.0.lock().unwrap() = meta.locks.clone();
     let mut range_manager = range_state.lock().unwrap();
     range_manager.0[0] = ranges[0];
     range_manager.0[1] = ranges[1];

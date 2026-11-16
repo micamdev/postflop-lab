@@ -18,7 +18,7 @@ pub const EXTENSION: &str = "plab";
 pub const ERR_EXISTS: &str = "exists";
 
 /// Version of the [`SolutionMeta`] schema.
-pub const META_SCHEMA: u32 = 1;
+pub const META_SCHEMA: u32 = 2;
 
 /// zstd level used for saved solutions (fast, good ratio on solver data).
 const COMPRESSION_LEVEL: i32 = 3;
@@ -42,6 +42,9 @@ pub struct SolutionMeta {
     /// "32" (32-bit floats) or "16" (16-bit integers).
     pub precision: String,
     pub summary: SolutionSummary,
+    /// Locks the solution was solved with (schema 2; absent from schema 1 files).
+    #[serde(default)]
+    pub locks: Vec<crate::locks::NodeLock>,
 }
 
 /// Root summary, computed at save time so that aggregate reports never need to load the data.
@@ -353,6 +356,7 @@ pub(crate) mod tests {
             iterations: 50,
             precision: "32".to_string(),
             summary: SolutionSummary::default(),
+            locks: Vec::new(),
         }
     }
 
@@ -486,5 +490,19 @@ pub(crate) mod tests {
             err.contains(&game.target_memory_usage().to_string()),
             "{err}"
         );
+    }
+}
+
+#[cfg(test)]
+mod schema_tests {
+    use super::*;
+
+    #[test]
+    fn v1_metadata_still_loads() {
+        let mut value = serde_json::to_value(tests::meta(1)).unwrap();
+        value.as_object_mut().unwrap().remove("locks");
+        value["schema"] = serde_json::json!(1);
+        let meta: SolutionMeta = serde_json::from_value(value).unwrap();
+        assert!(meta.locks.is_empty());
     }
 }

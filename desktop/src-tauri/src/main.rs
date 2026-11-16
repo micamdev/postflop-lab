@@ -6,6 +6,8 @@
 mod bunching;
 mod library;
 mod library_commands;
+mod lock_commands;
+mod locks;
 mod range;
 mod session;
 mod solver;
@@ -34,6 +36,7 @@ fn main() {
         .manage(Mutex::new(PostFlopGame::default()))
         .manage(Mutex::new(session::SubgameCache::default()))
         .manage(subgame_commands::SubgameControl::default())
+        .manage(lock_commands::CurrentLocks::default())
         .manage(Mutex::new(ThreadPoolBuilder::new().build().unwrap()))
         .invoke_handler(tauri::generate_handler![
             os_name,
@@ -83,6 +86,9 @@ fn main() {
             game_storage_mode,
             subgame_commands::game_resolve_subgame,
             subgame_commands::game_cancel_subgame,
+            lock_commands::game_capture_lock,
+            lock_commands::game_prepare_lock_solve,
+            lock_commands::game_locks,
             library_list,
             library_save_estimate,
             library_save,

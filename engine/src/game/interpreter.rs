@@ -251,6 +251,38 @@ impl PostFlopGame {
             || (turn_dealt && self.storage_mode == BoardState::Turn))
     }
 
+    /// Returns the turn card whose subtree actually stores the strategy for `card`, at the turn
+    /// chance node.
+    ///
+    /// Suit isomorphism merges strategically identical turn cards (e.g. the same rank in two
+    /// suits absent from the flop and the ranges): they share one subtree, stored under a
+    /// representative card. `card` itself is returned when it is not merged.
+    ///
+    /// Returns `Err` when the current node is not the turn chance node or `card` cannot be
+    /// dealt there.
+    pub fn turn_representative(&self, card: Card) -> Result<Card, String> {
+        if self.state < State::MemoryAllocated || !self.is_chance_node() || self.turn != NOT_DEALT {
+            return Err("Not at the turn chance node".to_string());
+        }
+        if card >= 52 || self.possible_cards() & (1u64 << card) == 0 {
+            return Err("This card cannot be dealt here".to_string());
+        }
+        if self.available_actions().contains(&Action::Chance(card)) {
+            return Ok(card);
+        }
+        let node = self.node();
+        let isomorphism = self.isomorphic_chances(&node);
+        let actions = self.available_actions();
+        for (i, &repr_index) in isomorphism.iter().enumerate() {
+            if self.isomorphism_card_turn[i] == card {
+                if let Action::Chance(repr_card) = actions[repr_index as usize] {
+                    return Ok(repr_card);
+                }
+            }
+        }
+        Err("No representative found for this card".to_string())
+    }
+
     /// Returns the current board.
     ///
     /// The returned vector is of length 3, 4, or 5. The flop cards, the turn card, and the river
