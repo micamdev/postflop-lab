@@ -1,0 +1,98 @@
+<style>
+  .dir { margin: 0 0 36px; border-radius: 10px; overflow: hidden; cursor: pointer; outline: 3px solid transparent; }
+  .dir.selected { outline-color: #2fb5a1; }
+  .dir-title { font: 600 15px system-ui; margin: 0 0 6px; }
+  .dir-sub { font: 13px system-ui; opacity: .75; margin: 0 0 10px; line-height: 1.45; }
+  .app { --bg:#151517; --panel:#1d1d20; --panel2:#242428; --border:#323238; --text:#ececee; --muted:#9a9aa3; --accent:#2fb5a1; --empty:#26262a; --oop:#5b8def; --ip:#e0a03c;
+         font: 13px "Inter", system-ui, sans-serif; background: var(--bg); color: var(--text); padding:12px; min-width:1280px; }
+  .seg { display:inline-flex; background:var(--panel2); border:1px solid var(--border); border-radius:7px; padding:2px; }
+  .seg span { padding:4px 11px; border-radius:5px; color:var(--muted); font-weight:500; }
+  .seg span.on { background:var(--accent); color:#fff; }
+  .tools { display:flex; gap:10px; align-items:center; margin-bottom:10px; }
+  .grow { flex:1; }
+  .panel { background:var(--panel); border:1px solid var(--border); border-radius:8px; padding:10px 12px; }
+  .ttl { font-size:11px; color:var(--muted); letter-spacing:.07em; font-weight:600; display:flex; justify-content:space-between; margin-bottom:8px; }
+  .kpis { display:flex; gap:10px; margin-bottom:10px; }
+  .kpi { flex:1; background:var(--panel); border:1px solid var(--border); border-radius:8px; padding:8px 10px; }
+  .kpi .l { font-size:11px; color:var(--muted); letter-spacing:.06em; font-weight:600; }
+  .kpi .v { display:flex; justify-content:space-between; font-weight:700; font-size:15px; margin:4px 0 5px; font-variant-numeric:tabular-nums; }
+  .o { color:var(--oop); } .i { color:var(--ip); }
+  .split { display:flex; height:5px; border-radius:3px; overflow:hidden; }
+  .split div:first-child { background:var(--oop); } .split div:last-child { background:var(--ip); flex:1; }
+  .star { color:#f0c419; font-size:12px; }
+  .row { display:flex; gap:10px; }
+  .grid { display:grid; grid-template-columns:repeat(13,1fr); gap:1px; }
+  .grid div { height:22px; border-radius:2px; background:var(--empty); font-size:9px; color:var(--muted); padding:1px 2px; }
+  .grid div.on { color:#fff; font-weight:600; }
+  .dist { display:grid; grid-template-columns:70px 1fr 1fr; gap:6px 8px; align-items:center; font-size:12px; font-variant-numeric:tabular-nums; }
+  .dist .lab { color:var(--muted); }
+  .hb { display:flex; align-items:center; gap:6px; }
+  .hb.l { flex-direction:row-reverse; }
+  .hb div { height:12px; border-radius:2px; }
+  .mini-row { display:flex; justify-content:space-between; padding:5px 0; border-bottom:1px solid var(--border); font-variant-numeric:tabular-nums; }
+  .mini-row:last-child { border:none; }
+  .mini-row em { font-style:normal; color:var(--muted); }
+  .legend { font-size:11px; color:var(--muted); display:flex; gap:12px; }
+  .legend b { display:inline-block; width:10px; height:10px; border-radius:2px; vertical-align:-1px; margin-right:4px; }
+</style>
+
+<h2>Compare : quelle disposition ?</h2>
+<p class="subtitle">Même contenu qu'aujourd'hui (combos, équité, EV, EQR, tranches d'équité, nut advantage), en composants compacts. Les grilles montrent l'équité de chaque main (plus clair = plus fort). Clique sur ta préférée.</p>
+
+<div class="dir" data-choice="kpi-top" onclick="toggleSelect(this)">
+  <p class="dir-title">A · Chiffres clés en haut, grilles en dessous</p>
+  <p class="dir-sub">Une rangée de petites tuiles OOP vs IP (combos, équité, EV, EQR, nut advantage), puis les deux grilles et la distribution d'équité en barres face à face (OOP à gauche, IP à droite).</p>
+  <div class="app">
+    <div class="tools"><div class="seg"><span>Strategy</span><span>Ranges</span><span>Equity</span><span class="on">Compare</span></div><div class="grow"></div><div class="seg"><span class="on">Equity</span><span>Strategy</span></div></div>
+    <div class="kpis">
+      <div class="kpi"><div class="l">COMBOS</div><div class="v"><span class="o">123.0</span><span class="i">188.0</span></div><div class="split"><div style="width:39.5%"></div><div></div></div></div>
+      <div class="kpi"><div class="l">EQUITY</div><div class="v"><span class="o">49.7%</span><span class="i">50.3%</span></div><div class="split"><div style="width:49.7%"></div><div></div></div></div>
+      <div class="kpi"><div class="l">EV</div><div class="v"><span class="o">8.97</span><span class="i">11.03</span></div><div class="split"><div style="width:44.8%"></div><div></div></div></div>
+      <div class="kpi"><div class="l">EQR</div><div class="v"><span class="o">90.2%</span><span class="i">109.7%</span></div><div class="split"><div style="width:45%"></div><div></div></div></div>
+      <div class="kpi"><div class="l">NUT ADVANTAGE</div><div class="v"><span class="o">4.9% <span class="star">★</span></span><span class="i">3.2%</span></div><div class="split"><div style="width:60%"></div><div></div></div></div>
+    </div>
+    <div class="row">
+      <div class="panel" style="flex:1"><div class="ttl"><span class="o">OOP · 123 combos</span><span>equity by hand</span></div><div class="grid" id="ga1"></div></div>
+      <div class="panel" style="width:330px">
+        <div class="ttl"><span>EQUITY DISTRIBUTION</span><span>% of range</span></div>
+        <div class="dist" id="d1"></div>
+        <div class="legend" style="margin-top:12px"><span><b style="background:var(--oop)"></b>OOP</span><span><b style="background:var(--ip)"></b>IP</span></div>
+      </div>
+      <div class="panel" style="flex:1"><div class="ttl"><span class="i">IP · 188 combos</span><span>equity by hand</span></div><div class="grid" id="ga2"></div></div>
+    </div>
+  </div>
+</div>
+
+<div class="dir" data-choice="side-panel" onclick="toggleSelect(this)">
+  <p class="dir-title">B · Grilles à gauche, panneau de comparaison étroit à droite</p>
+  <p class="dir-sub">Les deux grilles prennent la place ; à droite, une colonne compacte de lignes OOP / IP et la distribution d'équité. Même logique que le panneau « Summary » de l'onglet Strategy.</p>
+  <div class="app">
+    <div class="tools"><div class="seg"><span>Strategy</span><span>Ranges</span><span>Equity</span><span class="on">Compare</span></div><div class="grow"></div><div class="seg"><span class="on">Equity</span><span>Strategy</span></div></div>
+    <div class="row">
+      <div class="panel" style="flex:1"><div class="ttl"><span class="o">OOP · 123 combos</span></div><div class="grid" id="gb1"></div></div>
+      <div class="panel" style="flex:1"><div class="ttl"><span class="i">IP · 188 combos</span></div><div class="grid" id="gb2"></div></div>
+      <div class="panel" style="width:280px">
+        <div class="ttl"><span class="o">OOP</span><span class="i">IP</span></div>
+        <div class="mini-row"><span class="o">123.0</span><em>Combos</em><span class="i">188.0</span></div>
+        <div class="mini-row"><span class="o">49.7%</span><em>Equity</em><span class="i">50.3%</span></div>
+        <div class="mini-row"><span class="o">8.97</span><em>EV</em><span class="i">11.03</span></div>
+        <div class="mini-row"><span class="o">90.2%</span><em>EQR</em><span class="i">109.7%</span></div>
+        <div class="mini-row"><span class="o">4.9% <span class="star">★</span></span><em>Nut adv. (≥90%)</em><span class="i">3.2%</span></div>
+        <div class="ttl" style="margin-top:14px"><span>EQUITY DISTRIBUTION</span></div>
+        <div class="dist" id="d2"></div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script>
+const R = "AKQJT98765432";
+const hand = (i, j) => i === j ? R[i] + R[j] : i < j ? R[i] + R[j] + "s" : R[j] + R[i] + "o";
+const inR = (i, j, k) => (i === j && i < 9 + k) || (i < j && i < 4 + k && j < 9 + k) || (i > j && j < 3 + k && i < 4 + k);
+const eq = (i, j) => [3, 4, 9].some(x => x === i || x === j) ? 0.85 : i === j ? 0.6 : 0.3 + ((i * 3 + j) % 5) / 20;
+const g = (id, k, col) => { let h = ""; for (let i = 0; i < 13; i++) for (let j = 0; j < 13; j++) { const on = inR(i, j, k); h += on ? `<div class="on" style="background:${col};opacity:${0.35 + eq(i, j) * 0.65}">${hand(i, j)}</div>` : `<div>${hand(i, j)}</div>`; } document.getElementById(id).innerHTML = h; };
+g("ga1", 0, "#5b8def"); g("ga2", 3, "#e0a03c"); g("gb1", 0, "#5b8def"); g("gb2", 3, "#e0a03c");
+const tr = [["≥ 90%", 4.9, 3.2], ["75–90%", 0.0, 10.4], ["50–75%", 40.2, 25.0], ["< 50%", 54.9, 61.4]];
+const dist = id => document.getElementById(id).innerHTML = tr.map(([l, o, p]) => `<span class="lab">${l}</span><div class="hb l"><div style="width:${o * 1.4}px;background:var(--oop)"></div><span class="o">${o.toFixed(1)}</span></div><div class="hb"><div style="width:${p * 1.4}px;background:var(--ip)"></div><span class="i">${p.toFixed(1)}</span></div>`).join("");
+dist("d1"); dist("d2");
+</script>

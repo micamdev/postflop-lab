@@ -1,0 +1,110 @@
+<style>
+  .dir { margin: 0 0 36px; border-radius: 10px; overflow: hidden; cursor: pointer; outline: 3px solid transparent; }
+  .dir.selected { outline-color: #4f8cff; }
+  .dir-title { font: 600 15px system-ui; margin: 0 0 8px; }
+  .dir-sub { font: 13px system-ui; opacity: .7; margin: 0 0 10px; }
+  .app { --check:#3fae6e; --bet1:#e0704f; --bet2:#c4473a; --fold:#4f86c6;
+         font: 13px "Inter", system-ui, sans-serif; background: var(--bg); color: var(--text); }
+  .t-night { --bg:#0e131d; --panel:#151c29; --panel2:#1b2333; --border:#26304a; --text:#e7eaf0; --muted:#8a94a8; --accent:#4f8cff; --empty:#1d2534; }
+  .t-graphite { --bg:#151517; --panel:#1d1d20; --panel2:#242428; --border:#323238; --text:#ececee; --muted:#9a9aa3; --accent:#2fb5a1; --empty:#26262a; }
+  .t-light { --bg:#f3f4f6; --panel:#ffffff; --panel2:#f7f8fa; --border:#e1e4ea; --text:#1b2130; --muted:#6b7385; --accent:#2f6fed; --empty:#eceef2; }
+  .bar { display:flex; align-items:center; gap:14px; height:40px; padding:0 14px; background:var(--panel); border-bottom:1px solid var(--border); }
+  .seg { display:flex; background:var(--panel2); border:1px solid var(--border); border-radius:7px; padding:2px; }
+  .seg span { padding:4px 11px; border-radius:5px; color:var(--muted); font-weight:500; }
+  .seg span.on { background:var(--accent); color:#fff; }
+  .board { display:flex; gap:3px; }
+  .card { width:22px; height:28px; border-radius:4px; display:flex; align-items:center; justify-content:center; font-weight:700; font-size:13px; color:#fff; }
+  .h { background:#d8455b; } .d { background:#3d7fd6; } .c { background:#3e9e5c; } .s { background:#4b5263; }
+  .name { font-weight:600; } .pill { font-size:11px; padding:2px 8px; border-radius:20px; background:rgba(63,174,110,.15); color:var(--check); font-weight:600; }
+  .grow { flex:1; }
+  .btn { padding:6px 14px; border-radius:7px; font-weight:600; background:var(--accent); color:#fff; }
+  .ghost { padding:6px 10px; border-radius:7px; color:var(--muted); border:1px solid var(--border); }
+  .strip { display:flex; gap:8px; padding:10px 14px; background:var(--bg); border-bottom:1px solid var(--border); }
+  .node { min-width:150px; background:var(--panel); border:1px solid var(--border); border-radius:8px; padding:8px 10px; }
+  .node.sel { border-color:var(--accent); box-shadow:0 0 0 1px var(--accent); }
+  .node .who { font-size:11px; font-weight:700; letter-spacing:.06em; color:var(--muted); margin-bottom:5px; display:flex; justify-content:space-between; }
+  .act { display:flex; align-items:center; gap:7px; padding:3px 5px; border-radius:5px; }
+  .act.picked { background:var(--panel2); }
+  .sw { width:8px; height:8px; border-radius:2px; }
+  .act b { font-weight:600; } .act i { margin-left:auto; font-style:normal; color:var(--muted); font-variant-numeric:tabular-nums; }
+  .tools { display:flex; align-items:center; gap:10px; padding:8px 14px; background:var(--bg); }
+  .stack { display:flex; height:22px; border-radius:6px; overflow:hidden; margin:0 14px 10px; font-size:11px; font-weight:700; color:#fff; }
+  .stack div { display:flex; align-items:center; padding-left:8px; }
+  .main { display:flex; gap:12px; padding:0 14px 14px; }
+  .grid { display:grid; grid-template-columns:repeat(13,1fr); gap:2px; width:520px; flex:none; }
+  .cell { position:relative; height:34px; border-radius:3px; overflow:hidden; background:var(--empty); }
+  .cell .fill { position:absolute; inset:0; display:flex; }
+  .cell span { position:relative; font-size:10px; font-weight:600; padding:2px 3px; color:#fff; text-shadow:0 1px 1px rgba(0,0,0,.35); }
+  .cell.out span { color:var(--muted); text-shadow:none; opacity:.7; }
+  .side { flex:1; background:var(--panel); border:1px solid var(--border); border-radius:8px; padding:10px 12px; }
+  .side h4 { margin:0 0 8px; font-size:12px; color:var(--muted); letter-spacing:.06em; }
+  .row { display:flex; justify-content:space-between; padding:5px 0; border-bottom:1px solid var(--border); font-variant-numeric:tabular-nums; }
+  .row:last-child { border:none; } .row em { font-style:normal; color:var(--muted); }
+</style>
+
+<h2>Quelle direction visuelle ?</h2>
+<p class="subtitle">Le même écran de résultats (OOP au flop J♥9♦4♣), en trois styles. Barre du haut fine, rectangles d'actions gardés, barre de stratégie du nœud, grille plus dense. Clique sur celui que tu préfères.</p>
+
+<div id="dirs"></div>
+
+<script>
+const themes = [
+  ["night", "A · Nuit", "Sombre bleuté, accent bleu — proche de GTO Wizard."],
+  ["graphite", "B · Graphite", "Sombre neutre, accent turquoise — sobre, style outil pro (Pio, Lucid)."],
+  ["light", "C · Clair pro", "Clair et net, accent bleu — style GTO+ modernisé."],
+];
+const R = "AKQJT98765432";
+const hand = (i, j) => i === j ? R[i] + R[j] : i < j ? R[i] + R[j] + "s" : R[j] + R[i] + "o";
+const inRange = (i, j) => (i === j && i < 10) || (i < j && i < 5 && j < 10) || (i > j && j < 4 && i < 5) || (i < j && j - i === 1 && i < 9);
+const betFrac = (i, j) => Math.max(0, Math.min(1, ((i * 7 + j * 3) % 11) / 10 * (i === j ? 1.2 : .8)));
+const grid = () => {
+  let h = "";
+  for (let i = 0; i < 13; i++) for (let j = 0; j < 13; j++) {
+    if (!inRange(i, j)) { h += `<div class="cell out"><span>${hand(i, j)}</span></div>`; continue; }
+    const b = betFrac(i, j);
+    h += `<div class="cell"><div class="fill"><div style="width:${b * 100}%;background:var(--bet1)"></div><div style="flex:1;background:var(--check)"></div></div><span>${hand(i, j)}</span></div>`;
+  }
+  return h;
+};
+const node = (who, acts, sel, extra = "") => `<div class="node ${sel ? "sel" : ""}"><div class="who"><span>${who}</span><span>${extra}</span></div>${acts.map(([n, p, c, pk]) => `<div class="act ${pk ? "picked" : ""}"><div class="sw" style="background:var(${c})"></div><b>${n}</b><i>${p}</i></div>`).join("")}</div>`;
+document.getElementById("dirs").innerHTML = themes.map(([k, t, s]) => `
+<div class="dir" data-choice="${k}" onclick="toggleSelect(this)">
+  <p class="dir-title">${t}</p><p class="dir-sub">${s}</p>
+  <div class="app t-${k}">
+    <div class="bar">
+      <div class="board"><div class="card h">J</div><div class="card d">9</div><div class="card c">4</div></div>
+      <span class="name">Jh 9d 4c</span><span class="pill">● Saved</span>
+      <div class="seg"><span>Setup</span><span class="on">Results</span><span>Library</span></div>
+      <div class="grow"></div>
+      <span class="ghost">⚙</span><span class="btn">▶ Solve</span>
+    </div>
+    <div class="strip">
+      <div class="node"><div class="who"><span>FLOP</span><span>Pot 20 · 100</span></div><div class="board" style="margin-top:6px"><div class="card h">J</div><div class="card d">9</div><div class="card c">4</div></div></div>
+      ${node("OOP", [["Check", "68.6%", "--check", true], ["Bet 7", "31.4%", "--bet1"]], false)}
+      ${node("IP", [["Check", "34.3%", "--check"], ["Bet 7", "65.7%", "--bet1"]], true, "188 combos")}
+    </div>
+    <div class="tools">
+      <div class="seg"><span class="on">Strategy</span><span>Ranges</span><span>Equity</span><span>Compare</span></div>
+      <div class="grow"></div>
+      <div class="seg"><span>OOP</span><span class="on">IP</span></div>
+      <div class="seg"><span class="on">Grouped</span><span>Suits</span></div>
+      <span class="ghost">🔒 Lock node</span>
+    </div>
+    <div class="stack"><div style="width:34.3%;background:var(--check)">Check 34.3%</div><div style="flex:1;background:var(--bet1)">Bet 7 · 65.7%</div></div>
+    <div class="main">
+      <div class="grid">${grid()}</div>
+      <div class="side">
+        <h4>AA · 6 COMBOS</h4>
+        <div class="row"><span>Strategy</span><span>Bet 97.6% · Check 2.4%</span></div>
+        <div class="row"><span>Equity</span><span>81.3%</span></div>
+        <div class="row"><span>EV</span><span>28.4</span></div>
+        <div class="row"><span>EQR</span><span>174.8%</span></div>
+        <h4 style="margin-top:14px">RANGE IP</h4>
+        <div class="row"><span>Combos</span><span>188.0</span></div>
+        <div class="row"><span>Equity</span><span>51.4% <em>vs 48.6%</em></span></div>
+        <div class="row"><span>EV</span><span>12.18</span></div>
+      </div>
+    </div>
+  </div>
+</div>`).join("");
+</script>
