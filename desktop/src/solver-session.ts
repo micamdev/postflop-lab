@@ -256,6 +256,10 @@ export const useSolverSession = defineStore("solverSession", () => {
     saveConfigTmp();
     isBuilding.value = true;
     isTreeBuilt.value = false;
+    // The game is about to be replaced: hide the old results (and close the lock editor) so
+    // no click reaches a game that is not solved. They stay hidden if the build fails.
+    store.isSolverFinished = false;
+    store.isSolverError = false;
     resetSolutionInfo();
 
     const errorString = await invokes.gameInit(
@@ -313,22 +317,49 @@ export const useSolverSession = defineStore("solverSession", () => {
     return (await invokes.osName()) === "macos" ? total * 0.7 : available;
   };
 
+  /** Stops the solver state after an unexpected error, with the error shown. */
+  const fail = (e: unknown) => {
+    store.isSolverRunning = false;
+    store.isSolverPaused = false;
+    store.isFinalizing = false;
+    store.isSolverError = true;
+    segmentStart.value = 0;
+    message.value = `Solver error: ${String(e)}`;
+  };
+
   /** Builds the tree from the setup and solves it with the current settings. */
   const solve = async () => {
+    // One start at a time; nothing else may touch the game until the solver runs.
+    if (store.isSolveStarting) return;
+    store.isSolveStarting = true;
+    try {
+      if (await startSolve()) {
+        store.isSolveStarting = false;
+        await resume();
+      }
+    } catch (e) {
+      fail(e);
+    } finally {
+      store.isSolveStarting = false;
+    }
+  };
+
+  /** Everything before the solve loop; returns whether the loop can start. */
+  const startSolve = async (): Promise<boolean> => {
     message.value = "";
     const settingsError = validateSolveSettings(settings.value);
     if (settingsError) {
       message.value = settingsError;
-      return;
+      return false;
     }
     if (store.isBunchingEnabled && store.bunchingFlop.length === 0) {
       message.value =
         "Bunching effect is on but its data is not ready: solving without it.";
     }
-    if (!(await buildTree())) return;
+    if (!(await buildTree())) return false;
     if (!areFlopMatching()) {
       message.value = "The flop and the bunching data do not match.";
-      return;
+      return false;
     }
 
     const extra = isBunchingActive() ? memoryBunching.value : 0;
@@ -341,7 +372,7 @@ export const useSolverSession = defineStore("solverSession", () => {
     );
     if (!choice.ok) {
       message.value = `Not enough memory: ${choice.message}.`;
-      return;
+      return false;
     }
     if (choice.fellBack) {
       message.value =
@@ -368,7 +399,7 @@ export const useSolverSession = defineStore("solverSession", () => {
         message.value = errorString;
         store.isSolverRunning = false;
         store.isSolverError = true;
-        return;
+        return false;
       }
     }
 
@@ -377,7 +408,7 @@ export const useSolverSession = defineStore("solverSession", () => {
     initialExploitability.value = exploitability.value;
     exploitabilityUpdated = true;
 
-    await resume();
+    return true;
   };
 
   /**
@@ -385,8 +416,21 @@ export const useSolverSession = defineStore("solverSession", () => {
    * `gamePrepareLockSolve`), with the current settings.
    */
   const runLockedSolve = async (lockCompression: boolean) => {
+    try {
+      await startLockedSolve(lockCompression);
+    } catch (e) {
+      fail(e);
+    }
+  };
+
+  const startLockedSolve = async (lockCompression: boolean) => {
     // Before any await: the game is unsolved (also set by the lock editor).
     store.isSolverFinished = false;
+    const settingsError = validateSolveSettings(settings.value);
+    if (settingsError) {
+      fail(settingsError);
+      return;
+    }
     store.isSolverRunning = true;
     compression.value = lockCompression;
     [memoryNeed32.value, memoryNeed16.value] = await invokes.gameMemoryUsage();
@@ -420,63 +464,70 @@ export const useSolverSession = defineStore("solverSession", () => {
   };
 
   const resume = async () => {
-    store.isSolverRunning = true;
-    store.isSolverPaused = false;
+    try {
+      store.isSolverRunning = true;
+      store.isSolverPaused = false;
 
-    if (segmentStart.value === 0) {
-      segmentStart.value = performance.now();
-      await invokes.setNumThreads(settings.value.threads);
-    }
-
-    const target =
-      (config.startingPot * settings.value.targetExploitability) / 100;
-
-    while (
-      !terminateFlag &&
-      iteration.value < settings.value.maxIterations &&
-      exploitability.value > target
-    ) {
-      if (pauseFlag) {
-        elapsedMs.value += performance.now() - segmentStart.value;
-        segmentStart.value = 0;
-        pauseFlag = false;
-        store.isSolverRunning = false;
-        store.isSolverPaused = true;
-        return;
+      if (segmentStart.value === 0) {
+        segmentStart.value = performance.now();
+        await invokes.setNumThreads(settings.value.threads);
       }
 
-      await invokes.gameSolveStep(iteration.value);
-      ++iteration.value;
-      exploitabilityUpdated = false;
+      const target =
+        (config.startingPot * settings.value.targetExploitability) / 100;
 
-      if (iteration.value % 10 === 0) {
+      while (
+        !terminateFlag &&
+        iteration.value < settings.value.maxIterations &&
+        exploitability.value > target
+      ) {
+        if (pauseFlag) {
+          elapsedMs.value += performance.now() - segmentStart.value;
+          segmentStart.value = 0;
+          pauseFlag = false;
+          store.isSolverRunning = false;
+          store.isSolverPaused = true;
+          return;
+        }
+
+        await invokes.gameSolveStep(iteration.value);
+        ++iteration.value;
+        exploitabilityUpdated = false;
+
+        if (iteration.value % 10 === 0) {
+          exploitability.value = Math.max(
+            await invokes.gameExploitability(),
+            0
+          );
+          exploitabilityUpdated = true;
+        }
+      }
+
+      if (!exploitabilityUpdated) {
         exploitability.value = Math.max(await invokes.gameExploitability(), 0);
-        exploitabilityUpdated = true;
       }
+
+      store.isSolverRunning = false;
+      store.isFinalizing = true;
+
+      await invokes.gameFinalize();
+
+      store.isFinalizing = false;
+      store.solutionInfo = {
+        name: null,
+        loaded: false,
+        iterations: iteration.value,
+        exploitability: exploitability.value,
+      };
+      store.isSolverFinished = true;
+      // Results opens (after a locked re-solve, at the node the lock was edited at).
+      store.navView = "results";
+
+      elapsedMs.value += performance.now() - segmentStart.value;
+      segmentStart.value = 0;
+    } catch (e) {
+      fail(e);
     }
-
-    if (!exploitabilityUpdated) {
-      exploitability.value = Math.max(await invokes.gameExploitability(), 0);
-    }
-
-    store.isSolverRunning = false;
-    store.isFinalizing = true;
-
-    await invokes.gameFinalize();
-
-    store.isFinalizing = false;
-    store.solutionInfo = {
-      name: null,
-      loaded: false,
-      iterations: iteration.value,
-      exploitability: exploitability.value,
-    };
-    store.isSolverFinished = true;
-    // Results opens (after a locked re-solve, at the node the lock was edited at).
-    store.navView = "results";
-
-    elapsedMs.value += performance.now() - segmentStart.value;
-    segmentStart.value = 0;
   };
 
   const clearMessage = () => {

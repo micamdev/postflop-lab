@@ -57,7 +57,12 @@ export const depthLoss = (depth: SolutionDepth): string => {
 export const loadSolution = async (name: string): Promise<string | null> => {
   const store = useStore();
 
-  if (store.isSolverRunning || store.isSolverPaused || store.isFinalizing) {
+  if (
+    store.isSolverRunning ||
+    store.isSolverPaused ||
+    store.isFinalizing ||
+    store.isSolveStarting
+  ) {
     return "Stop the solver before loading a solution.";
   }
   if (store.isLibraryBusy) return null;

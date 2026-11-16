@@ -118,6 +118,8 @@ export const useStore = defineStore("app", {
     isSolutionSaved: false,
     /** A library operation (load) holds the game: solver controls are locked. */
     isLibraryBusy: false,
+    /** A solve is starting (tree build, memory checks, allocation): nothing else may touch the game. */
+    isSolveStarting: false,
     /** Incremented when the game no longer matches the tree built in Run Solver. */
     treeResetCount: 0,
     /** Incremented after a solution is loaded: range and board texts refresh. */

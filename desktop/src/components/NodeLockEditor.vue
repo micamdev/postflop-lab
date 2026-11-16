@@ -239,6 +239,7 @@
 import { computed, onMounted, ref } from "vue";
 import { useStore } from "../store";
 import { useSolverSession } from "../solver-session";
+import { validateSolveSettings } from "../solve-settings";
 import * as invokes from "../invokes";
 import { NodeLock } from "../invokes";
 import { Results, SpotPlayer } from "../result-types";
@@ -584,6 +585,9 @@ const resolveDisabledReason = computed(() => {
   if (store.isBunchingEnabled && store.bunchingFlop.length > 0) {
     return "Locks are not available with the bunching effect.";
   }
+  if (store.isSolveStarting) return "A solve is starting.";
+  const settingsError = validateSolveSettings(session.settings);
+  if (settingsError) return `Solve settings: ${settingsError}`;
   return "";
 });
 

@@ -167,6 +167,7 @@ const canSolve = computed(
     !store.isLibraryBusy &&
     !store.isBunchingRunning &&
     !session.isBuilding &&
+    !store.isSolveStarting &&
     !store.isSolverRunning &&
     !store.isSolverPaused &&
     !store.isFinalizing
