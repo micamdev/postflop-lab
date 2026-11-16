@@ -1,7 +1,7 @@
 # Node lock — première version (nœud affiché)
 
 Date : 2026-11-16
-Statut : en revue
+Statut : validé
 
 ## Pourquoi
 
