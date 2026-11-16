@@ -54,6 +54,7 @@ import { checkConfig, useSolverSession } from "../../solver-session";
 import { choosePrecision } from "../../solve-status";
 import { gameTreeArgs } from "../../game-args";
 import { formatBytes } from "../../utils";
+import { latestOnly } from "../../latest-only";
 import * as invokes from "../../invokes";
 import UiPanel from "../ui/UiPanel.vue";
 
@@ -76,7 +77,8 @@ const memoryLimit = async () => {
   return (await invokes.osName()) === "macos" ? total * 0.7 : available;
 };
 
-const estimate = async () => {
+// One estimate in flight (each may build a tree): edits made meanwhile run once after it.
+const estimate = latestOnly(async () => {
   const id = ++requestId;
   const configError = checkConfig(config);
   if (configError) {
@@ -95,7 +97,7 @@ const estimate = async () => {
   } catch (e) {
     if (id === requestId) state.value = { kind: "none", reason: String(e) };
   }
-};
+});
 
 const schedule = () => {
   clearTimeout(timer);

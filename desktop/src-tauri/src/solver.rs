@@ -190,8 +190,30 @@ fn build_game_inputs(
     Ok((card_config, action_tree))
 }
 
+/// Most nodes a tree may have to be estimated while the setup is edited: building it allocates
+/// its node arena (64 bytes per node), so a larger tree would take gigabytes on every edit.
+const MAX_ESTIMATE_NODES: u64 = 8_000_000;
+
 /// Memory needed to solve a setup (32-bit, 16-bit), from a separate game.
 fn estimate_memory(ranges: &[Range; 2], args: &GameTreeArgs) -> Result<(u64, u64), String> {
+    estimate_memory_capped(ranges, args, MAX_ESTIMATE_NODES)
+}
+
+/// As `estimate_memory`, refusing (before building anything) a tree of more than `max_nodes`.
+fn estimate_memory_capped(
+    ranges: &[Range; 2],
+    args: &GameTreeArgs,
+    max_nodes: u64,
+) -> Result<(u64, u64), String> {
+    let (card_config, action_tree) = build_game_inputs(ranges, args)?;
+    let nodes = PostFlopGame::count_tree_nodes(card_config, action_tree)?;
+    if nodes > max_nodes {
+        return Err(format!(
+            "Tree too large to estimate while editing ({:.1} million nodes): fewer bet sizes              would be needed to solve it on most computers",
+            nodes as f64 / 1e6
+        ));
+    }
+    // Small enough: build it (the inputs again, the action tree being consumed above).
     let (card_config, action_tree) = build_game_inputs(ranges, args)?;
     let game = PostFlopGame::with_config(card_config, action_tree)?;
     Ok(game.memory_usage())
@@ -859,5 +881,19 @@ mod tests {
     fn estimate_rejects_short_board() {
         let ranges = setup_ranges("AA,KK", "QQ,JJ");
         assert!(estimate_memory(&ranges, &setup_args("Td9d", "50%")).is_err());
+    }
+
+    #[test]
+    fn estimate_refuses_a_tree_too_large_to_build() {
+        let ranges = setup_ranges("AA,KK", "QQ,JJ");
+        let args = setup_args("Td9d6h", "50%");
+        let (card_config, action_tree) = build_game_inputs(&ranges, &args).unwrap();
+        let nodes = PostFlopGame::count_tree_nodes(card_config, action_tree).unwrap();
+        assert!(nodes > 1);
+
+        // Just enough nodes: estimated; one fewer allowed: refused before building.
+        assert!(estimate_memory_capped(&ranges, &args, nodes).is_ok());
+        let err = estimate_memory_capped(&ranges, &args, nodes - 1).unwrap_err();
+        assert!(err.contains("too large"), "{err}");
     }
 }
