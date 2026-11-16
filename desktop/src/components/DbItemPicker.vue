@@ -466,6 +466,12 @@
 <script setup lang="ts">
 import { computed, nextTick, ref } from "vue";
 import * as Db from "../db";
+import {
+  JsonItem,
+  SavedStore,
+  checkJsonItems,
+  itemsToAdd,
+} from "../saved-items";
 
 import { open, save } from "@tauri-apps/plugin-dialog";
 import { readTextFile, writeTextFile } from "@tauri-apps/plugin-fs";
@@ -487,28 +493,6 @@ type Group = {
   opened: boolean;
   isEditing: boolean;
   items: (Item | Group)[];
-};
-
-const isEqual = (lhs: unknown, rhs: unknown) => {
-  if (lhs === null || typeof lhs !== "object") return lhs === rhs;
-  if (Array.isArray(lhs)) {
-    if (!Array.isArray(rhs) || lhs.length !== rhs.length) return false;
-    for (let i = 0; i < lhs.length; ++i) {
-      if (!isEqual(lhs[i], rhs[i])) return false;
-    }
-  } else {
-    if (rhs === null || typeof rhs !== "object") return false;
-    const lhsEntries = Object.entries(lhs);
-    const rhsEntries = Object.entries(rhs);
-    if (lhsEntries.length !== rhsEntries.length) return false;
-    lhsEntries.sort((a, b) => a[0].localeCompare(b[0]));
-    rhsEntries.sort((a, b) => a[0].localeCompare(b[0]));
-    for (let i = 0; i < lhsEntries.length; ++i) {
-      if (lhsEntries[i][0] !== rhsEntries[i][0]) return false;
-      if (!isEqual(lhsEntries[i][1], rhsEntries[i][1])) return false;
-    }
-  }
-  return true;
 };
 
 const clone = (value: unknown) => {
@@ -1121,105 +1105,6 @@ const deleteItem = async (isUserAction: boolean) => {
 
 const importError = ref("");
 
-type JsonItem = {
-  path: string[];
-  isGroup: boolean;
-  value?: unknown;
-};
-
-const checkJson = (array: JsonItem[]) => {
-  if (!Array.isArray(array)) return false;
-
-  let valueType = "";
-  if (props.storeName === "ranges") valueType = "string";
-  if (props.storeName === "configurations") valueType = "object";
-  if (valueType === "") return false;
-
-  const map = new Map<string, boolean>();
-  map.set(JSON.stringify([]), true);
-
-  for (const item of array) {
-    if (
-      typeof item.isGroup !== "boolean" ||
-      !Array.isArray(item.path) ||
-      item.path.some((x) => typeof x !== "string") ||
-      item.path.length > (item.isGroup ? 3 : 4) ||
-      (!item.isGroup && typeof item.value !== valueType)
-    ) {
-      return false;
-    }
-
-    item.path = item.path.map((x) => x.trim());
-
-    if (
-      item.path.some((x) => x === "") ||
-      !map.get(JSON.stringify(item.path.slice(0, -1))) ||
-      map.has(JSON.stringify(item.path))
-    ) {
-      return false;
-    }
-
-    map.set(JSON.stringify(item.path), item.isGroup);
-  }
-
-  return true;
-};
-
-const getItemsToAdd = async (array: JsonItem[]) => {
-  const masterData = await Db.getArray(props.storeName);
-  const masterMap = new Map<string, Db.DbItem | Db.DbGroup>();
-  for (const item of masterData) {
-    const path = [item.name0, item.name1, item.name2, item.name3, ""];
-    path.length = path.findIndex((x) => x === "");
-    masterMap.set(JSON.stringify(path), item);
-  }
-
-  const ret: (Db.DbItem | Db.DbGroup)[] = [];
-
-  for (const item of array) {
-    const depth = item.path.length;
-    const name = item.path[depth - 1];
-    let pathStr = JSON.stringify(item.path);
-
-    if (item.isGroup) {
-      const master = masterMap.get(pathStr);
-      if (master && master.isGroup === 0) return name;
-      if (!master) {
-        ret.push({
-          name0: item.path[0],
-          name1: item.path[1] ?? "",
-          name2: item.path[2] ?? "",
-          name3: item.path[3] ?? "",
-          isGroup: 1,
-        });
-      }
-    } else {
-      let i = 2;
-      let master = masterMap.get(pathStr);
-      while (
-        master &&
-        (master.isGroup === 1 || !isEqual(master.value, item.value))
-      ) {
-        item.path[depth - 1] = `${name} (${i++})`;
-        pathStr = JSON.stringify(item.path);
-        master = masterMap.get(pathStr);
-      }
-      if (!master) {
-        ret.push({
-          name0: item.path[0],
-          name1: item.path[1] ?? "",
-          name2: item.path[2] ?? "",
-          name3: item.path[3] ?? "",
-          isGroup: 0,
-          value: item.value,
-        });
-      }
-    }
-  }
-
-  return ret;
-};
-
 const importJson = async () => {
   if (errorOccured.value || isEditing.value) return;
 
@@ -1252,18 +1137,22 @@ const importJson = async () => {
     return;
   }
 
-  if (!checkJson(obj.data)) {
+  if (!checkJsonItems(props.storeName as SavedStore, obj.data)) {
     importError.value = "Invalid data";
     return;
   }
 
-  const itemsToAdd = await getItemsToAdd(obj.data);
-  if (typeof itemsToAdd === "string") {
-    importError.value = `Cannot create group "${itemsToAdd}" because the item already exists`;
+  const toAdd = itemsToAdd(
+    props.storeName as SavedStore,
+    obj.data,
+    await Db.getArray(props.storeName)
+  );
+  if (typeof toAdd === "string") {
+    importError.value = `Cannot create group "${toAdd}" because the item already exists`;
     return;
   }
 
-  errorOccured.value ||= !(await Db.bulkAdd(props.storeName, itemsToAdd));
+  errorOccured.value ||= !(await Db.bulkAdd(props.storeName, toAdd));
   channel.postMessage({ type: "importJson" });
   await loadData();
 };

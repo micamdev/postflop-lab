@@ -1,0 +1,144 @@
+import { describe, expect, test } from "vitest";
+import type { DbGroup, DbItem } from "./db";
+import {
+  FolderNode,
+  SavedNode,
+  buildFolderTree,
+  checkJsonItems,
+  filterFolderTree,
+  itemsToAdd,
+  nameTaken,
+  toJsonItems,
+} from "./saved-items";
+
+const group = (...path: string[]): DbGroup => ({
+  name0: path[0],
+  name1: path[1] ?? "",
+  name2: path[2] ?? "",
+  name3: path[3] ?? "",
+  isGroup: 1,
+});
+const item = (value: unknown, ...path: string[]): DbItem => ({
+  name0: path[0],
+  name1: path[1] ?? "",
+  name2: path[2] ?? "",
+  name3: path[3] ?? "",
+  isGroup: 0,
+  value,
+});
+
+const rows = [
+  item("AA", "BTN open"),
+  group("100bb"),
+  group("100bb", "SRP"),
+  item("KK", "100bb", "SRP", "BB vs BTN call"),
+  item("QQ", "100bb", "BB10"),
+  item("JJ", "100bb", "BB9"),
+  group("100bb", "SRP", "Deep"),
+  item("TT", "100bb", "SRP", "Deep", "BB vs CO"),
+  group("3bet pots"),
+  item("99", "3bet pots", "SB vs BTN"),
+];
+
+const names = (nodes: SavedNode[]) => nodes.map((n) => n.name);
+const folder = (nodes: SavedNode[], name: string) =>
+  nodes.find((n) => n.kind === "folder" && n.name === name) as FolderNode;
+
+describe("buildFolderTree", () => {
+  test("nests four levels, folders first, natural sort", () => {
+    const tree = buildFolderTree(rows);
+    expect(names(tree)).toEqual(["3bet pots", "100bb", "BTN open"]);
+    const bb = folder(tree, "100bb");
+    expect(names(bb.children)).toEqual(["SRP", "BB9", "BB10"]);
+    const deep = folder(folder(bb.children, "SRP").children, "Deep");
+    expect(deep.children[0]).toEqual({
+      kind: "item",
+      name: "BB vs CO",
+      path: ["100bb", "SRP", "Deep", "BB vs CO"],
+      value: "TT",
+    });
+  });
+});
+
+describe("filterFolderTree", () => {
+  test("keeps matches with their ancestors", () => {
+    const tree = filterFolderTree(buildFolderTree(rows), "bb vs");
+    expect(names(tree)).toEqual(["100bb"]);
+    const srp = folder(folder(tree, "100bb").children, "SRP");
+    expect(names(srp.children)).toEqual(["Deep", "BB vs BTN call"]);
+  });
+
+  test("a matching folder keeps all its children", () => {
+    const tree = filterFolderTree(buildFolderTree(rows), "3BET");
+    expect(names(folder(tree, "3bet pots").children)).toEqual(["SB vs BTN"]);
+  });
+
+  test("filterFolderTree with no match", () => {
+    expect(filterFolderTree(buildFolderTree(rows), "zzz")).toEqual([]);
+  });
+
+  test("an empty query keeps everything", () => {
+    expect(filterFolderTree(buildFolderTree(rows), "  ")).toEqual(
+      buildFolderTree(rows)
+    );
+  });
+});
+
+describe("nameTaken", () => {
+  test("item, folder or free", () => {
+    const tree = buildFolderTree(rows);
+    expect(nameTaken(tree, ["100bb"], "BB9")).toBe("item");
+    expect(nameTaken(tree, ["100bb"], "SRP")).toBe("folder");
+    expect(nameTaken(tree, ["100bb"], "BB8")).toBeNull();
+    expect(nameTaken(tree, [], "BTN open")).toBe("item");
+  });
+});
+
+describe("JSON import and export", () => {
+  test("checkJsonItems accepts an export and rejects broken data", () => {
+    const exported = toJsonItems(buildFolderTree(rows));
+    expect(checkJsonItems("ranges", exported)).toBe(true);
+    expect(checkJsonItems("configurations", exported)).toBe(false);
+    expect(checkJsonItems("ranges", [{ isGroup: false, value: "AA" }])).toBe(
+      false
+    );
+    expect(
+      checkJsonItems("ranges", [
+        { path: ["a", "b", "c", "d", "e"], isGroup: false, value: "AA" },
+      ])
+    ).toBe(false);
+    // An item whose folder is not in the file.
+    expect(
+      checkJsonItems("ranges", [
+        { path: ["x", "y"], isGroup: false, value: "AA" },
+      ])
+    ).toBe(false);
+  });
+
+  test("export then import into an empty library gives the same rows", () => {
+    const exported = toJsonItems(buildFolderTree(rows));
+    const added = itemsToAdd("ranges", exported, []);
+    expect(Array.isArray(added)).toBe(true);
+    const sortKey = (r: DbItem | DbGroup) =>
+      [r.name0, r.name1, r.name2, r.name3, r.isGroup].join("/");
+    expect((added as (DbItem | DbGroup)[]).map(sortKey).sort()).toEqual(
+      rows.map(sortKey).sort()
+    );
+  });
+
+  test("itemsToAdd skips identical items and renames different ones", () => {
+    const data = [
+      { path: ["BTN open"], isGroup: false, value: "AA" },
+      { path: ["100bb"], isGroup: true },
+      { path: ["100bb", "BB9"], isGroup: false, value: "22" },
+    ];
+    expect(itemsToAdd("ranges", data, rows)).toEqual([
+      item("22", "100bb", "BB9 (2)"),
+    ]);
+  });
+
+  test("itemsToAdd reports a group that collides with an item", () => {
+    const data = [{ path: ["BTN open"], isGroup: true }];
+    expect(itemsToAdd("ranges", data, rows)).toBe("BTN open");
+  });
+});
