@@ -74,3 +74,14 @@ describe("useRangeEditing", () => {
     expect(store.rangeSources).toEqual([null, null]);
   });
 });
+
+describe("shared editing state", () => {
+  test("the explorer and the range panel edit the same range state", async () => {
+    const fromExplorer = useRangeEditing(0);
+    const fromPanel = useRangeEditing(0);
+    await fromExplorer.loadText("AA", ["BTN open"]);
+    expect(fromPanel.text.value).toBe("AA");
+    expect(fromPanel.numCombos.value).toBe(6);
+    expect(useRangeEditing(1)).not.toBe(fromPanel);
+  });
+});

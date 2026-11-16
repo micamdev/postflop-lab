@@ -173,7 +173,12 @@ export const checkJsonItems = (
   return true;
 };
 
-const toRow = (path: string[], isGroup: boolean, value?: unknown): Row =>
+/** The database row of a folder or an item at `path`. */
+export const rowFor = (
+  path: string[],
+  isGroup: boolean,
+  value?: unknown
+): Row =>
   isGroup
     ? {
         name0: path[0],
@@ -214,7 +219,7 @@ export const itemsToAdd = (
       const master = present.get(JSON.stringify(path));
       if (master && master.isGroup === 0) return name;
       if (!master) {
-        const row = toRow(path, true);
+        const row = rowFor(path, true);
         added.push(row);
         present.set(JSON.stringify(path), row);
       }
@@ -231,7 +236,7 @@ export const itemsToAdd = (
       master = present.get(JSON.stringify(path));
     }
     if (!master) {
-      const row = toRow(path, false, entry.value);
+      const row = rowFor(path, false, entry.value);
       added.push(row);
       present.set(JSON.stringify(path), row);
     }
@@ -246,3 +251,31 @@ export const toJsonItems = (nodes: SavedNode[]): JsonItem[] =>
       ? [{ path: node.path, isGroup: true }, ...toJsonItems(node.children)]
       : [{ path: node.path, isGroup: false, value: node.value }]
   );
+
+/** Rows shown in the explorer: every node whose ancestors are all open, with its depth. */
+export const visibleRows = (
+  nodes: SavedNode[],
+  isOpen: (path: string[]) => boolean,
+  depth = 0
+): { node: SavedNode; depth: number }[] =>
+  nodes.flatMap((node) => [
+    { node, depth },
+    ...(node.kind === "folder" && isOpen(node.path)
+      ? visibleRows(node.children, isOpen, depth + 1)
+      : []),
+  ]);
+
+/** Whether `path` is `ancestor` or inside it. */
+export const isUnder = (path: string[], ancestor: string[]): boolean =>
+  ancestor.length <= path.length &&
+  ancestor.every((name, i) => path[i] === name);
+
+/** `path` after the node at `renamed` was renamed to `newName`. */
+export const renamedPath = (
+  path: string[],
+  renamed: string[],
+  newName: string
+): string[] =>
+  isUnder(path, renamed)
+    ? path.map((name, i) => (i === renamed.length - 1 ? newName : name))
+    : path;

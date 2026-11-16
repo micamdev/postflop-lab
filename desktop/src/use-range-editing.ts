@@ -1,14 +1,14 @@
 // Editing one player's range (0 OOP, 1 IP, 2–5 bunching fold ranges): grid painting, text,
 // weight, clear and invert, kept in sync with the engine and `store.ranges`.
 
-import { ref, watch } from "vue";
+import { effectScope, ref, watch } from "vue";
 import { useStore } from "./store";
 import * as invokes from "./invokes";
 import { parseRangeText } from "./range-text";
 
 type PaintMode = "none" | "enabling" | "disabling";
 
-export const useRangeEditing = (player: number) => {
+const createRangeEditing = (player: number) => {
   const store = useStore();
   const text = ref("");
   const error = ref("");
@@ -135,4 +135,26 @@ export const useRangeEditing = (player: number) => {
     clear,
     invert,
   };
+};
+
+type RangeEditing = ReturnType<typeof createRangeEditing>;
+
+// One editing state per player and app store: the explorer, the Setup range panel and the
+// bunching editor all edit the same range.
+const editors = new WeakMap<object, Map<number, RangeEditing>>();
+
+export const useRangeEditing = (player: number): RangeEditing => {
+  const store = useStore();
+  let byPlayer = editors.get(store);
+  if (!byPlayer) {
+    byPlayer = new Map();
+    editors.set(store, byPlayer);
+  }
+  let editing = byPlayer.get(player);
+  if (!editing) {
+    // Detached: the shared state outlives the component that first asked for it.
+    editing = effectScope(true).run(() => createRangeEditing(player))!;
+    byPlayer.set(player, editing);
+  }
+  return editing;
 };

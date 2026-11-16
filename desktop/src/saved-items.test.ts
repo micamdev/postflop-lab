@@ -5,6 +5,10 @@ import {
   SavedNode,
   buildFolderTree,
   checkJsonItems,
+  isUnder,
+  renamedPath,
+  rowFor,
+  visibleRows,
   filterFolderTree,
   itemsToAdd,
   nameTaken,
@@ -140,5 +144,48 @@ describe("JSON import and export", () => {
   test("itemsToAdd reports a group that collides with an item", () => {
     const data = [{ path: ["BTN open"], isGroup: true }];
     expect(itemsToAdd("ranges", data, rows)).toBe("BTN open");
+  });
+});
+
+describe("explorer helpers", () => {
+  test("visibleRows lists open folders' content with depths", () => {
+    const tree = buildFolderTree(rows);
+    const open = new Set([JSON.stringify(["100bb"])]);
+    const visible = visibleRows(tree, (path) => open.has(JSON.stringify(path)));
+    expect(visible.map((r) => [r.node.name, r.depth])).toEqual([
+      ["3bet pots", 0],
+      ["100bb", 0],
+      ["SRP", 1],
+      ["BB9", 1],
+      ["BB10", 1],
+      ["BTN open", 0],
+    ]);
+  });
+
+  test("renamedPath follows a renamed folder or item", () => {
+    expect(renamedPath(["100bb", "SRP", "BB"], ["100bb"], "200bb")).toEqual([
+      "200bb",
+      "SRP",
+      "BB",
+    ]);
+    expect(renamedPath(["100bb", "BB9"], ["100bb", "BB9"], "BB 9")).toEqual([
+      "100bb",
+      "BB 9",
+    ]);
+    expect(renamedPath(["3bet pots", "X"], ["100bb"], "200bb")).toEqual([
+      "3bet pots",
+      "X",
+    ]);
+  });
+
+  test("isUnder", () => {
+    expect(isUnder(["100bb", "SRP", "BB"], ["100bb"])).toBe(true);
+    expect(isUnder(["100bb"], ["100bb"])).toBe(true);
+    expect(isUnder(["100bbb"], ["100bb"])).toBe(false);
+  });
+
+  test("rowFor builds a database row from a path", () => {
+    expect(rowFor(["100bb", "SRP"], true)).toEqual(group("100bb", "SRP"));
+    expect(rowFor(["BTN open"], false, "AA")).toEqual(item("AA", "BTN open"));
   });
 });
