@@ -74,6 +74,7 @@ pub fn game_init(
     range_state: tauri::State<Mutex<RangeManager>>,
     game_state: tauri::State<Mutex<PostFlopGame>>,
     cache_state: tauri::State<Mutex<SubgameCache>>,
+    locks_state: tauri::State<crate::lock_commands::CurrentLocks>,
     board: Vec<u8>,
     starting_pot: i32,
     effective_stack: i32,
@@ -175,6 +176,7 @@ pub fn game_init(
     let mut game = game_state.lock().unwrap();
     // A new tree: subgames of the previous game no longer apply.
     cache_state.lock().unwrap().clear();
+    locks_state.0.lock().unwrap().clear();
     game.update_config(card_config, action_tree).err()
 }
 

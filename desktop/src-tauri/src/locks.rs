@@ -1,9 +1,6 @@
 //! Node locks: freeze a whole node's strategy (edited hands at chosen frequencies, the others at
 //! their current strategy), rebuild the solution's tree unsolved and re-solve it with the locks.
 
-// TEMPORARY: the commands using this module come in the next commit.
-#![allow(dead_code)]
-
 use crate::solver::{actions, apply_history_checked};
 use postflop_solver::*;
 use serde::{Deserialize, Serialize};
