@@ -31,6 +31,7 @@
               v-if="field"
               v-model="config[field]"
               type="text"
+              :disabled="locked"
               :title="errors[field] ?? ''"
               :class="[
                 'ui-input h-7 w-full px-1.5 text-xs',
@@ -43,6 +44,11 @@
         </tr>
       </tbody>
     </table>
+
+    <p v-if="locked" class="mt-2 text-xs text-ip">
+      This tree has lines edited by hand: pot, stack and sizes can only change
+      in Edit tree.
+    </p>
 
     <div class="flex items-center justify-between mt-2 text-xs">
       <span class="truncate text-muted" :title="treeOrigin">
@@ -66,6 +72,7 @@
 import { computed, reactive } from "vue";
 import { useConfigStore, useStore } from "../../store";
 import { sanitizeBetString } from "../../utils";
+import { hasManualEdits } from "../../tree-config-value";
 import UiPanel from "../ui/UiPanel.vue";
 import UiTooltip from "../ui/UiTooltip.vue";
 
@@ -89,6 +96,7 @@ const STREETS = ["Flop", "Turn", "River"];
 
 const config = useConfigStore();
 const store = useStore();
+const locked = computed(() => hasManualEdits(config));
 const errors = reactive<Partial<Record<BetField, string>>>({});
 
 const rows = computed(() => {

@@ -102,3 +102,11 @@ export const applyConfigValue = (c: TreeConfigState, value: unknown): void => {
     c[field] = sanitized.valid ? sanitized.s : str;
   }
 };
+
+/**
+ * The tree has lines added or removed by hand: they encode exact amounts, so pot, stack and
+ * bet sizes cannot change without breaking them (only "Edit tree" can).
+ */
+export const hasManualEdits = (
+  c: Pick<TreeConfigState, "addedLines" | "removedLines">
+): boolean => c.addedLines !== "" || c.removedLines !== "";

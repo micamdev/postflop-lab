@@ -2,6 +2,7 @@ import { describe, expect, test } from "vitest";
 import {
   TreeConfigState,
   applyConfigValue,
+  hasManualEdits,
   configToValue,
 } from "./tree-config-value";
 import { sanitizeBetString } from "./utils";
@@ -64,5 +65,13 @@ describe("tree-config values", () => {
     });
     expect(target.oopFlopBet).toBe(sanitizeBetString("33,75", false).s);
     expect(target.ipFlopBet).toBe("50,abc");
+  });
+});
+
+describe("hasManualEdits", () => {
+  test("a tree with added or removed lines", () => {
+    expect(hasManualEdits(state())).toBe(false);
+    expect(hasManualEdits(state({ addedLines: "B30" }))).toBe(true);
+    expect(hasManualEdits(state({ removedLines: "X-B30" }))).toBe(true);
   });
 });
