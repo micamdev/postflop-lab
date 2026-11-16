@@ -111,6 +111,10 @@ onMounted(async () => {
   try {
     estimates.value =
       (await invokes.librarySaveEstimate()) as typeof estimates.value;
+    // Up to the turn by default: small files, rivers re-solved on demand.
+    if (estimates.value.some(([depth]) => depth === "turn")) {
+      selectedDepth.value = "turn";
+    }
   } catch (e) {
     errorText.value = String(e);
   }

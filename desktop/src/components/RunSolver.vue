@@ -527,7 +527,8 @@ const saveDisabledReason = computed(() => {
   return "";
 });
 const canSave = computed(
-  () => store.isSolverFinished && !saveDisabledReason.value
+  () =>
+    store.isSolverFinished && !saveDisabledReason.value && !store.isLibraryBusy
 );
 
 // The game was replaced (solution loaded) or freed (failed load): the tree built here, its

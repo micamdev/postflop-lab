@@ -59,10 +59,23 @@
               v-if="spot.type === 'chance' && spot.isBeyondDepth"
               class="text-xs font-normal text-center text-gray-500 whitespace-normal"
             >
-              Not saved
+              {{
+                spot.cards.some((c) => !c.isDead) ? "Pick a river" : "Not saved"
+              }}
+            </div>
+            <div
+              v-if="spot.type === 'chance' && spot.isResolved"
+              class="text-xs font-normal text-center text-gray-500"
+              title="Re-solved on demand from the ranges at this node: close to, not exactly, the full solution"
+            >
+              re-solved ≈
             </div>
             <template
-              v-if="spot.type === 'chance' && spot.selectedIndex !== -1"
+              v-if="
+                spot.type === 'chance' &&
+                spot.selectedIndex !== -1 &&
+                !spot.isResolved
+              "
             >
               <button
                 :class="
@@ -244,6 +257,13 @@
     </div>
 
     <div
+      v-if="resolveStatus"
+      class="flex self-center items-center px-3 text-sm whitespace-normal"
+    >
+      <span class="spinner inline-block mr-2"></span>
+      {{ resolveStatus }}
+    </div>
+    <div
       v-if="navError"
       class="self-center px-3 text-sm text-red-500 whitespace-normal"
     >
@@ -254,6 +274,7 @@
 
 <script setup lang="ts">
 import { computed, nextTick, toRefs, ref, watch } from "vue";
+import { listen } from "@tauri-apps/api/event";
 import { useSavedConfigStore, useStore } from "../store";
 import { cardText, average, colorString } from "../utils";
 import * as invokes from "../invokes";
@@ -330,6 +351,7 @@ const props = defineProps<{
   isLocked: boolean;
   cards: number[][];
   dealtCard: number;
+  resolveRequest: { card: number; id: number } | null;
 }>();
 
 const emit = defineEmits<{
@@ -353,7 +375,9 @@ const store = useStore();
 
 // Message shown when navigation fails (e.g. past the saved depth of a partial save).
 const navError = ref("");
-const { isHandlerUpdated, dealtCard } = toRefs(props);
+// Progress of a river being re-solved on demand.
+const resolveStatus = ref("");
+const { isHandlerUpdated, dealtCard, resolveRequest } = toRefs(props);
 
 const spots = ref<Spot[]>([]);
 const rates = ref<number[] | null>(null);
@@ -428,6 +452,18 @@ const selectSpot = async (
   fromDeal = false
 ) => {
   navError.value = "";
+  // Navigating elsewhere abandons a river being re-solved.
+  if (resolveStatus.value) {
+    resolveId++;
+    resolveStatus.value = "";
+    store.isLibraryBusy = false;
+    await invokes.gameCancelSubgame();
+  }
+  // Clicking a re-solved river reopens the picker to choose another river.
+  const target = spots.value[spotIndex];
+  if (!needSplice && target?.type === "chance" && target.isResolved) {
+    reopenRiver(target);
+  }
   try {
     await selectSpotUnsafe(spotIndex, needSplice, fromDeal);
   } catch (e) {
@@ -438,6 +474,89 @@ const selectSpot = async (
         : `Error: ${e}`;
   }
 };
+
+/** Turns a re-solved river back into a river to pick, dropping the spots after it. */
+const reopenRiver = (spot: SpotChance) => {
+  if (spot.selectedIndex !== -1) {
+    spot.cards[spot.selectedIndex].isSelected = false;
+  }
+  spot.selectedIndex = -1;
+  spot.isResolved = false;
+  spot.isBeyondDepth = true;
+  spots.value.splice(spot.index + 1);
+};
+
+let resolveId = 0;
+
+/**
+ * Re-solves the river `card` at the selected "Pick a river" spot (past the saved depth), then
+ * deals it like a saved river. A newer pick supersedes (and cancels) this one.
+ */
+const resolveAndDeal = async (card: number) => {
+  const spot = spots.value[selectedSpotIndex.value];
+  if (
+    !spot ||
+    spot.type !== "chance" ||
+    !spot.isBeyondDepth ||
+    spot.cards[card].isDead
+  ) {
+    return;
+  }
+  const id = ++resolveId;
+  const history = spots.value.slice(1, spot.index).map((s) => s.selectedIndex);
+  const label = cardText(card).rank + cardText(card).suit;
+  navError.value = "";
+  resolveStatus.value = `Re-solving the river ${label}...`;
+  store.isLibraryBusy = true;
+
+  const unlisten = await listen<{ iteration: number }>(
+    "subgame-progress",
+    (event) => {
+      if (id === resolveId) {
+        resolveStatus.value = `Re-solving the river ${label}: iteration ${event.payload.iteration}`;
+      }
+    }
+  );
+  let kind: string;
+  try {
+    kind = await invokes.gameResolveSubgame(
+      history,
+      card,
+      store.solutionInfo?.exploitability ?? null
+    );
+  } catch (e) {
+    if (id === resolveId) {
+      resolveStatus.value = "";
+      store.isLibraryBusy = false;
+      if (String(e) !== "cancelled") navError.value = `Error: ${e}`;
+    }
+    return;
+  } finally {
+    unlisten();
+  }
+  if (id !== resolveId) return;
+  resolveStatus.value = "";
+  store.isLibraryBusy = false;
+
+  if (kind === "empty") {
+    navError.value = "Nothing to show: a player has no range on this river.";
+    return;
+  }
+
+  spot.isBeyondDepth = false;
+  spot.isResolved = true;
+  spot.selectedIndex = card;
+  spot.cards[card].isSelected = true;
+  // Move to the river chance node first: in chance mode the current position is elsewhere.
+  await invokes.gameApplyHistory(history);
+  const nextActions = await invokes.gameActionsAfter([card]);
+  spliceSpotsPlayer(spot.index + 1, nextActions);
+  await selectSpot(spot.index + 1, false);
+};
+
+watch(resolveRequest, async (request) => {
+  if (request) await resolveAndDeal(request.card);
+});
 
 const selectSpotUnsafe = async (
   spotIndex: number,
@@ -481,8 +600,23 @@ const selectSpotUnsafe = async (
       riverIndex === -1 ? null : (spots.value[riverIndex] as SpotChance);
     selectedChanceIndexTmp = -1;
 
-    // A "Not saved" river spot keeps no card to deal.
-    if (riverSpot && !riverSpot.isBeyondDepth) {
+    // A re-solved river belonged to the previous turn card: offer the pick again.
+    if (riverSpot?.isResolved) {
+      reopenRiver(riverSpot);
+      // The spots after the river are gone: stay on the river spot (position only).
+      if (selectedSpotIndexTmp > riverSpot.index) {
+        selectedSpotIndexTmp = riverSpot.index;
+      }
+      if (spotIndex > riverSpot.index) {
+        spotIndex = riverSpot.index;
+      }
+    }
+    // Rivers past the depth of a flop save stay without cards; the others are refreshed
+    // (for a turn save, the rivers that can be re-solved with the new turn card).
+    if (
+      riverSpot &&
+      !(riverSpot.isBeyondDepth && store.solutionDepth !== "turn")
+    ) {
       const history = spots.value
         .slice(1, riverIndex)
         .map((spot) => spot.selectedIndex);
@@ -712,6 +846,21 @@ const spliceSpotsChance = async (spotIndex: number) => {
     store.solutionDepth === "flop" ||
     (store.solutionDepth === "turn" && dealing === "river")
   ) {
+    // Rivers of a turn save can be re-solved on demand: offer the possible ones.
+    // The river can be re-solved only if the turn card is known (not skipped).
+    const riverPrefix = spots.value
+      .slice(1, spotIndex)
+      .map((spot) => spot.selectedIndex);
+    const resolvable =
+      store.solutionDepth === "turn" &&
+      dealing === "river" &&
+      !riverPrefix.includes(-1);
+    let possible = 0n;
+    if (resolvable) {
+      // Possible rivers at the river chance node, whatever the current position.
+      await invokes.gameApplyHistory(riverPrefix);
+      possible = await invokes.gamePossibleCards();
+    }
     spots.value.splice(spotIndex, spots.value.length, {
       type: "chance",
       index: spotIndex,
@@ -721,7 +870,7 @@ const spliceSpotsChance = async (spotIndex: number) => {
       cards: Array.from({ length: 52 }, (_, i) => ({
         card: i,
         isSelected: false,
-        isDead: true,
+        isDead: !(possible & (1n << BigInt(i))),
       })),
       pot: config.startingPot + 2 * totalBetAmountAppended[0],
       stack: config.effectiveStack - totalBetAmountAppended[0],

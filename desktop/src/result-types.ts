@@ -46,8 +46,10 @@ export type SpotChance = {
   }[];
   pot: number;
   stack: number;
-  /** Past the saved depth of a truncated save: no card can be dealt. */
+  /** Past the saved depth of a truncated save: no card is dealt from the save. */
   isBeyondDepth?: boolean;
+  /** A river past the saved depth, dealt by re-solving its subgame on demand. */
+  isResolved?: boolean;
 };
 
 export type SpotPlayer = {

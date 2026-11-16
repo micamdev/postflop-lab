@@ -1,5 +1,6 @@
 use crate::library::SolutionSummary;
 use crate::range::*;
+use crate::session::{self, SubgameCache};
 use postflop_solver::*;
 use rayon::ThreadPool;
 use serde::Serialize;
@@ -72,6 +73,7 @@ pub fn weighted_average(slice: &[f32], weights: &[f32]) -> f64 {
 pub fn game_init(
     range_state: tauri::State<Mutex<RangeManager>>,
     game_state: tauri::State<Mutex<PostFlopGame>>,
+    cache_state: tauri::State<Mutex<SubgameCache>>,
     board: Vec<u8>,
     starting_pot: i32,
     effective_stack: i32,
@@ -171,6 +173,8 @@ pub fn game_init(
     }
 
     let mut game = game_state.lock().unwrap();
+    // A new tree: subgames of the previous game no longer apply.
+    cache_state.lock().unwrap().clear();
     game.update_config(card_config, action_tree).err()
 }
 
@@ -254,8 +258,19 @@ pub const ERR_BEYOND_DEPTH: &str = "beyond saved depth";
 /// Plays `action`, refusing to deal a card past the saved depth (where `play` would panic and
 /// poison the game's mutex).
 fn play_checked(game: &mut PostFlopGame, action: usize) -> Result<(), String> {
-    if game.is_chance_node() && !game.can_deal_card() {
-        return Err(ERR_BEYOND_DEPTH.to_string());
+    // Every case where `play` would panic (which aborts the app inside a command) is an error.
+    if game.is_terminal_node() {
+        return Err("No action after a terminal node".to_string());
+    }
+    if game.is_chance_node() {
+        if !game.can_deal_card() {
+            return Err(ERR_BEYOND_DEPTH.to_string());
+        }
+        if action != usize::MAX && (action >= 52 || game.possible_cards() & (1 << action) == 0) {
+            return Err("This card cannot be dealt here".to_string());
+        }
+    } else if action >= game.available_actions().len() {
+        return Err("Invalid action".to_string());
     }
     game.play(action);
     Ok(())
@@ -322,29 +337,27 @@ pub fn compute_summary(game: &mut PostFlopGame) -> SolutionSummary {
 #[tauri::command]
 pub fn game_apply_history(
     game_state: tauri::State<Mutex<PostFlopGame>>,
+    cache_state: tauri::State<Mutex<SubgameCache>>,
     history: Vec<usize>,
 ) -> Result<(), String> {
     let mut game = game_state.lock().unwrap();
-    apply_history_checked(&mut game, &history)
+    let mut cache = cache_state.lock().unwrap();
+    session::apply(&mut game, &mut cache, &history)
 }
 
 #[tauri::command]
 pub fn game_total_bet_amount(
     game_state: tauri::State<Mutex<PostFlopGame>>,
+    cache_state: tauri::State<Mutex<SubgameCache>>,
     append: Vec<isize>,
 ) -> Result<[i32; 2], String> {
     let mut game = game_state.lock().unwrap();
-    if append.is_empty() {
-        return Ok(game.total_bet_amount());
-    }
-    let history = game.history().to_vec();
-    play_all_checked(&mut game, append.iter().map(|&a| action_usize(a)))?;
-    let ret = game.total_bet_amount();
-    game.apply_history(&history);
-    Ok(ret)
+    let mut cache = cache_state.lock().unwrap();
+    let append: Vec<usize> = append.iter().map(|&a| action_usize(a)).collect();
+    session::total_bet_amount(&mut game, &mut cache, &append)
 }
 
-fn actions(game: &PostFlopGame) -> Vec<String> {
+pub(crate) fn actions(game: &PostFlopGame) -> Vec<String> {
     if game.is_terminal_node() {
         vec!["terminal".to_string()]
     } else if game.is_chance_node() {
@@ -368,17 +381,13 @@ fn actions(game: &PostFlopGame) -> Vec<String> {
 #[tauri::command]
 pub fn game_actions_after(
     game_state: tauri::State<Mutex<PostFlopGame>>,
+    cache_state: tauri::State<Mutex<SubgameCache>>,
     append: Vec<isize>,
 ) -> Result<Vec<String>, String> {
     let mut game = game_state.lock().unwrap();
-    if append.is_empty() {
-        return Ok(actions(&game));
-    }
-    let history = game.history().to_vec();
-    play_all_checked(&mut game, append.iter().map(|&a| action_usize(a)))?;
-    let ret = actions(&game);
-    game.apply_history(&history);
-    Ok(ret)
+    let mut cache = cache_state.lock().unwrap();
+    let append: Vec<usize> = append.iter().map(|&a| action_usize(a)).collect();
+    session::actions_after(&mut game, &mut cache, &append)
 }
 
 /// Saved depth of the current game: "river" (complete), "turn" or "flop".
@@ -406,8 +415,16 @@ pub fn depth_from_name(name: &str) -> Result<BoardState, String> {
 }
 
 #[tauri::command]
-pub fn game_possible_cards(game_state: tauri::State<Mutex<PostFlopGame>>) -> u64 {
+pub fn game_possible_cards(
+    game_state: tauri::State<Mutex<PostFlopGame>>,
+    cache_state: tauri::State<Mutex<SubgameCache>>,
+) -> u64 {
     let game = game_state.lock().unwrap();
+    let cache = cache_state.lock().unwrap();
+    // Cards are dealt only at chance nodes of the main game; subgames start on the river.
+    if cache.active.is_some() || !game.is_chance_node() {
+        return 0;
+    }
     game.possible_cards()
 }
 
@@ -432,23 +449,32 @@ pub fn num_actions(game: &PostFlopGame) -> usize {
 
 #[derive(Serialize)]
 pub struct GameResultsResponse {
-    current_player: String,
-    num_actions: usize,
-    is_empty: i32,
-    eqr_base: [i32; 2],
-    weights: [Vec<f64>; 2],
-    normalizer: [Vec<f64>; 2],
-    equity: [Vec<f64>; 2],
-    ev: [Vec<f64>; 2],
-    eqr: [Vec<f64>; 2],
-    strategy: Vec<f64>,
-    action_ev: Vec<f64>,
+    pub(crate) current_player: String,
+    pub(crate) num_actions: usize,
+    pub(crate) is_empty: i32,
+    pub(crate) eqr_base: [i32; 2],
+    pub(crate) weights: [Vec<f64>; 2],
+    pub(crate) normalizer: [Vec<f64>; 2],
+    pub(crate) equity: [Vec<f64>; 2],
+    pub(crate) ev: [Vec<f64>; 2],
+    pub(crate) eqr: [Vec<f64>; 2],
+    pub(crate) strategy: Vec<f64>,
+    pub(crate) action_ev: Vec<f64>,
 }
 
+/// Results at the current position, in a river subgame if needed.
 #[tauri::command]
-pub fn game_get_results(game_state: tauri::State<Mutex<PostFlopGame>>) -> GameResultsResponse {
+pub fn game_get_results(
+    game_state: tauri::State<Mutex<PostFlopGame>>,
+    cache_state: tauri::State<Mutex<SubgameCache>>,
+) -> GameResultsResponse {
     let mut game = game_state.lock().unwrap();
+    let mut cache = cache_state.lock().unwrap();
+    session::results(&mut game, &mut cache)
+}
 
+/// Results at the current position of `game`.
+pub fn results_of(game: &mut PostFlopGame) -> GameResultsResponse {
     let total_bet_amount = game.total_bet_amount();
     let pot_base = game.tree_config().starting_pot + total_bet_amount.iter().min().unwrap();
     let eqr_base = [
@@ -513,8 +539,8 @@ pub fn game_get_results(game_state: tauri::State<Mutex<PostFlopGame>>) -> GameRe
     }
 
     GameResultsResponse {
-        current_player: current_player(&game),
-        num_actions: num_actions(&game),
+        current_player: current_player(game),
+        num_actions: num_actions(game),
         is_empty: is_empty_flag,
         eqr_base,
         weights,
@@ -540,10 +566,15 @@ pub struct GameChanceReportsResponse {
 #[tauri::command]
 pub fn game_get_chance_reports(
     game_state: tauri::State<Mutex<PostFlopGame>>,
+    cache_state: tauri::State<Mutex<SubgameCache>>,
     append: Vec<isize>,
     num_actions: usize,
 ) -> Result<GameChanceReportsResponse, String> {
     let mut game = game_state.lock().unwrap();
+    // Inside a river subgame there is no chance node left to report on.
+    if cache_state.lock().unwrap().active.is_some() {
+        return Err(ERR_BEYOND_DEPTH.to_string());
+    }
     let history = game.history().to_vec();
     if !game.can_deal_card() {
         return Err(ERR_BEYOND_DEPTH.to_string());
@@ -688,6 +719,21 @@ mod tests {
         assert_eq!(loaded.history(), &[0, 0]);
         apply_history_checked(&mut loaded, &[]).unwrap();
         assert!(!loaded.is_chance_node());
+    }
+
+    #[test]
+    fn invalid_action_is_err_not_panic() {
+        let mut game = turn_game();
+        // Out-of-range action index at the root (OOP has 2 actions).
+        assert!(apply_history_checked(&mut game, &[99]).is_err());
+        // Action after a terminal node (check, bet, fold).
+        assert!(apply_history_checked(&mut game, &[1, 0, 0]).is_err());
+        // A card that cannot be dealt (the turn card itself).
+        let turn = card_from_str("Qc").unwrap() as usize;
+        assert!(apply_history_checked(&mut game, &[0, 0, turn]).is_err());
+        // The game is still usable and at the root.
+        assert_eq!(game.history(), &[] as &[usize]);
+        apply_history_checked(&mut game, &[0, 0, usize::MAX]).unwrap();
     }
 
     #[test]

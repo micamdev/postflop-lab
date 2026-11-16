@@ -11,12 +11,12 @@
       !store.hasSolverRun
         ? "Solver has not run."
         : store.isSolverRunning
-        ? "Solver running..."
-        : store.isFinalizing
-        ? "Finalizing..."
-        : store.isSolverError
-        ? "Solver error."
-        : "Solver paused."
+          ? "Solver running..."
+          : store.isFinalizing
+            ? "Finalizing..."
+            : store.isSolverError
+              ? "Solver error."
+              : "Solver paused."
     }}
   </div>
 
@@ -26,9 +26,20 @@
       :is-locked="isLocked"
       :cards="cards"
       :dealt-card="dealtCard"
+      :resolve-request="resolveRequest"
       @update:is-handler-updated="(value) => (isHandlerUpdated = value)"
       @update:is-locked="(value) => (isLocked = value)"
       @trigger-update="onUpdateSpot"
+    />
+
+    <RiverPicker
+      v-if="
+        selectedSpot?.type === 'chance' &&
+        selectedSpot.isBeyondDepth &&
+        selectedSpot.cards.some((c) => !c.isDead)
+      "
+      :spot="selectedSpot"
+      @pick="pickRiver"
     />
 
     <ResultMiddle
@@ -151,6 +162,7 @@ import {
 } from "../result-types";
 
 import ResultNav from "./ResultNav.vue";
+import RiverPicker from "./RiverPicker.vue";
 import ResultMiddle from "./ResultMiddle.vue";
 import ResultBasics from "./ResultBasics.vue";
 import ResultTable from "./ResultTable.vue";
@@ -167,6 +179,12 @@ const isLocked = ref(false);
 
 const cards = ref<number[][]>([[], []]);
 const dealtCard = ref(-1);
+// Asks ResultNav to re-solve and deal a river past the saved depth.
+const resolveRequest = ref<{ card: number; id: number } | null>(null);
+let resolveRequestId = 0;
+const pickRiver = (card: number) => {
+  resolveRequest.value = { card, id: ++resolveRequestId };
+};
 
 const selectedSpot = ref<Spot | null>(null);
 const selectedChance = ref<SpotChance | null>(null);
