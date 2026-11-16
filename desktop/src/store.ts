@@ -135,8 +135,6 @@ export const useStore = defineStore("app", {
     solutionLocks: [] as NodeLock[],
     /** Locks for the next re-solve: the solution's locks plus pending changes. */
     locks: [] as NodeLock[],
-    /** Set to start the solve loop on a game prepared with locks (its precision). */
-    lockSolveRequest: null as { id: number; compression: boolean } | null,
   }),
 
   getters: {

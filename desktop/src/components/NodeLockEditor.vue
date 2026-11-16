@@ -238,6 +238,7 @@
 <script setup lang="ts">
 import { computed, onMounted, ref } from "vue";
 import { useStore } from "../store";
+import { useSolverSession } from "../solver-session";
 import * as invokes from "../invokes";
 import { NodeLock } from "../invokes";
 import { Results, SpotPlayer } from "../result-types";
@@ -258,6 +259,7 @@ const props = defineProps<{
 const emit = defineEmits<{ (e: "close"): void }>();
 
 const store = useStore();
+const session = useSolverSession();
 
 // The template only reads `spot` when the node is lockable (spot non-null).
 const spot = computed(() => props.spot as SpotPlayer);
@@ -630,9 +632,7 @@ const startResolve = async () => {
   store.solutionLocks = locks;
   store.locks = [...locks];
   store.returnLine = [...props.line.history];
-  store.navView = "solver";
-  store.sideView = "run-solver";
-  store.lockSolveRequest = { id: Date.now(), compression };
   emit("close");
+  void session.runLockedSolve(compression);
 };
 </script>
