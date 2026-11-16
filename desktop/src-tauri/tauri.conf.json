@@ -49,9 +49,9 @@
     "windows": [
       {
         "title": "Postflop Lab",
-        "width": 1350,
-        "height": 810,
-        "minWidth": 1080,
+        "width": 1600,
+        "height": 950,
+        "minWidth": 1280,
         "minHeight": 720,
         "useHttpsScheme": true
       }

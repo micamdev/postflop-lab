@@ -28,19 +28,12 @@ export const choose = async (
     kind: "warning",
     buttons,
   });
-  return result === buttons.yes || result === buttons.no ? result : buttons.cancel;
+  return result === buttons.yes || result === buttons.no
+    ? result
+    : buttons.cancel;
 };
 
-/** Human-readable size, e.g. "1.25 GB" or "740 MB". */
-export const formatBytes = (bytes: number): string => {
-  if (bytes >= 1023.5 * 1024 * 1024) {
-    return (bytes / (1024 * 1024 * 1024)).toFixed(2) + " GB";
-  }
-  if (bytes >= 1023.5 * 1024) {
-    return (bytes / (1024 * 1024)).toFixed(0) + " MB";
-  }
-  return Math.max(1, Math.round(bytes / 1024)) + " KB";
-};
+export { formatBytes } from "./utils";
 
 export const depthLabel = (depth: SolutionDepth): string => {
   return { river: "Complete", turn: "Up to the turn", flop: "Flop only" }[
@@ -64,7 +57,12 @@ export const depthLoss = (depth: SolutionDepth): string => {
 export const loadSolution = async (name: string): Promise<string | null> => {
   const store = useStore();
 
-  if (store.isSolverRunning || store.isSolverPaused || store.isFinalizing) {
+  if (
+    store.isSolverRunning ||
+    store.isSolverPaused ||
+    store.isFinalizing ||
+    store.isSolveStarting
+  ) {
     return "Stop the solver before loading a solution.";
   }
   if (store.isLibraryBusy) return null;
