@@ -660,15 +660,6 @@
           </div>
         </div>
       </div>
-
-      <div class="flex-grow max-w-[18rem] mt-1 ml-6">
-        <DbItemPicker
-          store-name="configurations"
-          :value="dbValue"
-          :allow-save="isInputValid"
-          @load-item="loadConfig"
-        />
-      </div>
     </div>
 
     <div
@@ -750,8 +741,6 @@ import {
   readableLineString,
 } from "../utils";
 
-import DbItemPicker from "./DbItemPicker.vue";
-import { applyConfigValue, configToValue } from "../tree-config-value";
 import TreeEditor from "./TreeEditor.vue";
 import { Tippy } from "vue-tippy";
 import { QuestionMarkCircleIcon } from "@heroicons/vue/20/solid";
@@ -952,10 +941,6 @@ const ipToOop = () => {
   config.oopRiverBet = config.ipRiverBet;
   config.oopRiverRaise = config.ipRiverRaise;
 };
-
-const dbValue = computed(() => configToValue(config));
-
-const loadConfig = (value: unknown) => applyConfigValue(config, value);
 
 const startEdit = () => {
   isEditMode.value = true;

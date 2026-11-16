@@ -5,8 +5,7 @@ import type { NodeLock } from "./invokes";
 export type NavView = "setup" | "results" | "library";
 
 /** Page shown in Setup. */
-export type SideView =
-  "oop-range" | "ip-range" | "board" | "tree-config" | "bunching";
+export type SideView = "main" | "tree-config" | "bunching";
 
 /** A saved range or tree config the setup was loaded from. */
 export type RangeSource = { path: string[]; modified: boolean };
@@ -95,11 +94,9 @@ export const saveConfig = () => {
 export const useStore = defineStore("app", {
   state: () => ({
     navView: "library" as NavView,
-    sideView: "oop-range" as SideView,
+    sideView: "main" as SideView,
     headers: {
-      "oop-range": ["OOP Range"],
-      "ip-range": ["IP Range"],
-      board: ["Board"],
+      main: ["Setup"],
       "tree-config": ["Tree Configuration"],
       bunching: ["Bunching Effect"],
     },
