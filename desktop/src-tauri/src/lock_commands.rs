@@ -83,25 +83,26 @@ pub fn game_capture_lock(
 
 /// Replaces the current solution by its tree, rebuilt unsolved with `locks` placed. The front
 /// end then runs the usual solve loop (without allocating again). `locks` lists the locks to
-/// keep and the new ones, in order.
+/// keep and the new ones, in order. Returns whether the 16-bit precision is used.
 #[tauri::command(async)]
 pub fn game_prepare_lock_solve(
     game_state: tauri::State<Mutex<PostFlopGame>>,
     cache_state: tauri::State<Mutex<SubgameCache>>,
     locks_state: tauri::State<CurrentLocks>,
     locks: Vec<NodeLock>,
-    compression: bool,
-) -> Result<(), String> {
+) -> Result<bool, String> {
     // One lock per engine node: a later lock on the same node replaces the earlier one.
     let locks = locks.into_iter().fold(Vec::new(), |mut all, lock| {
         merge_lock(&mut all, lock);
         all
     });
     let mut game = game_state.lock().unwrap();
+    // Same precision as the reference solution.
+    let compression = game.is_compression_enabled();
     prepare_lock_solve(&mut game, &locks, compression, max_prepare_memory())?;
     cache_state.lock().unwrap().clear();
     *locks_state.0.lock().unwrap() = locks;
-    Ok(())
+    Ok(compression)
 }
 
 /// Locks of the current solution.

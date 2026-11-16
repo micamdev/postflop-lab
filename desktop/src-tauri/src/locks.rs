@@ -22,6 +22,9 @@ pub struct NodeLock {
     pub hands: BTreeMap<String, Vec<f32>>,
     /// Combos edited by the user (the others keep their strategy at capture time).
     pub edited: Vec<String>,
+    /// Readable line to the node, set by the front end (display only).
+    #[serde(default)]
+    pub label: String,
 }
 
 fn combo_strings(game: &PostFlopGame, player: usize) -> Result<Vec<String>, String> {
@@ -144,6 +147,7 @@ pub fn capture_lock(
             actions: node_actions,
             hands,
             edited: edits.keys().cloned().collect(),
+            label: String::new(),
         })
     })();
     game.apply_history(&saved);
@@ -189,6 +193,14 @@ pub fn apply_locks(game: &mut PostFlopGame, locks: &[NodeLock]) -> Result<(), St
                 .hands
                 .get(combo)
                 .ok_or("A lock does not match this solution's hands")?;
+            // Locks may come from a file: check them as capture checks edits.
+            let sum: f32 = freqs.iter().sum();
+            if freqs.len() != lock.actions.len()
+                || freqs.iter().any(|f| !f.is_finite() || *f < 0.0)
+                || (sum - 1.0).abs() > 1e-3
+            {
+                return Err(format!("Invalid frequencies for {combo} in a lock"));
+            }
             for (i, &f) in freqs.iter().enumerate() {
                 strategy[i * num_hands + j] = f;
             }
@@ -394,5 +406,27 @@ pub(crate) mod tests {
         let mut wrong_actions = lock;
         wrong_actions.actions.pop();
         assert!(apply_locks(&mut other, &[wrong_actions]).is_err());
+    }
+
+    #[test]
+    fn malformed_lock_hands_are_errors() {
+        let mut game = flop_game();
+        solve_it(&mut game, 20);
+        let lock = capture_lock(&mut game, &FACING_CBET, &BTreeMap::new()).unwrap();
+        let last = lock.hands.keys().last().unwrap().clone();
+        let bad: [Vec<f32>; 5] = [
+            vec![0.5, 0.25, 0.25, 0.0], // too many values: out of bounds
+            vec![1.0, 0.0],             // too few values
+            vec![0.0, 0.0, 0.0],        // would leave the hand unlocked
+            vec![f32::INFINITY, 0.0, 0.0],
+            vec![1.5, -0.5, 0.0],
+        ];
+        for freqs in bad {
+            let mut other = rebuild_unsolved(&game).unwrap();
+            other.allocate_memory(false);
+            let mut broken = lock.clone();
+            broken.hands.insert(last.clone(), freqs.clone());
+            assert!(apply_locks(&mut other, &[broken]).is_err(), "{freqs:?}");
+        }
     }
 }
