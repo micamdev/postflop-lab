@@ -242,7 +242,7 @@ import * as invokes from "../invokes";
 import { NodeLock } from "../invokes";
 import { Results, SpotPlayer } from "../result-types";
 import { cardText, cardPairCellIndex, ranks, suitLetters } from "../utils";
-import { ask } from "../library";
+import { choose } from "../library";
 import SaveSolutionDialog from "./SaveSolutionDialog.vue";
 import { mirrorEdits } from "../lock-utils";
 
@@ -588,11 +588,12 @@ const resolveDisabledReason = computed(() => {
 const resolveWithLocks = async () => {
   resolveError.value = "";
   if (!store.isSolutionSaved && canSaveSolution.value) {
-    if (
-      await ask(
-        "The current solution is not saved and re-solving replaces it. Save it first?"
-      )
-    ) {
+    const choice = await choose(
+      "The current solution is not saved and re-solving replaces it. Save it first?",
+      { yes: "Save first", no: "Re-solve without saving", cancel: "Cancel" }
+    );
+    if (choice === "Cancel") return;
+    if (choice === "Save first") {
       isSaveDialogOpen.value = true;
       return;
     }
