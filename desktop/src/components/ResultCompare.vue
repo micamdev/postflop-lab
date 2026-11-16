@@ -1,5 +1,5 @@
 <template>
-  <div class="flex flex-col w-full h-full px-2 py-1 gap-2.5">
+  <div class="flex flex-col w-full h-full px-2 py-1 gap-2.5 overflow-y-auto">
     <div class="flex text-lg font-semibold">
       <div class="flex items-center">
         <span>OOP</span>
@@ -125,6 +125,7 @@
           :class="{
             'w-14': true,
             'font-semibold':
+              i < WEAK_BUCKET &&
               !isNaN(buckets[0][i]) &&
               buckets[0][i] >= (1 - EPS) * buckets[1][i],
           }"
@@ -136,6 +137,7 @@
             'w-14': true,
             'text-right': true,
             'font-semibold':
+              i < WEAK_BUCKET &&
               !isNaN(buckets[1][i]) &&
               (1 - EPS) * buckets[0][i] <= buckets[1][i],
           }"
@@ -267,6 +269,8 @@ const eqr = computed(() => {
 });
 
 const BUCKET_LABELS = ["Equity ≥ 90%", "75-90%", "50-75%", "< 50%"];
+// Bold marks an advantage: more weak hands (the "< 50%" row) is not one.
+const WEAK_BUCKET = 3;
 
 // Share of each range in each equity tranche (OOP, IP).
 const buckets = computed(() => {
