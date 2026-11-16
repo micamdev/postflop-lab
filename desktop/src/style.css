@@ -10,30 +10,48 @@
   @apply leading-tight;
 }
 
+/* Graphite theme (see the UI redesign spec). RGB triples for Tailwind opacity modifiers. */
+:root {
+  --bg: 21 21 23; /* #151517 */
+  --panel: 29 29 32; /* #1d1d20 */
+  --panel2: 36 36 40; /* #242428 */
+  --line: 50 50 56; /* #323238 */
+  --ink: 236 236 238; /* #ececee */
+  --muted: 154 154 163; /* #9a9aa3 */
+  --accent: 47 181 161; /* #2fb5a1 */
+  --cell: 38 38 42; /* #26262a */
+  --oop: 91 141 239; /* #5b8def */
+  --ip: 224 160 60; /* #e0a03c */
+  color-scheme: dark;
+}
+
 body {
-  @apply bg-gray-50;
-  font-family: system-ui, "Noto Sans", "Open Sans", Roboto, sans-serif;
+  @apply bg-bg text-ink;
+  font-family: Inter, system-ui, "Noto Sans", "Open Sans", Roboto, sans-serif;
 }
 
 .button-base {
-  @apply rounded-lg shadow px-3.5 py-1.5 text-white text-sm font-semibold;
-  @apply transition-colors disabled:opacity-40;
+  @apply rounded-md px-3.5 py-1.5 text-sm font-semibold;
+  @apply transition-colors disabled:opacity-40 disabled:cursor-default;
 }
 
+/* Main action. */
 .button-blue {
-  @apply bg-blue-600 hover:bg-blue-700 active:bg-blue-800 disabled:bg-blue-600;
+  @apply bg-accent text-white hover:brightness-110 disabled:hover:brightness-100;
 }
 
+/* Destructive action: outline. */
 .button-red {
-  @apply bg-red-600 hover:bg-red-700 active:bg-red-800 disabled:bg-red-600;
+  @apply border border-red-500/60 text-red-400 hover:bg-red-500/10;
 }
 
+/* Secondary action: outline. */
 .button-green {
-  @apply bg-green-600 hover:bg-green-700 active:bg-green-800 disabled:bg-green-600;
+  @apply border border-line text-ink hover:bg-panel2;
 }
 
 input.input-error {
-  @apply !ring-1 !ring-red-600 !border-red-600 !bg-red-50;
+  @apply !ring-1 !ring-red-500 !border-red-500 !bg-red-500/10;
 }
 
 .text-shadow {
@@ -62,7 +80,7 @@ input.input-error {
 }
 
 .spinner::after {
-  @apply bg-gray-50;
+  @apply bg-bg;
   width: 75%;
   height: 75%;
   border-radius: 50%;
