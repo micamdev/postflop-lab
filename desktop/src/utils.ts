@@ -68,8 +68,8 @@ export const cardPairCellIndex = (card1: number, card2: number) => {
     index: isSuited
       ? 3 - hs
       : hr === lr
-      ? 6 - ((ls * (5 - ls)) / 2 + hs)
-      : 11 - (3 * hs + ls - +(hs < ls)),
+        ? 6 - ((ls * (5 - ls)) / 2 + hs)
+        : 11 - (3 * hs + ls - +(hs < ls)),
   };
 };
 
@@ -96,6 +96,31 @@ export const average = (values: number[], weights: number[]): number => {
     totalWeight += weights[i];
   }
   return sum / totalWeight;
+};
+
+/** Equity tranches, highest first: a hand with equity e is in the first one with e >= bound. */
+export const EQUITY_BUCKET_BOUNDS = [0.9, 0.75, 0.5, 0];
+
+/**
+ * Share of a range (weighted like the average equity) in each equity tranche: >= 90%,
+ * 75-90%, 50-75%, < 50%. The shares sum to 1; all NaN for an empty range.
+ */
+export const equityBuckets = (
+  equity: number[],
+  weights: number[]
+): number[] => {
+  const sums = EQUITY_BUCKET_BOUNDS.map(() => 0);
+  let total = 0;
+  for (let i = 0; i < equity.length; ++i) {
+    const w = weights[i];
+    if (!w) continue;
+    const bucket = EQUITY_BUCKET_BOUNDS.findIndex(
+      (bound) => equity[i] >= bound
+    );
+    sums[bucket === -1 ? sums.length - 1 : bucket] += w;
+    total += w;
+  }
+  return total > 0 ? sums.map((s) => s / total) : sums.map(() => Number.NaN);
 };
 
 export const toFixed1 = (value: number) => {

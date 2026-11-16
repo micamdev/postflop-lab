@@ -109,12 +109,55 @@
       </div>
       <BarChart :values="eqr" />
     </div>
+
+    <!-- Nut advantage: share of each range in each equity tranche -->
+    <div class="mt-2 text-center font-semibold underline">
+      Equity distribution
+    </div>
+    <div
+      v-for="(label, i) in BUCKET_LABELS"
+      :key="label"
+      class="flex flex-col gap-0.5"
+    >
+      <div class="flex">
+        <Percentage
+          :value="buckets[0][i]"
+          :class="{
+            'w-14': true,
+            'font-semibold':
+              !isNaN(buckets[0][i]) &&
+              buckets[0][i] >= (1 - EPS) * buckets[1][i],
+          }"
+        />
+        <div class="flex-grow text-center">{{ label }}</div>
+        <Percentage
+          :value="buckets[1][i]"
+          :class="{
+            'w-14': true,
+            'text-right': true,
+            'font-semibold':
+              !isNaN(buckets[1][i]) &&
+              (1 - EPS) * buckets[0][i] <= buckets[1][i],
+          }"
+        />
+      </div>
+      <BarChart :values="[buckets[0][i], buckets[1][i]]" />
+    </div>
+    <div class="text-center">
+      Nut advantage: <span class="font-semibold">{{ nutAdvantageText }}</span>
+    </div>
   </div>
 </template>
 
 <script setup lang="ts">
 import { computed, h } from "vue";
-import { average, toFixed1, toFixed, toFixedAdaptive } from "../utils";
+import {
+  average,
+  equityBuckets,
+  toFixed1,
+  toFixed,
+  toFixedAdaptive,
+} from "../utils";
 import { Results, Spot, SpotChance } from "../result-types";
 
 import { StarIcon } from "@heroicons/vue/24/solid";
@@ -221,6 +264,31 @@ const eqr = computed(() => {
   if (!isFinite(ret[0])) ret[0] = Number.NaN;
   if (!isFinite(ret[1])) ret[1] = Number.NaN;
   return ret;
+});
+
+const BUCKET_LABELS = ["Equity ≥ 90%", "75-90%", "50-75%", "< 50%"];
+
+// Share of each range in each equity tranche (OOP, IP).
+const buckets = computed(() => {
+  const results = props.results;
+  if (results.isEmpty) {
+    const none = BUCKET_LABELS.map(() => Number.NaN);
+    return [none, none];
+  }
+  return [
+    equityBuckets(results.equity[0], results.normalizer[0]),
+    equityBuckets(results.equity[1], results.normalizer[1]),
+  ];
+});
+
+// Who holds the larger share of their range at 90%+ equity (1 point margin).
+const nutAdvantageText = computed(() => {
+  const [oop, ip] = [buckets.value[0][0], buckets.value[1][0]];
+  if (isNaN(oop) || isNaN(ip) || Math.abs(oop - ip) < 0.01) return "—";
+  const pct = (x: number) => (x * 100).toFixed(1) + "%";
+  return oop > ip
+    ? `OOP (${pct(oop)} vs ${pct(ip)} at 90%+)`
+    : `IP (${pct(ip)} vs ${pct(oop)} at 90%+)`;
 });
 
 const evDigits = computed(() => {
