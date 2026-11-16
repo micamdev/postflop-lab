@@ -444,8 +444,33 @@ watch(isHandlerUpdated, async () => {
   spots.value = [spot];
 
   await selectSpot(1, true);
+  const line = store.returnLine;
+  store.returnLine = null;
+  if (line) await replayLine(line);
   emit("update:is-handler-updated", false);
 });
+
+/**
+ * Navigates from the root along `history` (action indices and dealt cards, as in
+ * `selectedLine`), stopping at the first step that does not apply to the tree.
+ */
+const replayLine = async (history: number[]) => {
+  for (const [k, value] of history.entries()) {
+    const spot = spots.value[k + 1];
+    if (spot?.type === "player" && spot.actions[value]) {
+      await play(k + 1, value);
+    } else if (
+      spot?.type === "chance" &&
+      selectedChance.value === spot &&
+      spot.cards[value] &&
+      !spot.cards[value].isDead
+    ) {
+      await deal(value);
+    } else {
+      return;
+    }
+  }
+};
 
 const selectSpot = async (
   spotIndex: number,

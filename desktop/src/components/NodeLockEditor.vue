@@ -629,6 +629,7 @@ const startResolve = async () => {
   store.isLibraryBusy = false;
   store.solutionLocks = locks;
   store.locks = [...locks];
+  store.returnLine = [...props.line.history];
   store.navView = "solver";
   store.sideView = "run-solver";
   store.lockSolveRequest = { id: Date.now(), compression };

@@ -122,6 +122,8 @@ export const useStore = defineStore("app", {
     isFinalizing: false,
     solutionDepth: "river" as SolutionDepth,
     solutionInfo: null as SolutionInfo | null,
+    /** Line (history) to show in Results once the locked solve ends. */
+    returnLine: null as number[] | null,
     isSolutionSaved: false,
     /** A library operation (load) holds the game: solver controls are locked. */
     isLibraryBusy: false,

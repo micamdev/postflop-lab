@@ -673,6 +673,7 @@ const buildTree = async () => {
 
   saveConfig();
   setSolutionLocks([]);
+  store.returnLine = null;
 
   [memoryUsageRaw.value, memoryUsageRawCompressed.value] =
     await invokes.gameMemoryUsage();
@@ -830,6 +831,8 @@ const resumeSolver = async () => {
     exploitability: exploitability.value,
   };
   store.isSolverFinished = true;
+  // After a locked re-solve, go back to the node the lock was edited at.
+  if (store.returnLine) store.navView = "results";
 
   const end = performance.now();
   elapsedTimeMs.value += end - startTime;
