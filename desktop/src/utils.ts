@@ -365,3 +365,14 @@ export const readableLineString = (s: string): string => {
 
   return ret;
 };
+
+/** Human-readable size, e.g. "1.25 GB" or "740 MB". */
+export const formatBytes = (bytes: number): string => {
+  if (bytes >= 1023.5 * 1024 * 1024) {
+    return (bytes / (1024 * 1024 * 1024)).toFixed(2) + " GB";
+  }
+  if (bytes >= 1023.5 * 1024) {
+    return (bytes / (1024 * 1024)).toFixed(0) + " MB";
+  }
+  return Math.max(1, Math.round(bytes / 1024)) + " KB";
+};
