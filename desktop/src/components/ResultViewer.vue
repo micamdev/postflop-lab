@@ -55,7 +55,34 @@
     />
 
     <div
-      v-if="store.navView === 'results' && selectedSpot && results"
+      v-if="selectedSpot && results && !isLockEditorOpen"
+      class="flex items-center gap-3 px-4 pt-1 text-sm"
+    >
+      <button
+        class="button-base button-blue"
+        :disabled="store.isLibraryBusy"
+        @click="isLockEditorOpen = true"
+      >
+        Node lock
+      </button>
+      <span v-if="store.locks.length > 0" class="text-gray-600">
+        {{ store.locks.length }} lock{{ store.locks.length === 1 ? "" : "s" }}
+      </span>
+    </div>
+
+    <NodeLockEditor
+      v-if="isLockEditorOpen && selectedSpot && results"
+      :key="line.history.join(',') + '/' + selectedSpot.index"
+      :spot="selectedSpot.type === 'player' ? selectedSpot : null"
+      :unlockable-reason="unlockableReason"
+      :line="line"
+      :results="results"
+      :cards="cards"
+      @close="isLockEditorOpen = false"
+    />
+
+    <div
+      v-else-if="store.navView === 'results' && selectedSpot && results"
       class="flex flex-grow min-h-0"
     >
       <template v-if="displayMode === 'basics'">
@@ -169,6 +196,7 @@ import ResultTable from "./ResultTable.vue";
 import ResultCompare from "./ResultCompare.vue";
 import ResultGraphs from "./ResultGraphs.vue";
 import ResultChance from "./ResultChance.vue";
+import NodeLockEditor from "./NodeLockEditor.vue";
 
 const store = useStore();
 
@@ -192,6 +220,33 @@ const currentBoard = ref<number[]>([]);
 const results = ref<Results | null>(null);
 const chanceReports = ref<ChanceReports | null>(null);
 const totalBetAmount = ref([0, 0]);
+const line = ref<{ history: number[]; label: string }>({
+  history: [],
+  label: "",
+});
+
+/* Node lock */
+
+const isLockEditorOpen = ref(false);
+
+/** Why the displayed node cannot be locked, or "" if it can. */
+const unlockableReason = computed(() => {
+  const spot = selectedSpot.value;
+  if (store.isBunchingEnabled && store.bunchingFlop.length > 0) {
+    return "Locks are not available with the bunching effect.";
+  }
+  if (selectedChance.value || !spot || spot.type !== "player") {
+    return "Select a player's decision in the line above to lock it.";
+  }
+  if (line.value.history.includes(-1)) {
+    return "Pick the board cards of this line first.";
+  }
+  const player = spot.player === "oop" ? 0 : 1;
+  if (!results.value || results.value.isEmpty & (1 << player)) {
+    return "This player has no hand at this node.";
+  }
+  return "";
+});
 
 const isSolverFinished = ref(false);
 store.$subscribe(async (_, store) => {
@@ -210,6 +265,7 @@ const init = async () => {
 };
 
 const clear = () => {
+  isLockEditorOpen.value = false;
   cards.value = [[], []];
   selectedSpot.value = null;
   selectedChance.value = null;
@@ -223,8 +279,10 @@ const onUpdateSpot = (
   newCurrentBoard: number[],
   newResults: Results,
   newChanceReports: ChanceReports | null,
-  newTotalBetAmount: number[]
+  newTotalBetAmount: number[],
+  newLine: { history: number[]; label: string }
 ) => {
+  line.value = newLine;
   dealtCard.value = -1;
   selectedSpot.value = newSelectedSpot;
   selectedChance.value = newSelectedChance;

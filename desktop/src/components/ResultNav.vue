@@ -364,7 +364,8 @@ const emit = defineEmits<{
     currentBoard: number[],
     results: Results,
     chanceReports: ChanceReports | null,
-    totalBetAmount: number[]
+    totalBetAmount: number[],
+    line: { history: number[]; label: string }
   ): void;
 }>();
 
@@ -443,8 +444,33 @@ watch(isHandlerUpdated, async () => {
   spots.value = [spot];
 
   await selectSpot(1, true);
+  const line = store.returnLine;
+  store.returnLine = null;
+  if (line) await replayLine(line);
   emit("update:is-handler-updated", false);
 });
+
+/**
+ * Navigates from the root along `history` (action indices and dealt cards, as in
+ * `selectedLine`), stopping at the first step that does not apply to the tree.
+ */
+const replayLine = async (history: number[]) => {
+  for (const [k, value] of history.entries()) {
+    const spot = spots.value[k + 1];
+    if (spot?.type === "player" && spot.actions[value]) {
+      await play(k + 1, value);
+    } else if (
+      spot?.type === "chance" &&
+      selectedChance.value === spot &&
+      spot.cards[value] &&
+      !spot.cards[value].isDead
+    ) {
+      await deal(value);
+    } else {
+      return;
+    }
+  }
+};
 
 const selectSpot = async (
   spotIndex: number,
@@ -487,6 +513,28 @@ const reopenRiver = (spot: SpotChance) => {
 };
 
 let resolveId = 0;
+
+/** History and readable line of the selected spot (e.g. "OOP Check, IP Bet 30, T♥"). */
+const selectedLine = () => {
+  const path = spots.value.slice(1, selectedSpotIndex.value);
+  const label = path
+    .map((spot) => {
+      if (spot.type === "chance") {
+        if (spot.selectedIndex === -1) return "?";
+        const card = cardText(spot.selectedIndex);
+        return card.rank + card.suit;
+      }
+      if (spot.type !== "player") return "";
+      const action = spot.actions[spot.selectedIndex];
+      const amount = action?.amount === "0" ? "" : ` ${action?.amount}`;
+      return `${spot.player.toUpperCase()} ${action?.name ?? "?"}${amount}`;
+    })
+    .join(", ");
+  return {
+    history: path.map((spot) => spot.selectedIndex),
+    label: label || "Root",
+  };
+};
 
 /**
  * Re-solves the river `card` at the selected "Pick a river" spot (past the saved depth), then
@@ -784,7 +832,8 @@ const selectSpotUnsafe = async (
     currentBoard.value,
     results,
     chanceReports,
-    totalBetAmount
+    totalBetAmount,
+    selectedLine()
   );
 
   // scroll to selected spot

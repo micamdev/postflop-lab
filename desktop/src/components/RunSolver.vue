@@ -360,6 +360,7 @@ import {
   useSavedConfigStore,
   saveConfigTmp,
   saveConfig,
+  setSolutionLocks,
 } from "../store";
 import {
   MAX_AMOUNT,
@@ -671,6 +672,8 @@ const buildTree = async () => {
   }
 
   saveConfig();
+  setSolutionLocks([]);
+  store.returnLine = null;
 
   [memoryUsageRaw.value, memoryUsageRawCompressed.value] =
     await invokes.gameMemoryUsage();
@@ -736,6 +739,45 @@ const runSolver = async () => {
   await resumeSolver();
 };
 
+/**
+ * Solves the game prepared with locks (tree rebuilt, memory allocated, locks placed by
+ * `gamePrepareLockSolve`), with the current settings.
+ */
+const runLockedSolve = async (compression: boolean) => {
+  // Before any await: the game is unsolved (also set by the lock editor).
+  store.isSolverFinished = false;
+  store.isSolverRunning = true;
+  isCompressionEnabled.value = compression;
+  [memoryUsageRaw.value, memoryUsageRawCompressed.value] =
+    await invokes.gameMemoryUsage();
+  memoryUsageBunching.value = 0;
+  // Already allocated: the memory was checked before (gamePrepareLockSolve).
+  maxMemoryUsage.value = Number.POSITIVE_INFINITY;
+  isTreeBuilt.value = true;
+  treeStatus.value = "Tree rebuilt from the solution (with its locks)";
+
+  resetSolutionInfo();
+  store.isSolverFinished = false;
+  store.isSolverPaused = false;
+  store.isSolverError = false;
+  terminateFlag.value = false;
+  pauseFlag.value = false;
+  elapsedTimeMs.value = 0;
+  startTime = 0;
+
+  currentIteration.value = 0;
+  exploitability.value = Math.max(await invokes.gameExploitability(), 0);
+  exploitabilityUpdated = true;
+  await resumeSolver();
+};
+
+watch(
+  () => store.lockSolveRequest,
+  async (request) => {
+    if (request) await runLockedSolve(request.compression);
+  }
+);
+
 const resumeSolver = async () => {
   store.isSolverRunning = true;
   store.isSolverPaused = false;
@@ -789,6 +831,8 @@ const resumeSolver = async () => {
     exploitability: exploitability.value,
   };
   store.isSolverFinished = true;
+  // After a locked re-solve, go back to the node the lock was edited at.
+  if (store.returnLine) store.navView = "results";
 
   const end = performance.now();
   elapsedTimeMs.value += end - startTime;

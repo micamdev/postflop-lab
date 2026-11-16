@@ -1,17 +1,34 @@
 import { nextTick } from "vue";
-import { confirm } from "@tauri-apps/plugin-dialog";
+import { confirm, message } from "@tauri-apps/plugin-dialog";
 import {
   useStore,
   useConfigStore,
   saveConfigTmp,
   saveConfig,
   SolutionDepth,
+  setSolutionLocks,
 } from "./store";
 import * as invokes from "./invokes";
 
 /** Asks a yes/no question in a native dialog. */
 export const ask = async (message: string): Promise<boolean> => {
   return await confirm(message, { title: "Postflop Lab", kind: "warning" });
+};
+
+/**
+ * Asks a question with three labelled buttons in a native dialog. Returns the label of the
+ * clicked button; closing the dialog counts as `cancel`.
+ */
+export const choose = async (
+  text: string,
+  buttons: { yes: string; no: string; cancel: string }
+): Promise<string> => {
+  const result = await message(text, {
+    title: "Postflop Lab",
+    kind: "warning",
+    buttons,
+  });
+  return result === buttons.yes || result === buttons.no ? result : buttons.cancel;
 };
 
 /** Human-readable size, e.g. "1.25 GB" or "740 MB". */
@@ -98,6 +115,7 @@ const replaceWithSolution = async (name: string): Promise<string | null> => {
     if (message.startsWith(invokes.ERR_GAME_FREED)) {
       // The previous game is gone: the tree built in Run Solver is no longer valid.
       store.treeResetCount++;
+      setSolutionLocks([]);
       return (
         "The solution could not be read (the file may be damaged): " +
         message.slice(invokes.ERR_GAME_FREED.length + 2)
@@ -122,6 +140,7 @@ const replaceWithSolution = async (name: string): Promise<string | null> => {
   }
 
   store.isBunchingEnabled = false;
+  setSolutionLocks(meta.locks ?? []);
   store.solutionDepth = meta.depth;
   store.solutionInfo = {
     name,
