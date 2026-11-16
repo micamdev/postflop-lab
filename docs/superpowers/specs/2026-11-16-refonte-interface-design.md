@@ -1,7 +1,7 @@
 # Refonte de l'interface
 
 Date : 2026-11-16
-Statut : à valider par l'utilisateur
+Statut : validé
 
 ## Pourquoi
 
@@ -227,7 +227,7 @@ Import et Open folder en boutons discrets.
 - Les tailles exactes, espacements et états de survol, dans l'esprit des
   maquettes.
 
-## Choix faits après relecture (à vérifier par l'utilisateur)
+## Choix faits après relecture (validés)
 
 Points soulevés par la relecture « constructeur », tranchés par Claude :
 
