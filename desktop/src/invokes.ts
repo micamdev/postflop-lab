@@ -1,5 +1,6 @@
 import { invoke } from "@tauri-apps/api/core";
 import { Results, ChanceReports } from "./result-types";
+import type { GameTreeArgs } from "./game-args";
 
 export const osName = async (): Promise<"windows" | "macos" | "linux"> => {
   return await invoke("os_name");
@@ -181,60 +182,15 @@ export const bunchingProgress = async (): Promise<number[]> => {
 
 /* Game */
 
-export const gameInit = async (
-  board: number[],
-  startingPot: number,
-  effectiveStack: number,
-  rakeRate: number,
-  rakeCap: number,
-  donkOption: boolean,
-  oopFlopBet: string,
-  oopFlopRaise: string,
-  oopTurnBet: string,
-  oopTurnRaise: string,
-  oopTurnDonk: string,
-  oopRiverBet: string,
-  oopRiverRaise: string,
-  oopRiverDonk: string,
-  ipFlopBet: string,
-  ipFlopRaise: string,
-  ipTurnBet: string,
-  ipTurnRaise: string,
-  ipRiverBet: string,
-  ipRiverRaise: string,
-  addAllinThreshold: number,
-  forceAllinThreshold: number,
-  mergingThreshold: number,
-  addedLines: string,
-  removedLines: string
-): Promise<string | null> => {
-  return await invoke("game_init", {
-    board,
-    startingPot,
-    effectiveStack,
-    rakeRate,
-    rakeCap,
-    donkOption,
-    oopFlopBet,
-    oopFlopRaise,
-    oopTurnBet,
-    oopTurnRaise,
-    oopTurnDonk,
-    oopRiverBet,
-    oopRiverRaise,
-    oopRiverDonk,
-    ipFlopBet,
-    ipFlopRaise,
-    ipTurnBet,
-    ipTurnRaise,
-    ipRiverBet,
-    ipRiverRaise,
-    addAllinThreshold,
-    forceAllinThreshold,
-    mergingThreshold,
-    addedLines,
-    removedLines,
-  });
+export const gameInit = async (args: GameTreeArgs): Promise<string | null> => {
+  return await invoke("game_init", { args });
+};
+
+/** Memory needed to solve the setup [32-bit, 16-bit]; rejects with the reason. */
+export const gameMemoryEstimate = async (
+  args: GameTreeArgs
+): Promise<[number, number]> => {
+  return await invoke("game_memory_estimate", { args });
 };
 
 export const gamePrivateCards = async (): Promise<number[][]> => {

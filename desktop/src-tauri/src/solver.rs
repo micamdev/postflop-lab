@@ -67,117 +67,165 @@ pub fn weighted_average(slice: &[f32], weights: &[f32]) -> f64 {
     sum / weight_sum
 }
 
-// Tauri commands receive their arguments one by one from the front end.
-#[allow(clippy::too_many_arguments)]
+/// The setup that defines a game tree, as sent by the front end (`gameTreeArgs`).
+#[derive(Debug, Default, Clone, serde::Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct GameTreeArgs {
+    pub board: Vec<u8>,
+    pub starting_pot: i32,
+    pub effective_stack: i32,
+    pub rake_rate: f64,
+    pub rake_cap: f64,
+    pub donk_option: bool,
+    pub oop_flop_bet: String,
+    pub oop_flop_raise: String,
+    pub oop_turn_bet: String,
+    pub oop_turn_raise: String,
+    pub oop_turn_donk: String,
+    pub oop_river_bet: String,
+    pub oop_river_raise: String,
+    pub oop_river_donk: String,
+    pub ip_flop_bet: String,
+    pub ip_flop_raise: String,
+    pub ip_turn_bet: String,
+    pub ip_turn_raise: String,
+    pub ip_river_bet: String,
+    pub ip_river_raise: String,
+    pub add_allin_threshold: f64,
+    pub force_allin_threshold: f64,
+    pub merging_threshold: f64,
+    pub added_lines: String,
+    pub removed_lines: String,
+}
+
+fn bet_sizes(bet: &str, raise: &str) -> Result<BetSizeOptions, String> {
+    BetSizeOptions::try_from((bet, raise)).map_err(|e| format!("Invalid bet sizes: {e}"))
+}
+
+/// Parses one encoded line ("X-B30|C") of added or removed lines.
+fn parse_line(line: &str) -> Result<Vec<Action>, String> {
+    line.split(&['-', '|'][..])
+        .map(|action| {
+            let valid = matches!(action, "F" | "X" | "C")
+                || (action.len() > 1
+                    && matches!(&action[..1], "B" | "R" | "A")
+                    && action[1..].parse::<i32>().is_ok());
+            if valid {
+                Ok(decode_action(action))
+            } else {
+                Err("Invalid line (loaded broken tree?)".to_string())
+            }
+        })
+        .collect()
+}
+
+/// Card configuration and action tree of a setup; every invalid input is an error.
+fn build_game_inputs(
+    ranges: &[Range; 2],
+    args: &GameTreeArgs,
+) -> Result<(CardConfig, ActionTree), String> {
+    let board = &args.board;
+    let (turn, river, state) = match board.len() {
+        3 => (NOT_DEALT, NOT_DEALT, BoardState::Flop),
+        4 => (board[3], NOT_DEALT, BoardState::Turn),
+        5 => (board[3], board[4], BoardState::River),
+        _ => return Err("Invalid board length".to_string()),
+    };
+
+    let card_config = CardConfig {
+        range: *ranges,
+        flop: board[..3].try_into().unwrap(),
+        turn,
+        river,
+    };
+
+    let donk = |sizes: &str| match args.donk_option {
+        false => None,
+        true => DonkSizeOptions::try_from(sizes).ok(),
+    };
+
+    let tree_config = TreeConfig {
+        initial_state: state,
+        starting_pot: args.starting_pot,
+        effective_stack: args.effective_stack,
+        rake_rate: args.rake_rate,
+        rake_cap: args.rake_cap,
+        flop_bet_sizes: [
+            bet_sizes(&args.oop_flop_bet, &args.oop_flop_raise)?,
+            bet_sizes(&args.ip_flop_bet, &args.ip_flop_raise)?,
+        ],
+        turn_bet_sizes: [
+            bet_sizes(&args.oop_turn_bet, &args.oop_turn_raise)?,
+            bet_sizes(&args.ip_turn_bet, &args.ip_turn_raise)?,
+        ],
+        river_bet_sizes: [
+            bet_sizes(&args.oop_river_bet, &args.oop_river_raise)?,
+            bet_sizes(&args.ip_river_bet, &args.ip_river_raise)?,
+        ],
+        turn_donk_sizes: donk(&args.oop_turn_donk),
+        river_donk_sizes: donk(&args.oop_river_donk),
+        add_allin_threshold: args.add_allin_threshold,
+        force_allin_threshold: args.force_allin_threshold,
+        merging_threshold: args.merging_threshold,
+    };
+
+    let mut action_tree = ActionTree::new(tree_config)?;
+
+    if !args.added_lines.is_empty() {
+        for added_line in args.added_lines.split(',') {
+            if action_tree.add_line(&parse_line(added_line)?).is_err() {
+                return Err("Failed to add line (loaded broken tree?)".to_string());
+            }
+        }
+    }
+
+    if !args.removed_lines.is_empty() {
+        for removed_line in args.removed_lines.split(',') {
+            if action_tree.remove_line(&parse_line(removed_line)?).is_err() {
+                return Err("Failed to remove line (loaded broken tree?)".to_string());
+            }
+        }
+    }
+
+    Ok((card_config, action_tree))
+}
+
+/// Memory needed to solve a setup (32-bit, 16-bit), from a separate game.
+fn estimate_memory(ranges: &[Range; 2], args: &GameTreeArgs) -> Result<(u64, u64), String> {
+    let (card_config, action_tree) = build_game_inputs(ranges, args)?;
+    let game = PostFlopGame::with_config(card_config, action_tree)?;
+    Ok(game.memory_usage())
+}
+
 #[tauri::command(async)]
 pub fn game_init(
     range_state: tauri::State<Mutex<RangeManager>>,
     game_state: tauri::State<Mutex<PostFlopGame>>,
     cache_state: tauri::State<Mutex<SubgameCache>>,
     locks_state: tauri::State<crate::lock_commands::CurrentLocks>,
-    board: Vec<u8>,
-    starting_pot: i32,
-    effective_stack: i32,
-    rake_rate: f64,
-    rake_cap: f64,
-    donk_option: bool,
-    oop_flop_bet: String,
-    oop_flop_raise: String,
-    oop_turn_bet: String,
-    oop_turn_raise: String,
-    oop_turn_donk: String,
-    oop_river_bet: String,
-    oop_river_raise: String,
-    oop_river_donk: String,
-    ip_flop_bet: String,
-    ip_flop_raise: String,
-    ip_turn_bet: String,
-    ip_turn_raise: String,
-    ip_river_bet: String,
-    ip_river_raise: String,
-    add_allin_threshold: f64,
-    force_allin_threshold: f64,
-    merging_threshold: f64,
-    added_lines: String,
-    removed_lines: String,
+    args: GameTreeArgs,
 ) -> Option<String> {
-    let (turn, river, state) = match board.len() {
-        3 => (NOT_DEALT, NOT_DEALT, BoardState::Flop),
-        4 => (board[3], NOT_DEALT, BoardState::Turn),
-        5 => (board[3], board[4], BoardState::River),
-        _ => return Some("Invalid board length".to_string()),
+    let ranges: [Range; 2] = range_state.lock().unwrap().0[..2].try_into().unwrap();
+    let (card_config, action_tree) = match build_game_inputs(&ranges, &args) {
+        Ok(inputs) => inputs,
+        Err(e) => return Some(e),
     };
-
-    let ranges = &range_state.lock().unwrap().0;
-    let card_config = CardConfig {
-        range: ranges[..2].try_into().unwrap(),
-        flop: board[..3].try_into().unwrap(),
-        turn,
-        river,
-    };
-
-    let tree_config = TreeConfig {
-        initial_state: state,
-        starting_pot,
-        effective_stack,
-        rake_rate,
-        rake_cap,
-        flop_bet_sizes: [
-            BetSizeOptions::try_from((oop_flop_bet.as_str(), oop_flop_raise.as_str())).unwrap(),
-            BetSizeOptions::try_from((ip_flop_bet.as_str(), ip_flop_raise.as_str())).unwrap(),
-        ],
-        turn_bet_sizes: [
-            BetSizeOptions::try_from((oop_turn_bet.as_str(), oop_turn_raise.as_str())).unwrap(),
-            BetSizeOptions::try_from((ip_turn_bet.as_str(), ip_turn_raise.as_str())).unwrap(),
-        ],
-        river_bet_sizes: [
-            BetSizeOptions::try_from((oop_river_bet.as_str(), oop_river_raise.as_str())).unwrap(),
-            BetSizeOptions::try_from((ip_river_bet.as_str(), ip_river_raise.as_str())).unwrap(),
-        ],
-        turn_donk_sizes: match donk_option {
-            false => None,
-            true => DonkSizeOptions::try_from(oop_turn_donk.as_str()).ok(),
-        },
-        river_donk_sizes: match donk_option {
-            false => None,
-            true => DonkSizeOptions::try_from(oop_river_donk.as_str()).ok(),
-        },
-        add_allin_threshold,
-        force_allin_threshold,
-        merging_threshold,
-    };
-
-    let mut action_tree = ActionTree::new(tree_config).unwrap();
-
-    if !added_lines.is_empty() {
-        for added_line in added_lines.split(',') {
-            let line = added_line
-                .split(&['-', '|'][..])
-                .map(decode_action)
-                .collect::<Vec<_>>();
-            if action_tree.add_line(&line).is_err() {
-                return Some("Failed to add line (loaded broken tree?)".to_string());
-            }
-        }
-    }
-
-    if !removed_lines.is_empty() {
-        for removed_line in removed_lines.split(',') {
-            let line = removed_line
-                .split(&['-', '|'][..])
-                .map(decode_action)
-                .collect::<Vec<_>>();
-            if action_tree.remove_line(&line).is_err() {
-                return Some("Failed to remove line (loaded broken tree?)".to_string());
-            }
-        }
-    }
 
     let mut game = game_state.lock().unwrap();
     // A new tree: subgames of the previous game no longer apply.
     cache_state.lock().unwrap().clear();
     locks_state.0.lock().unwrap().clear();
     game.update_config(card_config, action_tree).err()
+}
+
+/// Memory needed to solve the setup, without touching the game held by the app.
+#[tauri::command(async)]
+pub fn game_memory_estimate(
+    range_state: tauri::State<Mutex<RangeManager>>,
+    args: GameTreeArgs,
+) -> Result<(u64, u64), String> {
+    let ranges: [Range; 2] = range_state.lock().unwrap().0[..2].try_into().unwrap();
+    estimate_memory(&ranges, &args)
 }
 
 #[tauri::command]
@@ -757,5 +805,59 @@ mod tests {
         assert!(summary.equity.iter().all(|e| (0.0..=1.0).contains(e)));
         // compute_summary leaves the game where it was.
         assert_eq!(game.history(), &[0]);
+    }
+
+    /// Setup arguments: `board`, OOP and IP flop bets `bet`, nothing else.
+    fn setup_args(board: &str, bet: &str) -> GameTreeArgs {
+        let board_cards = (0..board.len())
+            .step_by(2)
+            .map(|i| card_from_str(&board[i..i + 2]).unwrap())
+            .collect();
+        GameTreeArgs {
+            board: board_cards,
+            starting_pot: 60,
+            effective_stack: 300,
+            oop_flop_bet: bet.to_string(),
+            ip_flop_bet: bet.to_string(),
+            add_allin_threshold: 1.5,
+            force_allin_threshold: 0.2,
+            merging_threshold: 0.1,
+            ..Default::default()
+        }
+    }
+
+    fn setup_ranges(oop: &str, ip: &str) -> [Range; 2] {
+        [oop.parse().unwrap(), ip.parse().unwrap()]
+    }
+
+    #[test]
+    fn estimate_matches_built_game() {
+        let ranges = setup_ranges("AA,KK", "QQ,JJ");
+        let args = setup_args("Td9d6h", "50%");
+        let (raw, compressed) = estimate_memory(&ranges, &args).unwrap();
+
+        let (card_config, action_tree) = build_game_inputs(&ranges, &args).unwrap();
+        let mut game = PostFlopGame::new();
+        game.update_config(card_config, action_tree).unwrap();
+        assert_eq!((raw, compressed), game.memory_usage());
+        assert!(raw > compressed && compressed > 0);
+    }
+
+    #[test]
+    fn estimate_rejects_bad_bet_size() {
+        let ranges = setup_ranges("AA,KK", "QQ,JJ");
+        assert!(estimate_memory(&ranges, &setup_args("Td9d6h", "50%, abc")).is_err());
+    }
+
+    #[test]
+    fn estimate_rejects_empty_range() {
+        let ranges = setup_ranges("", "QQ,JJ");
+        assert!(estimate_memory(&ranges, &setup_args("Td9d6h", "50%")).is_err());
+    }
+
+    #[test]
+    fn estimate_rejects_short_board() {
+        let ranges = setup_ranges("AA,KK", "QQ,JJ");
+        assert!(estimate_memory(&ranges, &setup_args("Td9d", "50%")).is_err());
     }
 }

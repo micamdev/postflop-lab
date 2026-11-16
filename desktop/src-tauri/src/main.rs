@@ -69,6 +69,7 @@ fn main() {
             bunching_clear,
             bunching_progress,
             game_init,
+            game_memory_estimate,
             game_private_cards,
             game_memory_usage,
             game_memory_usage_bunching,

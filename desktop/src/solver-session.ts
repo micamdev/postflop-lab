@@ -14,12 +14,12 @@ import {
 } from "./store";
 import {
   MAX_AMOUNT,
-  convertBetString,
   ROOT_LINE_STRING,
   INVALID_LINE_STRING,
   readableLineString,
 } from "./utils";
 import * as invokes from "./invokes";
+import { gameTreeArgs } from "./game-args";
 import {
   loadSolveSettings,
   saveSolveSettings,
@@ -262,33 +262,7 @@ export const useSolverSession = defineStore("solverSession", () => {
     store.isSolverError = false;
     resetSolutionInfo();
 
-    const errorString = await invokes.gameInit(
-      tmpConfig.board,
-      tmpConfig.startingPot,
-      tmpConfig.effectiveStack,
-      tmpConfig.rakePercent / 100,
-      tmpConfig.rakeCap,
-      tmpConfig.donkOption,
-      convertBetString(tmpConfig.oopFlopBet),
-      convertBetString(tmpConfig.oopFlopRaise),
-      convertBetString(tmpConfig.oopTurnBet),
-      convertBetString(tmpConfig.oopTurnRaise),
-      tmpConfig.donkOption ? convertBetString(tmpConfig.oopTurnDonk) : "",
-      convertBetString(tmpConfig.oopRiverBet),
-      convertBetString(tmpConfig.oopRiverRaise),
-      tmpConfig.donkOption ? convertBetString(tmpConfig.oopRiverDonk) : "",
-      convertBetString(tmpConfig.ipFlopBet),
-      convertBetString(tmpConfig.ipFlopRaise),
-      convertBetString(tmpConfig.ipTurnBet),
-      convertBetString(tmpConfig.ipTurnRaise),
-      convertBetString(tmpConfig.ipRiverBet),
-      convertBetString(tmpConfig.ipRiverRaise),
-      tmpConfig.addAllInThreshold / 100,
-      tmpConfig.forceAllInThreshold / 100,
-      tmpConfig.mergingThreshold / 100,
-      tmpConfig.addedLines,
-      tmpConfig.removedLines
-    );
+    const errorString = await invokes.gameInit(gameTreeArgs(tmpConfig));
 
     isBuilding.value = false;
     if (errorString) {
