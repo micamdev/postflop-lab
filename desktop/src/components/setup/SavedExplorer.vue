@@ -206,6 +206,7 @@ import {
   nameTaken,
   renamedPath,
   rowFor,
+  saveTargets,
   toJsonItems,
   visibleRows,
 } from "../../saved-items";
@@ -402,8 +403,6 @@ const startSave = (target: 0 | 1 | "tree") => {
     message.value = "Select a folder that is not this deep.";
     return;
   }
-  if (target === "tree") void switchTab("configurations");
-  else void switchTab("ranges");
   editing.value = { kind: "save", target, folder };
   const source =
     target === "tree" ? store.treeSource : store.rangeSources[target];
@@ -576,11 +575,13 @@ const rowMenu = (node: SavedNode) => [
   { label: "Delete", danger: true, onSelect: () => void remove(node) },
 ];
 
-const saveMenu = computed(() => [
-  { label: "OOP range", onSelect: () => startSave(0) },
-  { label: "IP range", onSelect: () => startSave(1) },
-  { label: "Tree config", onSelect: () => startSave("tree") },
-]);
+// Each tab saves its own kind of item, into the folder selected in that tab.
+const saveMenu = computed(() =>
+  saveTargets(tab.value).map(({ label, target }) => ({
+    label,
+    onSelect: () => startSave(target),
+  }))
+);
 
 const fileMenu = computed(() => [
   { label: "Import JSON…", onSelect: () => void importJson() },

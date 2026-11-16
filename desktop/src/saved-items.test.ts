@@ -8,6 +8,7 @@ import {
   isUnder,
   renamedPath,
   rowFor,
+  saveTargets,
   visibleRows,
   filterFolderTree,
   itemsToAdd,
@@ -187,5 +188,17 @@ describe("explorer helpers", () => {
   test("rowFor builds a database row from a path", () => {
     expect(rowFor(["100bb", "SRP"], true)).toEqual(group("100bb", "SRP"));
     expect(rowFor(["BTN open"], false, "AA")).toEqual(item("AA", "BTN open"));
+  });
+});
+
+describe("saveTargets", () => {
+  test("each tab saves its own kind of item", () => {
+    expect(saveTargets("ranges").map((t) => t.label)).toEqual([
+      "OOP range",
+      "IP range",
+    ]);
+    expect(saveTargets("configurations").map((t) => t.label)).toEqual([
+      "Tree config",
+    ]);
   });
 });

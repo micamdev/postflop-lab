@@ -279,3 +279,14 @@ export const renamedPath = (
   isUnder(path, renamed)
     ? path.map((name, i) => (i === renamed.length - 1 ? newName : name))
     : path;
+
+/** What "Save current" can save from a tab: ranges (OOP or IP) or the tree config. */
+export const saveTargets = (
+  store: SavedStore
+): { label: string; target: 0 | 1 | "tree" }[] =>
+  store === "ranges"
+    ? [
+        { label: "OOP range", target: 0 },
+        { label: "IP range", target: 1 },
+      ]
+    : [{ label: "Tree config", target: "tree" }];
