@@ -186,7 +186,7 @@
                   :disabled="hasEdit"
                   @change="
                     config.oopFlopBetSanitized.valid &&
-                      (config.oopFlopBet = config.oopFlopBetSanitized.s)
+                    (config.oopFlopBet = config.oopFlopBetSanitized.s)
                   "
                 />
                 %
@@ -203,7 +203,7 @@
                   :disabled="hasEdit"
                   @change="
                     config.oopFlopRaiseSanitized.valid &&
-                      (config.oopFlopRaise = config.oopFlopRaiseSanitized.s)
+                    (config.oopFlopRaise = config.oopFlopRaiseSanitized.s)
                   "
                 />
                 %
@@ -224,7 +224,7 @@
                   :disabled="hasEdit"
                   @change="
                     config.oopTurnBetSanitized.valid &&
-                      (config.oopTurnBet = config.oopTurnBetSanitized.s)
+                    (config.oopTurnBet = config.oopTurnBetSanitized.s)
                   "
                 />
                 %
@@ -241,7 +241,7 @@
                   :disabled="hasEdit"
                   @change="
                     config.oopTurnRaiseSanitized.valid &&
-                      (config.oopTurnRaise = config.oopTurnRaiseSanitized.s)
+                    (config.oopTurnRaise = config.oopTurnRaiseSanitized.s)
                   "
                 />
                 %
@@ -258,7 +258,7 @@
                   :disabled="hasEdit"
                   @change="
                     config.oopTurnDonkSanitized.valid &&
-                      (config.oopTurnDonk = config.oopTurnDonkSanitized.s)
+                    (config.oopTurnDonk = config.oopTurnDonkSanitized.s)
                   "
                 />
                 %
@@ -279,7 +279,7 @@
                   :disabled="hasEdit"
                   @change="
                     config.oopRiverBetSanitized.valid &&
-                      (config.oopRiverBet = config.oopRiverBetSanitized.s)
+                    (config.oopRiverBet = config.oopRiverBetSanitized.s)
                   "
                 />
                 %
@@ -296,7 +296,7 @@
                   :disabled="hasEdit"
                   @change="
                     config.oopRiverRaiseSanitized.valid &&
-                      (config.oopRiverRaise = config.oopRiverRaiseSanitized.s)
+                    (config.oopRiverRaise = config.oopRiverRaiseSanitized.s)
                   "
                 />
                 %
@@ -313,7 +313,7 @@
                   :disabled="hasEdit"
                   @change="
                     config.oopRiverDonkSanitized.valid &&
-                      (config.oopRiverDonk = config.oopRiverDonkSanitized.s)
+                    (config.oopRiverDonk = config.oopRiverDonkSanitized.s)
                   "
                 />
                 %
@@ -358,7 +358,7 @@
                   :disabled="hasEdit"
                   @change="
                     config.ipFlopBetSanitized.valid &&
-                      (config.ipFlopBet = config.ipFlopBetSanitized.s)
+                    (config.ipFlopBet = config.ipFlopBetSanitized.s)
                   "
                 />
                 %
@@ -375,7 +375,7 @@
                   :disabled="hasEdit"
                   @change="
                     config.ipFlopRaiseSanitized.valid &&
-                      (config.ipFlopRaise = config.ipFlopRaiseSanitized.s)
+                    (config.ipFlopRaise = config.ipFlopRaiseSanitized.s)
                   "
                 />
                 %
@@ -396,7 +396,7 @@
                   :disabled="hasEdit"
                   @change="
                     config.ipTurnBetSanitized.valid &&
-                      (config.ipTurnBet = config.ipTurnBetSanitized.s)
+                    (config.ipTurnBet = config.ipTurnBetSanitized.s)
                   "
                 />
                 %
@@ -413,7 +413,7 @@
                   :disabled="hasEdit"
                   @change="
                     config.ipTurnRaiseSanitized.valid &&
-                      (config.ipTurnRaise = config.ipTurnRaiseSanitized.s)
+                    (config.ipTurnRaise = config.ipTurnRaiseSanitized.s)
                   "
                 />
                 %
@@ -434,7 +434,7 @@
                   :disabled="hasEdit"
                   @change="
                     config.ipRiverBetSanitized.valid &&
-                      (config.ipRiverBet = config.ipRiverBetSanitized.s)
+                    (config.ipRiverBet = config.ipRiverBetSanitized.s)
                   "
                 />
                 %
@@ -451,7 +451,7 @@
                   :disabled="hasEdit"
                   @change="
                     config.ipRiverRaiseSanitized.valid &&
-                      (config.ipRiverRaise = config.ipRiverRaiseSanitized.s)
+                    (config.ipRiverRaise = config.ipRiverRaiseSanitized.s)
                   "
                 />
                 %
@@ -745,44 +745,16 @@ import { computed, ref } from "vue";
 import { useStore, useConfigStore } from "../store";
 import {
   MAX_AMOUNT,
-  sanitizeBetString,
   ROOT_LINE_STRING,
   INVALID_LINE_STRING,
   readableLineString,
 } from "../utils";
 
 import DbItemPicker from "./DbItemPicker.vue";
+import { applyConfigValue, configToValue } from "../tree-config-value";
 import TreeEditor from "./TreeEditor.vue";
 import { Tippy } from "vue-tippy";
 import { QuestionMarkCircleIcon } from "@heroicons/vue/20/solid";
-
-type ConfigValue = {
-  startingPot: number;
-  effectiveStack: number;
-  rakePercent: number;
-  rakeCap: number;
-  donkOption: number;
-  oopFlopBet: string;
-  oopFlopRaise: string;
-  oopTurnBet: string;
-  oopTurnRaise: string;
-  oopTurnDonk: string;
-  oopRiverBet: string;
-  oopRiverRaise: string;
-  oopRiverDonk: string;
-  ipFlopBet: string;
-  ipFlopRaise: string;
-  ipTurnBet: string;
-  ipTurnRaise: string;
-  ipRiverBet: string;
-  ipRiverRaise: string;
-  addAllInThreshold: number;
-  forceAllInThreshold: number;
-  mergingThreshold: number;
-  expectedBoardLength: number;
-  addedLines: string;
-  removedLines: string;
-};
 
 const store = useStore();
 const config = useConfigStore();
@@ -981,73 +953,9 @@ const ipToOop = () => {
   config.oopRiverRaise = config.ipRiverRaise;
 };
 
-const dbValue = computed(
-  (): ConfigValue => ({
-    startingPot: config.startingPot,
-    effectiveStack: config.effectiveStack,
-    rakePercent: config.rakePercent,
-    rakeCap: config.rakeCap,
-    donkOption: Number(config.donkOption),
-    oopFlopBet: config.oopFlopBet,
-    oopFlopRaise: config.oopFlopRaise,
-    oopTurnBet: config.oopTurnBet,
-    oopTurnRaise: config.oopTurnRaise,
-    oopTurnDonk: config.donkOption ? config.oopTurnDonk : "",
-    oopRiverBet: config.oopRiverBet,
-    oopRiverRaise: config.oopRiverRaise,
-    oopRiverDonk: config.donkOption ? config.oopRiverDonk : "",
-    ipFlopBet: config.ipFlopBet,
-    ipFlopRaise: config.ipFlopRaise,
-    ipTurnBet: config.ipTurnBet,
-    ipTurnRaise: config.ipTurnRaise,
-    ipRiverBet: config.ipRiverBet,
-    ipRiverRaise: config.ipRiverRaise,
-    addAllInThreshold: config.addAllInThreshold,
-    forceAllInThreshold: config.forceAllInThreshold,
-    mergingThreshold: config.mergingThreshold,
-    expectedBoardLength: config.expectedBoardLength,
-    addedLines: config.addedLines,
-    removedLines: config.removedLines,
-  })
-);
+const dbValue = computed(() => configToValue(config));
 
-const loadConfig = (value: unknown) => {
-  const configValue = value as ConfigValue;
-  config.startingPot = Number(configValue.startingPot);
-  config.effectiveStack = Number(configValue.effectiveStack);
-  config.rakePercent = Number(configValue.rakePercent);
-  config.rakeCap = Number(configValue.rakeCap);
-  config.donkOption = Boolean(configValue.donkOption);
-  config.addAllInThreshold = Number(configValue.addAllInThreshold);
-  config.forceAllInThreshold = Number(configValue.forceAllInThreshold);
-  config.mergingThreshold = Number(configValue.mergingThreshold);
-  config.expectedBoardLength = Number(configValue.expectedBoardLength);
-  config.addedLines = String(configValue.addedLines);
-  config.removedLines = String(configValue.removedLines);
-
-  const betMembers = [
-    "oopFlopBet",
-    "oopFlopRaise",
-    "oopTurnBet",
-    "oopTurnRaise",
-    "oopTurnDonk",
-    "oopRiverBet",
-    "oopRiverRaise",
-    "oopRiverDonk",
-    "ipFlopBet",
-    "ipFlopRaise",
-    "ipTurnBet",
-    "ipTurnRaise",
-    "ipRiverBet",
-    "ipRiverRaise",
-  ] as const;
-
-  for (const member of betMembers) {
-    const str = String(configValue[member]);
-    const sanitized = sanitizeBetString(str, member.endsWith("Raise"));
-    config[member] = sanitized.valid ? sanitized.s : str;
-  }
-};
+const loadConfig = (value: unknown) => applyConfigValue(config, value);
 
 const startEdit = () => {
   isEditMode.value = true;

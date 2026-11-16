@@ -137,7 +137,8 @@
 <script setup lang="ts">
 import { ref, watch } from "vue";
 import { useStore } from "../store";
-import { ranks, trimRegex, rangeRegex } from "../utils";
+import { ranks } from "../utils";
+import { parseRangeText } from "../range-text";
 import * as invokes from "../invokes";
 
 import DbItemPicker from "./DbItemPicker.vue";
@@ -195,21 +196,12 @@ const update = async (row: number, col: number, weight: number) => {
 };
 
 const onRangeTextChange = async () => {
-  const trimmed = rangeText.value.replace(trimRegex, "$1").trim();
-  const ranges = trimmed.split(",");
-
-  if (ranges[ranges.length - 1] === "") {
-    ranges.pop();
+  const parsed = parseRangeText(rangeText.value);
+  if (!parsed.ok) {
+    rangeTextError.value = parsed.error;
+    return;
   }
-
-  for (const range of ranges) {
-    if (!rangeRegex.test(range)) {
-      rangeTextError.value = `Failed to parse range: ${
-        range || "(empty string)"
-      }`;
-      return;
-    }
-  }
+  const trimmed = parsed.text;
 
   const errorString = await invokes.rangeFromString(props.player, trimmed);
 
