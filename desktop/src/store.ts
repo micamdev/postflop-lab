@@ -2,17 +2,11 @@ import { defineStore } from "pinia";
 import { sanitizeBetString } from "./utils";
 import type { NodeLock } from "./invokes";
 
-export type NavView = "solver" | "results";
+export type NavView = "setup" | "results" | "library";
 
+/** Page shown in Setup. */
 export type SideView =
-  | "oop-range"
-  | "ip-range"
-  | "board"
-  | "tree-config"
-  | "bunching"
-  | "run-solver"
-  | "library"
-  | "about";
+  "oop-range" | "ip-range" | "board" | "tree-config" | "bunching";
 
 /** Saved depth of a solution: complete ("river"), up to the turn, or flop only. */
 export type SolutionDepth = "river" | "turn" | "flop";
@@ -97,17 +91,14 @@ export const saveConfig = () => {
 
 export const useStore = defineStore("app", {
   state: () => ({
-    navView: "solver" as NavView,
+    navView: "library" as NavView,
     sideView: "oop-range" as SideView,
     headers: {
-      about: ["About"],
       "oop-range": ["OOP Range"],
       "ip-range": ["IP Range"],
       board: ["Board"],
       "tree-config": ["Tree Configuration"],
       bunching: ["Bunching Effect"],
-      "run-solver": ["Run Solver"],
-      library: ["Library"],
     },
     ranges: Array.from({ length: 6 }, () =>
       Array.from({ length: 13 * 13 }, () => 0)

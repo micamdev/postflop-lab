@@ -100,3 +100,13 @@
 .legacy td {
   border-color: rgb(var(--line));
 }
+
+.legacy .bg-cyan-50 {
+  background-color: rgb(var(--panel2));
+}
+
+.legacy .text-cyan-600,
+.legacy .border-cyan-600 {
+  color: rgb(var(--accent));
+  border-color: rgb(var(--accent));
+}

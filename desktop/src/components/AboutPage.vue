@@ -24,6 +24,6 @@
 
 <style scoped>
 .link {
-  @apply text-blue-500 hover:underline;
+  @apply text-accent hover:underline;
 }
 </style>

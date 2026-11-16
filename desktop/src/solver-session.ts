@@ -176,7 +176,8 @@ export const useSolverSession = defineStore("solverSession", () => {
 
   let terminateFlag = false;
   let pauseFlag = false;
-  let startTime = 0;
+  /** performance.now() when the running segment started, 0 when not running. */
+  const segmentStart = ref(0);
   let exploitabilityUpdated = false;
 
   const isBunchingActive = () =>
@@ -355,7 +356,7 @@ export const useSolverSession = defineStore("solverSession", () => {
     initialExploitability.value = Number.POSITIVE_INFINITY;
     elapsedMs.value = 0;
     store.isSolverRunning = true;
-    startTime = performance.now();
+    segmentStart.value = performance.now();
 
     await invokes.setNumThreads(settings.value.threads);
     await invokes.gameAllocateMemory(compression.value);
@@ -399,7 +400,7 @@ export const useSolverSession = defineStore("solverSession", () => {
     terminateFlag = false;
     pauseFlag = false;
     elapsedMs.value = 0;
-    startTime = 0;
+    segmentStart.value = 0;
 
     iteration.value = 0;
     exploitability.value = Math.max(await invokes.gameExploitability(), 0);
@@ -422,8 +423,8 @@ export const useSolverSession = defineStore("solverSession", () => {
     store.isSolverRunning = true;
     store.isSolverPaused = false;
 
-    if (startTime === 0) {
-      startTime = performance.now();
+    if (segmentStart.value === 0) {
+      segmentStart.value = performance.now();
       await invokes.setNumThreads(settings.value.threads);
     }
 
@@ -436,8 +437,8 @@ export const useSolverSession = defineStore("solverSession", () => {
       exploitability.value > target
     ) {
       if (pauseFlag) {
-        elapsedMs.value += performance.now() - startTime;
-        startTime = 0;
+        elapsedMs.value += performance.now() - segmentStart.value;
+        segmentStart.value = 0;
         pauseFlag = false;
         store.isSolverRunning = false;
         store.isSolverPaused = true;
@@ -471,10 +472,11 @@ export const useSolverSession = defineStore("solverSession", () => {
       exploitability: exploitability.value,
     };
     store.isSolverFinished = true;
-    // After a locked re-solve, go back to the node the lock was edited at.
-    if (store.returnLine) store.navView = "results";
+    // Results opens (after a locked re-solve, at the node the lock was edited at).
+    store.navView = "results";
 
-    elapsedMs.value += performance.now() - startTime;
+    elapsedMs.value += performance.now() - segmentStart.value;
+    segmentStart.value = 0;
   };
 
   const clearMessage = () => {
@@ -495,6 +497,7 @@ export const useSolverSession = defineStore("solverSession", () => {
     exploitability,
     initialExploitability,
     elapsedMs,
+    segmentStart,
     flags,
     saveDisabledReason,
     canSave,

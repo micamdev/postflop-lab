@@ -376,3 +376,11 @@ export const formatBytes = (bytes: number): string => {
   }
   return Math.max(1, Math.round(bytes / 1024)) + " KB";
 };
+
+/** Card chip backgrounds by suit (clubs, diamonds, hearts, spades). */
+export const suitBgClasses = [
+  "bg-[#3e9e5c]",
+  "bg-[#3d7fd6]",
+  "bg-[#d8455b]",
+  "bg-[#4b5263]",
+];

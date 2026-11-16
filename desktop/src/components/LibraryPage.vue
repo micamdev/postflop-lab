@@ -150,7 +150,7 @@ const refresh = async () => {
 
 onMounted(refresh);
 watch(
-  () => store.sideView,
+  () => store.navView,
   (view) => view === "library" && refresh()
 );
 watch(
