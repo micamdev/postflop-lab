@@ -4,9 +4,17 @@ import { createPinia, setActivePinia } from "pinia";
 vi.mock("./invokes", () => ({ gamePrepareLockSolve: vi.fn() }));
 vi.mock("./library", () => ({ choose: vi.fn() }));
 const runLockedSolve = vi.fn();
-vi.mock("./solver-session", () => ({
-  useSolverSession: () => ({ runLockedSolve, saveDisabledReason: "" }),
-}));
+const session = {
+  runLockedSolve,
+  saveDisabledReason: "",
+  settings: {
+    threads: 8,
+    precision: "32",
+    targetExploitability: 0.3,
+    maxIterations: 1000,
+  },
+};
+vi.mock("./solver-session", () => ({ useSolverSession: () => session }));
 
 import * as invokes from "./invokes";
 import * as library from "./library";
@@ -39,6 +47,7 @@ const finished = (saved: boolean) => {
 beforeEach(() => {
   setActivePinia(createPinia());
   vi.resetAllMocks();
+  session.settings.threads = 8;
   prepare.mockResolvedValue(true);
 });
 
@@ -97,5 +106,57 @@ describe("useLockResolve", () => {
     expect(store.isSolverFinished).toBe(true);
     expect(store.isLibraryBusy).toBe(false);
     expect(runLockedSolve).not.toHaveBeenCalled();
+  });
+});
+
+describe("useLockResolve guards", () => {
+  test("results are blocked while the tree is prepared", async () => {
+    finished(true);
+    let release!: (value: boolean) => void;
+    prepare.mockReturnValue(new Promise((r) => (release = r)));
+    const resolve = useLockResolve();
+
+    const started = resolve.start(line);
+    await Promise.resolve();
+    expect(resolve.blocksResults).toBe(true);
+
+    release(false);
+    await started;
+    expect(resolve.blocksResults).toBe(false);
+  });
+
+  test("invalid solve settings refuse before touching the solution", async () => {
+    const store = finished(false);
+    session.settings.threads = 0;
+    const resolve = useLockResolve();
+
+    expect(resolve.disabledReason).toContain("Solve settings");
+    await resolve.start(line);
+
+    expect(choose).not.toHaveBeenCalled();
+    expect(prepare).not.toHaveBeenCalled();
+    expect(store.isSolverFinished).toBe(true);
+  });
+
+  test("bunching and a starting solve refuse too", () => {
+    const store = finished(true);
+    store.isBunchingEnabled = true;
+    store.bunchingFlop = [0, 1, 2];
+    expect(useLockResolve().disabledReason).toContain("bunching");
+    store.isBunchingEnabled = false;
+    store.isSolveStarting = true;
+    expect(useLockResolve().disabledReason).toContain("starting");
+  });
+
+  test("an old error does not come back after a normal save", async () => {
+    finished(true);
+    prepare.mockRejectedValue("Not enough memory");
+    const resolve = useLockResolve();
+    await resolve.start(line);
+    expect(resolve.error).toBe("Not enough memory");
+
+    // A save unrelated to a re-solve.
+    expect(await resolve.onSaveDialogClosed()).toBe(false);
+    expect(resolve.error).toBe("");
   });
 });

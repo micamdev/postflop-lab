@@ -102,13 +102,22 @@
     <template v-else-if="action === 'resolve-locks'">
       <UiButton :disabled="!canSolve" @click="onSolve">▶ Solve</UiButton>
       <UiButton
+        v-if="savesBeside(session.flags, session.canSave)"
+        @click="store.isSaveDialogOpen = true"
+      >
+        Save
+      </UiButton>
+      <UiButton
         variant="primary"
         :disabled="
-          !store.currentLine || lockResolve.isBusy || store.isLibraryBusy
+          !store.currentLine ||
+          lockResolve.isBusy ||
+          !!lockResolve.disabledReason
         "
+        :title="lockResolve.disabledReason"
         @click="onResolveLocks"
       >
-        Re-solve with locks
+        {{ lockResolve.isBusy ? "Preparing…" : "Re-solve with locks" }}
       </UiButton>
     </template>
     <UiButton
@@ -136,6 +145,7 @@ import { useSolverSession } from "../solver-session";
 import {
   StatusTone,
   primaryAction,
+  savesBeside,
   progressFraction,
   solutionStatus,
 } from "../solve-status";
@@ -190,8 +200,9 @@ const onResolveLocks = async () => {
 const onSaveDialogClose = async () => {
   store.isSaveDialogOpen = false;
   // A "Save first" of a re-solve with locks continues once saved.
-  await lockResolve.onSaveDialogClosed();
-  if (lockResolve.error) session.message = lockResolve.error;
+  if ((await lockResolve.onSaveDialogClosed()) && lockResolve.error) {
+    session.message = lockResolve.error;
+  }
 };
 const settingsError = computed(() => validateSolveSettings(session.settings));
 

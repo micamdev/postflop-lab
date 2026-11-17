@@ -3,6 +3,7 @@ import {
   SolveFlags,
   choosePrecision,
   primaryAction,
+  savesBeside,
   progressFraction,
   solutionStatus,
 } from "./solve-status";
@@ -162,5 +163,18 @@ describe("primaryAction with pending locks", () => {
     expect(primaryAction(flags({ isSolverRunning: true }), true, true)).toBe(
       "progress"
     );
+  });
+});
+
+describe("savesBeside", () => {
+  test("Save stays reachable next to Re-solve with locks", () => {
+    expect(savesBeside(flags({ isSolverFinished: true }), true)).toBe(true);
+    expect(
+      savesBeside(
+        flags({ isSolverFinished: true, isSolutionSaved: true }),
+        true
+      )
+    ).toBe(false);
+    expect(savesBeside(flags({ isSolverFinished: true }), false)).toBe(false);
   });
 });

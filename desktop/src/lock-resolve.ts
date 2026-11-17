@@ -2,11 +2,12 @@
 // offer to save it first, rebuild the game with the locks, solve, then come back to the line.
 
 import { defineStore } from "pinia";
-import { ref } from "vue";
+import { computed, ref } from "vue";
 import { useStore } from "./store";
 import * as invokes from "./invokes";
 import { choose } from "./library";
 import { useSolverSession } from "./solver-session";
+import { validateSolveSettings } from "./solve-settings";
 
 type Line = { history: number[]; label: string };
 
@@ -16,6 +17,21 @@ export const useLockResolve = defineStore("lockResolve", () => {
   const error = ref("");
   /** Line to come back to once the save dialog opened by "Save first" closes. */
   let waitingLine: Line | null = null;
+
+  /** While the tree is rebuilt with the locks, no click may reach the game. */
+  const blocksResults = computed(() => isBusy.value);
+
+  /** Why a re-solve with locks cannot start now, or "" (shared by both buttons). */
+  const disabledReason = computed(() => {
+    if (store.isLibraryBusy && !isBusy.value) return "The library is busy.";
+    if (store.isBunchingEnabled && store.bunchingFlop.length > 0) {
+      return "Locks are not available with the bunching effect.";
+    }
+    if (store.isSolveStarting) return "A solve is starting.";
+    const settingsError = validateSolveSettings(useSolverSession().settings);
+    if (settingsError) return `Solve settings: ${settingsError}`;
+    return "";
+  });
 
   const resolve = async (line: Line) => {
     const session = useSolverSession();
@@ -47,6 +63,11 @@ export const useLockResolve = defineStore("lockResolve", () => {
   /** Re-solves with `store.locks`, coming back to `line` at the end. */
   const start = async (line: Line) => {
     error.value = "";
+    // Checked before anything: a refusal after the prepare would lose the solution.
+    if (disabledReason.value) {
+      error.value = disabledReason.value;
+      return;
+    }
     const canSave = useSolverSession().saveDisabledReason === "";
     if (!store.isSolutionSaved && canSave) {
       const choice = await choose(
@@ -63,12 +84,25 @@ export const useLockResolve = defineStore("lockResolve", () => {
     await resolve(line);
   };
 
-  /** The save dialog closed: re-solve if the solution was saved (not if cancelled). */
-  const onSaveDialogClosed = async () => {
+  /**
+   * The save dialog closed: re-solve if it was opened by "Save first" and the solution was
+   * saved. Returns whether a re-solve was attempted (its error is then in `error`).
+   */
+  const onSaveDialogClosed = async (): Promise<boolean> => {
+    error.value = "";
     const line = waitingLine;
     waitingLine = null;
-    if (line && store.isSolutionSaved) await resolve(line);
+    if (!line || !store.isSolutionSaved) return false;
+    await resolve(line);
+    return true;
   };
 
-  return { isBusy, error, start, onSaveDialogClosed };
+  return {
+    isBusy,
+    error,
+    blocksResults,
+    disabledReason,
+    start,
+    onSaveDialogClosed,
+  };
 });

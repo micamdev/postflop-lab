@@ -26,7 +26,14 @@
     </template>
   </div>
 
-  <div v-else class="flex flex-col h-full">
+  <div
+    v-else
+    :class="[
+      'flex flex-col h-full',
+      lockResolve.blocksResults ? 'pointer-events-none opacity-60' : '',
+    ]"
+    :inert="lockResolve.blocksResults"
+  >
     <ResultNav
       :is-handler-updated="isHandlerUpdated"
       :is-locked="isLocked"
@@ -217,6 +224,7 @@ import NodeStrategyBar from "./results/NodeStrategyBar.vue";
 import UiButton from "./ui/UiButton.vue";
 import UiTooltip from "./ui/UiTooltip.vue";
 import { nodeStrategy } from "../node-strategy";
+import { useLockResolve } from "../lock-resolve";
 import ResultBasics from "./ResultBasics.vue";
 import ResultTable from "./ResultTable.vue";
 import ResultCompare from "./ResultCompare.vue";
@@ -225,6 +233,7 @@ import ResultChance from "./ResultChance.vue";
 import NodeLockEditor from "./NodeLockEditor.vue";
 
 const store = useStore();
+const lockResolve = useLockResolve();
 
 /* Navigation */
 

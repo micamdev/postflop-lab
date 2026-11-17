@@ -243,8 +243,6 @@
 <script setup lang="ts">
 import { computed, onMounted, ref } from "vue";
 import { useStore } from "../store";
-import { useSolverSession } from "../solver-session";
-import { validateSolveSettings } from "../solve-settings";
 import * as invokes from "../invokes";
 import { NodeLock } from "../invokes";
 import { Results, SpotPlayer } from "../result-types";
@@ -265,7 +263,6 @@ const props = defineProps<{
 const emit = defineEmits<{ (e: "close"): void }>();
 
 const store = useStore();
-const session = useSolverSession();
 
 // The template only reads `spot` when the node is lockable (spot non-null).
 const spot = computed(() => props.spot as SpotPlayer);
@@ -579,16 +576,8 @@ const removeLock = (lock: NodeLock) => {
 
 /* Re-solve */
 
-const resolveDisabledReason = computed(() => {
-  if (store.isLibraryBusy && !busy.value) return "The library is busy.";
-  if (store.isBunchingEnabled && store.bunchingFlop.length > 0) {
-    return "Locks are not available with the bunching effect.";
-  }
-  if (store.isSolveStarting) return "A solve is starting.";
-  const settingsError = validateSolveSettings(session.settings);
-  if (settingsError) return `Solve settings: ${settingsError}`;
-  return "";
-});
+/** Why a re-solve with locks cannot start (shared with the top bar), or "". */
+const resolveDisabledReason = computed(() => lockResolve.disabledReason);
 
 const resolveWithLocks = async () => {
   await lockResolve.start(props.line);

@@ -346,7 +346,7 @@ import { computed, reactive, ref, toRefs, watch } from "vue";
 import {
   ranks,
   suitLetters,
-  cardText,
+  cardText, suitTextClasses,
   cardPairOrder,
   toFixed1,
   toFixed,
@@ -536,14 +536,15 @@ const assignTableHeight = () => {
 watch(tableDiv, assignTableHeight);
 window.addEventListener("resize", assignTableHeight);
 
+/** Cards of a hand (or a dealt card), with suit colours readable on the dark table. */
 const pairText = (pair: number) => {
   const card1 = pair & 0xff;
   const card2 = pair >>> 8;
-  if (card2 !== 0xff) {
-    return [cardText(card2), cardText(card1)];
-  } else {
-    return [cardText(card1)];
-  }
+  const text = (card: number) => ({
+    ...cardText(card),
+    colorClass: suitTextClasses[card & 3],
+  });
+  return card2 !== 0xff ? [text(card2), text(card1)] : [text(card1)];
 };
 
 const defaultSortKey = computed(() => {

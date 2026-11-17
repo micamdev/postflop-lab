@@ -88,3 +88,7 @@ export const choosePrecision = (
     message: `Needs ${formatBytes(need16)}, ${formatBytes(available)} available`,
   };
 };
+
+/** Save stays offered beside "Re-solve with locks" while the solution is unsaved. */
+export const savesBeside = (f: SolveFlags, canSave: boolean): boolean =>
+  f.isSolverFinished && !f.isSolutionSaved && canSave;
