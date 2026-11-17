@@ -283,6 +283,7 @@ const onUpdateSpot = (
   newLine: { history: number[]; label: string }
 ) => {
   line.value = newLine;
+  store.currentLine = newLine;
   dealtCard.value = -1;
   selectedSpot.value = newSelectedSpot;
   selectedChance.value = newSelectedChance;

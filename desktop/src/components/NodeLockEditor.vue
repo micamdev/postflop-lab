@@ -148,14 +148,14 @@
             <div class="flex gap-2 mt-3">
               <button
                 class="button-base button-blue"
-                :disabled="selected.size === 0 || !isSumValid || isBusy"
+                :disabled="selected.size === 0 || !isSumValid || busy"
                 @click="applyToSelected"
               >
                 Apply to selected hands
               </button>
               <button
                 class="button-base button-red"
-                :disabled="!hasEditedSelected || isBusy"
+                :disabled="!hasEditedSelected || busy"
                 @click="resetSelected"
               >
                 Reset
@@ -198,7 +198,7 @@
         </div>
         <button
           class="button-base button-red !px-2 !py-0.5"
-          :disabled="isBusy"
+          :disabled="busy"
           @click="removeLock(lock)"
         >
           Delete
@@ -211,7 +211,7 @@
 
       <button
         class="mt-4 button-base button-green"
-        :disabled="!hasPendingChanges || isBusy || !!resolveDisabledReason"
+        :disabled="!hasPendingChanges || busy || !!resolveDisabledReason"
         @click="resolveWithLocks"
       >
         Re-solve with locks
@@ -219,19 +219,17 @@
       <div v-if="resolveDisabledReason" class="mt-1 text-sm text-gray-600">
         {{ resolveDisabledReason }}
       </div>
-      <div v-else-if="isBusy" class="mt-1 text-sm text-gray-600">
+      <div v-else-if="busy" class="mt-1 text-sm text-gray-600">
         Preparing the tree...
       </div>
-      <div v-if="resolveError" class="mt-1 text-sm text-red-500">
-        {{ resolveError }}
+      <div v-if="lockResolve.error" class="mt-1 text-sm text-red-500">
+        {{ lockResolve.error }}
       </div>
       <div class="mt-2 text-xs text-gray-600">
         The tree is rebuilt from this solution's configuration and solved with
         the Run Solver settings (threads, target, iterations).
       </div>
     </div>
-
-    <SaveSolutionDialog v-if="isSaveDialogOpen" @close="onSaveDialogClose" />
   </div>
 </template>
 
@@ -244,8 +242,7 @@ import * as invokes from "../invokes";
 import { NodeLock } from "../invokes";
 import { Results, SpotPlayer } from "../result-types";
 import { cardText, cardPairCellIndex, ranks, suitLetters } from "../utils";
-import { choose } from "../library";
-import SaveSolutionDialog from "./SaveSolutionDialog.vue";
+import { useLockResolve } from "../lock-resolve";
 import { mirrorEdits } from "../lock-utils";
 
 const props = defineProps<{
@@ -338,6 +335,9 @@ const edits = ref<Record<string, number[]>>({});
 const baseLock = ref<NodeLock | null>(null);
 const captureError = ref("");
 const isBusy = ref(false);
+const lockResolve = useLockResolve();
+/** Capturing a lock or preparing the re-solve. */
+const busy = computed(() => isBusy.value || lockResolve.isBusy);
 
 const existingLock = (key: number[]) =>
   store.locks.find((lock) => lock.key.join(",") === key.join(","));
@@ -571,17 +571,8 @@ const removeLock = (lock: NodeLock) => {
 
 /* Re-solve */
 
-const resolveError = ref("");
-const isSaveDialogOpen = ref(false);
-
-const canSaveSolution = computed(
-  () =>
-    store.solutionDepth === "river" &&
-    !(store.isBunchingEnabled && store.bunchingFlop.length > 0)
-);
-
 const resolveDisabledReason = computed(() => {
-  if (store.isLibraryBusy && !isBusy.value) return "The library is busy.";
+  if (store.isLibraryBusy && !busy.value) return "The library is busy.";
   if (store.isBunchingEnabled && store.bunchingFlop.length > 0) {
     return "Locks are not available with the bunching effect.";
   }
@@ -592,51 +583,8 @@ const resolveDisabledReason = computed(() => {
 });
 
 const resolveWithLocks = async () => {
-  resolveError.value = "";
-  if (!store.isSolutionSaved && canSaveSolution.value) {
-    const choice = await choose(
-      "The current solution is not saved and re-solving replaces it. Save it first?",
-      { yes: "Save first", no: "Re-solve without saving", cancel: "Cancel" }
-    );
-    if (choice === "Cancel") return;
-    if (choice === "Save first") {
-      isSaveDialogOpen.value = true;
-      return;
-    }
-  }
-  await startResolve();
-};
-
-const onSaveDialogClose = async () => {
-  isSaveDialogOpen.value = false;
-  // Cancelled: stay here (clicking again offers to continue without saving).
-  if (store.isSolutionSaved) await startResolve();
-};
-
-const startResolve = async () => {
-  const locks = store.locks.map((lock) => ({ ...lock }));
-  isBusy.value = true;
-  store.isLibraryBusy = true;
-  let compression: boolean;
-  try {
-    compression = await invokes.gamePrepareLockSolve(locks);
-  } catch (e) {
-    // The reference solution is untouched.
-    store.isLibraryBusy = false;
-    resolveError.value = String(e);
-    return;
-  } finally {
-    isBusy.value = false;
-  }
-  // The game is now unsolved: mark the solver as running before releasing the library lock,
-  // so no other action (Run Solver, Build Tree, Load) can start in between.
-  store.isSolverFinished = false;
-  store.isSolverRunning = true;
-  store.isLibraryBusy = false;
-  store.solutionLocks = locks;
-  store.locks = [...locks];
-  store.returnLine = [...props.line.history];
-  emit("close");
-  void session.runLockedSolve(compression);
+  await lockResolve.start(props.line);
+  // Started (not cancelled, nor waiting for the save dialog): the results are being replaced.
+  if (store.isSolverRunning) emit("close");
 };
 </script>

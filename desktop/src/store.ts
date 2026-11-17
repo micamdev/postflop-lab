@@ -113,6 +113,10 @@ export const useStore = defineStore("app", {
     isFinalizing: false,
     solutionDepth: "river" as SolutionDepth,
     solutionInfo: null as SolutionInfo | null,
+    /** Line shown in Results (for a re-solve with locks started from the top bar). */
+    currentLine: null as { history: number[]; label: string } | null,
+    /** The save dialog of the top bar is open. */
+    isSaveDialogOpen: false,
     /** Line (history) to show in Results once the locked solve ends. */
     returnLine: null as number[] | null,
     isSolutionSaved: false,
