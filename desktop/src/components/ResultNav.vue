@@ -276,7 +276,8 @@
 import { computed, nextTick, toRefs, ref, watch } from "vue";
 import { listen } from "@tauri-apps/api/event";
 import { useSavedConfigStore, useStore } from "../store";
-import { cardText, average, colorString } from "../utils";
+import { cardText, average } from "../utils";
+import { actionColor } from "../action-colors";
 import * as invokes from "../invokes";
 
 import {
@@ -297,53 +298,12 @@ import {
   ChevronUpIcon,
 } from "@heroicons/vue/20/solid";
 
-const foldColor = { red: 0x3b, green: 0x82, blue: 0xf6 }; // blue-500
-const checkColor = { red: 0x22, green: 0xc5, blue: 0x5e }; // green-500
-const callColor = { red: 0x22, green: 0xc5, blue: 0x5e }; // green-500
-const betColorGradient = [
-  { red: 0xf5, green: 0x9e, blue: 0x0b }, // amber-500
-  { red: 0xf9, green: 0x73, blue: 0x16 }, // orange-500
-  { red: 0xef, green: 0x44, blue: 0x44 }, // red-500
-  { red: 0xec, green: 0x48, blue: 0x99 }, // pink-500
-  { red: 0xd9, green: 0x46, blue: 0xef }, // fuchsia-500
-  { red: 0xa8, green: 0x55, blue: 0xf7 }, // purple-500
-  { red: 0x8b, green: 0x5c, blue: 0xf6 }, // violet-500
-];
-
-const actionColor = (
-  name: string,
-  index: number,
-  numActions: number,
-  numBetActions: number
-) => {
-  if (name === "Fold") return colorString(foldColor);
-  if (name === "Check") return colorString(checkColor);
-  if (name === "Call") return colorString(callColor);
-
-  if (numBetActions === 1) return colorString(betColorGradient[0]);
-  if (index === numActions - 1) {
-    const denom = numBetActions === 2 ? 2 : 1;
-    return colorString(betColorGradient[(betColorGradient.length - 1) / denom]);
-  }
-
-  const betIndex = index - (numActions - numBetActions);
-  const colorRate = betIndex / (numBetActions - 1);
-
-  const gradientRate = colorRate * (betColorGradient.length - 1);
-  const gradientIndex = Math.floor(gradientRate);
-  const r = gradientRate - gradientIndex;
-
-  const color1 = betColorGradient[gradientIndex];
-  const color2 = betColorGradient[gradientIndex + 1];
-
-  const retColor = { red: 0, green: 0, blue: 0 };
-  for (const primary of ["red", "green", "blue"] as const) {
-    const primary1 = color1[primary];
-    const primary2 = color2[primary];
-    retColor[primary] = Math.round(primary1 * (1 - r) + primary2 * r);
-  }
-
-  return colorString(retColor);
+/** Colour of action `i` of `actions` ("Name:amount"), bets ranked by amount. */
+const colorOf = (actions: string[], i: number, numBetActions: number) => {
+  const name = actions[i].split(":")[0];
+  const hasAllIn = actions[actions.length - 1].split(":")[0] === "AllIn";
+  const numBets = numBetActions - (hasAllIn ? 1 : 0);
+  return actionColor(name, i - (actions.length - numBetActions), numBets);
 };
 
 const props = defineProps<{
@@ -991,7 +951,7 @@ const spliceSpotsChance = async (spotIndex: number) => {
           amount,
           rate: -1,
           isSelected: false,
-          color: actionColor(name, i, nextActions.length, numBetActions),
+          color: colorOf(nextActions, i, numBetActions),
         };
       }),
     }
@@ -1024,7 +984,7 @@ const spliceSpotsPlayer = (spotIndex: number, actions: string[]) => {
         name,
         amount,
         isSelected: false,
-        color: actionColor(name, i, actions.length, numBetActions),
+        color: colorOf(actions, i, numBetActions),
       };
     }),
   });
