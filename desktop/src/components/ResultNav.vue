@@ -278,6 +278,7 @@ import { listen } from "@tauri-apps/api/event";
 import { useSavedConfigStore, useStore } from "../store";
 import { cardText, average } from "../utils";
 import { actionColor } from "../action-colors";
+import { nodeStrategy } from "../node-strategy";
 import * as invokes from "../invokes";
 
 import {
@@ -768,12 +769,12 @@ const selectSpotUnsafe = async (
     if (results.isEmpty & (1 << playerIndex)) {
       rates.value = null;
     } else {
-      const n = props.cards[playerIndex].length;
-      rates.value = Array.from({ length: spot.actions.length }, (_, i) => {
-        if (!results) throw new Error("null results");
-        const rates = results.strategy.slice(i * n, (i + 1) * n);
-        return average(rates, results.normalizer[playerIndex]);
-      });
+      rates.value =
+        nodeStrategy(
+          results.strategy,
+          results.normalizer[playerIndex],
+          spot.actions
+        )?.map((item) => item.frequency) ?? null;
     }
   } else {
     rates.value = null;
