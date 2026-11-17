@@ -1,20 +1,22 @@
 <template>
-  <div class="flex flex-col w-full h-full px-2 py-1 gap-2.5 overflow-y-auto">
-    <div class="flex text-lg font-semibold">
+  <div
+    class="flex flex-col h-full px-3 py-2 gap-2.5 overflow-y-auto text-sm bg-panel border-l border-line tabular-nums"
+  >
+    <div class="flex text-[11px] font-bold tracking-wider">
       <div class="flex items-center">
-        <span>OOP</span>
+        <span class="text-oop">OOP</span>
         <StarIcon
           v-if="player === 'oop'"
-          class="inline-block ml-0.5 w-5 h-5 text-yellow-500"
+          class="inline-block ml-0.5 w-3.5 h-3.5 text-yellow-400"
         />
       </div>
       <div class="flex-grow"></div>
       <div class="flex items-center">
         <StarIcon
           v-if="player === 'ip'"
-          class="inline-block mr-0.5 w-5 h-5 text-yellow-500"
+          class="inline-block mr-0.5 w-3.5 h-3.5 text-yellow-400"
         />
-        <span>IP</span>
+        <span class="text-ip">IP</span>
       </div>
     </div>
 
@@ -27,7 +29,7 @@
             'font-semibold': combos[0] && combos[0] >= (1 - EPS) * combos[1],
           }"
         />
-        <div class="flex-grow text-center underline">Combos</div>
+        <div class="flex-grow text-center text-xs text-muted">Combos</div>
         <Adaptive
           :value="combos[1]"
           :class="{
@@ -50,7 +52,7 @@
               !isNaN(equity[0]) && equity[0] >= (1 - EPS) * equity[1],
           }"
         />
-        <div class="flex-grow text-center underline">Equity</div>
+        <div class="flex-grow text-center text-xs text-muted">Equity</div>
         <Percentage
           :value="equity[1]"
           :class="{
@@ -74,7 +76,7 @@
             'font-semibold': !isNaN(ev[0]) && ev[0] >= (1 - EPS) * ev[1],
           }"
         />
-        <div class="flex-grow text-center underline">EV</div>
+        <div class="flex-grow text-center text-xs text-muted">EV</div>
         <Ev
           :value="ev[1]"
           :digits="evDigits"
@@ -97,7 +99,7 @@
             'font-semibold': !isNaN(eqr[0]) && eqr[0] >= (1 - EPS) * eqr[1],
           }"
         />
-        <div class="flex-grow text-center underline">EQR</div>
+        <div class="flex-grow text-center text-xs text-muted">EQR</div>
         <Percentage
           :value="eqr[1]"
           :class="{
@@ -111,8 +113,10 @@
     </div>
 
     <!-- Nut advantage: share of each range in each equity tranche -->
-    <div class="mt-2 text-center font-semibold underline">
-      Equity distribution
+    <div
+      class="mt-2 pt-2.5 border-t border-line text-[11px] font-bold tracking-wider text-muted"
+    >
+      EQUITY DISTRIBUTION
     </div>
     <div
       v-for="(label, i) in BUCKET_LABELS"
@@ -130,7 +134,7 @@
               buckets[0][i] >= (1 - EPS) * buckets[1][i],
           }"
         />
-        <div class="flex-grow text-center">{{ label }}</div>
+        <div class="flex-grow text-center text-xs text-muted">{{ label }}</div>
         <Percentage
           :value="buckets[1][i]"
           :class="{
@@ -145,8 +149,9 @@
       </div>
       <BarChart :values="[buckets[0][i], buckets[1][i]]" />
     </div>
-    <div class="text-center">
-      Nut advantage: <span class="font-semibold">{{ nutAdvantageText }}</span>
+    <div class="mt-1 text-xs text-muted">
+      Nut advantage:
+      <span class="font-semibold text-ink">{{ nutAdvantageText }}</span>
     </div>
   </div>
 </template>
@@ -165,8 +170,9 @@ import { Results, Spot, SpotChance } from "../result-types";
 import { StarIcon } from "@heroicons/vue/24/solid";
 
 const EPS = 2e-6;
-const sky500 = "#0ea5e9";
-const lime500 = "#84cc16";
+// Player colours (Graphite theme): OOP blue, IP orange.
+const oopColor = "#5b8def";
+const ipColor = "#e0a03c";
 
 const Adaptive = (props: { value: number; class: object }) => {
   const split = computed(() => toFixedAdaptive(props.value).split("."));
@@ -201,12 +207,12 @@ const BarChart = (props: { values: number[] }) => {
     isNaN(props.values[0]) ||
     isNaN(props.values[1])
   ) {
-    return h("div", { class: "h-4 rounded-lg bg-neutral-400" });
+    return h("div", { class: "h-1.5 rounded-full bg-cell" });
   }
   const total = props.values[0] + props.values[1];
   const sep = `${(props.values[0] * 100) / total}%`;
-  const bg = `linear-gradient(to right, ${sky500} ${sep}, ${lime500} ${sep})`;
-  return h("div", { class: "h-4 rounded-lg", style: `background: ${bg}` });
+  const bg = `linear-gradient(to right, ${oopColor} ${sep}, ${ipColor} ${sep})`;
+  return h("div", { class: "h-1.5 rounded-full", style: `background: ${bg}` });
 };
 
 const props = defineProps<{

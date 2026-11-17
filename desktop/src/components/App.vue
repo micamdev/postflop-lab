@@ -22,7 +22,7 @@
         <SetupPage />
       </div>
 
-      <div v-show="store.navView === 'results'" class="legacy h-full">
+      <div v-show="store.navView === 'results'" class="h-full">
         <ResultViewer />
       </div>
 

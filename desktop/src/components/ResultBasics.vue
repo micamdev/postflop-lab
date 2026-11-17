@@ -1,5 +1,5 @@
 <template>
-  <div class="w-full h-full">
+  <div class="w-full h-full min-w-0">
     <table
       class="w-full h-full table-fixed select-none snug"
       :style="{
@@ -16,7 +16,7 @@
           v-for="col in 13"
           :key="col"
           :class="
-            'relative border border-black ' +
+            'relative border-2 border-bg ' +
             (clickedCellIndex === cellIndex(row, col) ? 'clicked-cell' : '')
           "
           @click="onClickCell(row, col)"
@@ -25,7 +25,7 @@
           <div
             :class="
               'flex absolute w-full h-full left-0 top-0 ' +
-              (row === col ? 'bg-neutral-700' : 'bg-neutral-800')
+              (row === col ? 'bg-panel2' : 'bg-cell')
             "
           >
             <div
@@ -41,7 +41,7 @@
           <div
             :class="
               'absolute -top-px left-[0.1875rem] z-10 text-shadow ' +
-              (hasWeight(row, col) ? 'text-white' : 'text-neutral-500')
+              (hasWeight(row, col) ? 'text-white' : 'text-muted/60')
             "
             style="font-size: var(--pair-font-size)"
           >
@@ -53,7 +53,7 @@
               max-width: calc(100% - 0.25rem);
               font-size: var(--value-font-size);
             "
-            :data-set="(strTmp = cellValueText[cellIndex(row, col)])"
+            :data-set="strTmp = cellValueText[cellIndex(row, col)]"
           >
             {{ strTmp.split(".")[0]
             }}<span v-if="strTmp.includes('.')"
@@ -489,7 +489,7 @@ let strTmp = "";
 <style scoped>
 .clicked-cell::before {
   content: "";
-  @apply absolute -left-px -top-px z-10 border-2 border-red-500;
+  @apply absolute -left-px -top-px z-10 border-2 border-accent;
   width: calc(100% + 2px);
   height: calc(100% + 2px);
 }

@@ -4,15 +4,15 @@
     <div class="flex-grow min-w-0">
       <div class="flex items-center gap-3">
         <div class="text-lg font-semibold">Node lock</div>
-        <button class="button-base button-blue" @click="emit('close')">
+        <UiButton variant="ghost" size="sm" @click="emit('close')">
           Back to results
-        </button>
+        </UiButton>
       </div>
 
-      <div v-if="unlockableReason" class="mt-3 text-gray-600">
+      <div v-if="unlockableReason" class="mt-3 text-muted">
         {{ unlockableReason }}
       </div>
-      <div v-else-if="captureError" class="mt-3 text-red-500">
+      <div v-else-if="captureError" class="mt-3 text-red-400">
         {{ captureError }}
       </div>
 
@@ -20,11 +20,11 @@
         <div class="mt-2">
           <span class="font-semibold">{{ baseLock.player.toUpperCase() }}</span>
           at {{ line.label }}
-          <span v-if="mirrorText" class="ml-2 text-sm text-gray-600">
+          <span v-if="mirrorText" class="ml-2 text-sm text-muted">
             ({{ mirrorText }})
           </span>
         </div>
-        <div class="mt-1 text-sm text-gray-600">
+        <div class="mt-1 text-sm text-muted">
           The whole node is locked: edited hands at the frequencies you set, the
           others at their current strategy.
         </div>
@@ -40,10 +40,10 @@
                   'relative w-10 h-8 p-0 border text-xs ' +
                   (cells[row - 1][col - 1].combos.length > 0
                     ? 'cursor-pointer '
-                    : 'bg-gray-100 text-gray-400 ') +
+                    : 'bg-cell text-muted/50 ') +
                   (isCellSelected(row - 1, col - 1)
-                    ? 'border-2 border-black '
-                    : 'border-gray-300 ')
+                    ? 'border-2 border-accent '
+                    : 'border-line ')
                 "
                 @click="toggleCell(row - 1, col - 1)"
               >
@@ -85,13 +85,14 @@
               >
                 <input
                   type="checkbox"
+                  class="rounded border-line bg-panel2 text-accent"
                   :checked="selected.has(combo)"
                   @change="toggleCombo(combo)"
                 />
                 <span :class="'w-12 ' + (edits[combo] ? 'font-bold' : '')">
                   {{ comboLabel(combo) }}
                 </span>
-                <span class="text-gray-600">
+                <span class="text-muted">
                   {{
                     strategyOf(combo)
                       .map((f) => (f * 100).toFixed(0) + "%")
@@ -100,7 +101,7 @@
                 </span>
               </label>
             </div>
-            <div v-else class="text-sm text-gray-600">
+            <div v-else class="text-sm text-muted">
               Click a hand class to select its combos.
             </div>
 
@@ -126,7 +127,7 @@
               </span>
               <input
                 type="number"
-                class="w-20 px-2 py-0.5 rounded-lg text-sm text-center"
+                class="ui-input w-20 text-center"
                 min="0"
                 max="100"
                 step="1"
@@ -140,35 +141,38 @@
             </div>
             <div
               v-if="selected.size > 0 && !isSumValid"
-              class="mt-1 text-sm text-red-500"
+              class="mt-1 text-sm text-red-400"
             >
               The frequencies must add up to 100% (now
               {{ freqSum.toFixed(1) }}%).
             </div>
             <div class="flex gap-2 mt-3">
-              <button
-                class="button-base button-blue"
+              <UiButton
+                variant="ghost"
+                size="sm"
                 :disabled="selected.size === 0 || !isSumValid || busy"
                 @click="applyToSelected"
               >
                 Apply to selected hands
-              </button>
-              <button
-                class="button-base button-red"
+              </UiButton>
+              <UiButton
+                variant="danger"
+                size="sm"
                 :disabled="!hasEditedSelected || busy"
                 @click="resetSelected"
               >
                 Reset
-              </button>
+              </UiButton>
             </div>
             <div class="flex gap-2 mt-2">
-              <button
-                class="button-base button-blue"
+              <UiButton
+                variant="ghost"
+                size="sm"
                 :disabled="selected.size === 0"
                 @click="clearSelection"
               >
                 Clear selection
-              </button>
+              </UiButton>
             </div>
           </div>
         </div>
@@ -178,7 +182,7 @@
     <!-- Lock list -->
     <div class="w-[22rem] shrink-0">
       <div class="text-lg font-semibold">Locks</div>
-      <div v-if="store.locks.length === 0" class="mt-2 text-sm text-gray-600">
+      <div v-if="store.locks.length === 0" class="mt-2 text-sm text-muted">
         No lock.
       </div>
       <div
@@ -191,43 +195,46 @@
             <span class="font-semibold">{{ lock.player.toUpperCase() }}</span>
             at {{ lock.label || lock.history.join("-") }}
           </div>
-          <div class="text-gray-600">
+          <div class="text-muted">
             {{ editedSummary(lock) }}
             · {{ isInSolution(lock) ? "in this solution" : "pending" }}
           </div>
         </div>
-        <button
-          class="button-base button-red !px-2 !py-0.5"
+        <UiButton
+          variant="danger"
+          size="sm"
           :disabled="busy"
           @click="removeLock(lock)"
         >
           Delete
-        </button>
+        </UiButton>
       </div>
-      <div v-if="removedCount > 0" class="mt-2 text-sm text-gray-600">
+      <div v-if="removedCount > 0" class="mt-2 text-sm text-muted">
         {{ removedCount }} lock{{ removedCount === 1 ? "" : "s" }} of this
         solution removed (pending).
       </div>
 
-      <button
-        class="mt-4 button-base button-green"
+      <UiButton
+        class="mt-4"
+        variant="primary"
+        size="sm"
         :disabled="!hasPendingChanges || busy || !!resolveDisabledReason"
         @click="resolveWithLocks"
       >
         Re-solve with locks
-      </button>
-      <div v-if="resolveDisabledReason" class="mt-1 text-sm text-gray-600">
+      </UiButton>
+      <div v-if="resolveDisabledReason" class="mt-1 text-sm text-muted">
         {{ resolveDisabledReason }}
       </div>
-      <div v-else-if="busy" class="mt-1 text-sm text-gray-600">
+      <div v-else-if="busy" class="mt-1 text-sm text-muted">
         Preparing the tree...
       </div>
-      <div v-if="lockResolve.error" class="mt-1 text-sm text-red-500">
+      <div v-if="lockResolve.error" class="mt-1 text-sm text-red-400">
         {{ lockResolve.error }}
       </div>
-      <div class="mt-2 text-xs text-gray-600">
+      <div class="mt-2 text-xs text-muted">
         The tree is rebuilt from this solution's configuration and solved with
-        the Run Solver settings (threads, target, iterations).
+        the solve settings (⚙: threads, target, iterations).
       </div>
     </div>
   </div>
@@ -243,6 +250,7 @@ import { NodeLock } from "../invokes";
 import { Results, SpotPlayer } from "../result-types";
 import { cardText, cardPairCellIndex, ranks, suitLetters } from "../utils";
 import { useLockResolve } from "../lock-resolve";
+import UiButton from "./ui/UiButton.vue";
 import { mirrorEdits } from "../lock-utils";
 
 const props = defineProps<{

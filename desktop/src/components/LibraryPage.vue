@@ -21,7 +21,7 @@
     </div>
 
     <div v-if="entries.length === 0" class="mt-6 text-gray-500">
-      No saved solutions yet. Solve a spot, then use "Save" in Run Solver.
+      No saved solutions yet. Solve a spot, then use "Save" in the top bar.
     </div>
 
     <table v-else class="mt-6 w-full text-sm">

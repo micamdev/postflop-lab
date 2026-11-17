@@ -91,8 +91,9 @@ Chart.defaults.font.size = 14;
 Chart.defaults.font.family =
   "system-ui, 'Noto Sans', 'Open Sans', Roboto, sans-serif";
 
-const sky500 = "#0ea5e9";
-const lime500 = "#84cc16";
+// Player colours (Graphite theme): OOP blue, IP orange.
+const sky500 = "#5b8def";
+const lime500 = "#e0a03c";
 const xTicks = 10000;
 
 const props = defineProps<{
@@ -288,7 +289,7 @@ const chartOptions = computed((): ChartOptions<"line"> => {
       legend: {
         labels: {
           font: { size: 16 },
-          color: "rgba(0, 0, 0, 0.9)",
+          color: "rgba(236, 236, 238, 0.9)",
           boxHeight: 12,
         },
       },
@@ -350,7 +351,7 @@ const verticalLinePlugin: Plugin<"line"> = {
     ctx.moveTo(x, chart.scales.y.top);
     ctx.lineTo(x, chart.scales.y.bottom);
     ctx.lineWidth = 1;
-    ctx.strokeStyle = "rgba(0, 0, 0, 0.9)";
+    ctx.strokeStyle = "rgba(236, 236, 238, 0.9)";
     ctx.stroke();
     ctx.restore();
   },
