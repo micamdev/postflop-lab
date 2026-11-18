@@ -104,11 +104,16 @@ pub fn sanitize_name(name: &str) -> Result<String, String> {
     Ok(trimmed)
 }
 
-/// Refuses a name that is not exactly a file name the library itself would write.
+/// Refuses a name that would reach a file outside the library folder. Names the app would
+/// not write itself (a file renamed in the explorer) stay usable.
 pub fn check_name(name: &str) -> Result<(), String> {
-    match sanitize_name(name) {
-        Ok(sanitized) if sanitized == name => Ok(()),
-        _ => Err(format!("Invalid solution name: \"{name}\"")),
+    let mut components = Path::new(name).components();
+    let single = matches!(components.next(), Some(std::path::Component::Normal(_)))
+        && components.next().is_none();
+    if single && !name.contains(['/', '\\', '\0']) {
+        Ok(())
+    } else {
+        Err(format!("Invalid solution name: \"{name}\""))
     }
 }
 
@@ -281,13 +286,26 @@ pub fn rename(dir: &Path, from: &str, to: &str) -> Result<String, String> {
         return Ok(to);
     }
     let dest = file_path(dir, &to);
-    // On Windows a case-only change (spot -> Spot) "exists": it is the same file.
-    let same_file = to.to_lowercase() == from.to_lowercase();
+    // On Windows a case-only change (spot -> Spot) "exists": it is the same file. On a
+    // case-sensitive file system, another file may have exactly the new name.
+    let same_file = to.to_lowercase() == from.to_lowercase() && !has_exact_entry(dir, &dest);
     if dest.exists() && !same_file {
         return Err(ERR_EXISTS.to_string());
     }
     fs::rename(file_path(dir, from), dest).map_err(|e| format!("Failed to rename: {e}"))?;
     Ok(to)
+}
+
+/// Whether `dir` holds an entry named exactly like `path` (case included).
+fn has_exact_entry(dir: &Path, path: &Path) -> bool {
+    let Some(wanted) = path.file_name() else {
+        return false;
+    };
+    fs::read_dir(dir).is_ok_and(|entries| {
+        entries
+            .filter_map(Result::ok)
+            .any(|entry| entry.file_name() == wanted)
+    })
 }
 
 /// Deletes a solution.
@@ -606,7 +624,7 @@ mod followup_tests {
         let dir = tempfile::tempdir().unwrap();
         let outside = tempfile::tempdir().unwrap();
         save(dir.path(), "spot", &small_game(true), &meta(1), false).unwrap();
-        for bad in ["../spot", "a/b", "", "CON"] {
+        for bad in ["../spot", "a/b", r"a\b", "", "..", "."] {
             assert!(load(dir.path(), bad, u64::MAX).is_err(), "load {bad}");
             assert!(delete(dir.path(), bad).is_err(), "delete {bad}");
             assert!(rename(dir.path(), bad, "x").is_err(), "rename {bad}");
@@ -616,5 +634,38 @@ mod followup_tests {
             );
         }
         assert_eq!(list(dir.path()).len(), 1);
+    }
+}
+
+#[cfg(test)]
+mod review_tests {
+    use super::tests::{meta, small_game};
+    use super::*;
+
+    #[test]
+    fn files_named_outside_the_app_stay_usable() {
+        let dir = tempfile::tempdir().unwrap();
+        let outside = tempfile::tempdir().unwrap();
+        save(dir.path(), "spot", &small_game(true), &meta(1), false).unwrap();
+        // Renamed in the file explorer: a name the app would not write itself.
+        fs::rename(dir.path().join("spot.plab"), dir.path().join("spot .plab")).unwrap();
+        assert_eq!(list(dir.path())[0].name, "spot ");
+        assert!(load(dir.path(), "spot ", u64::MAX).is_ok());
+        export(dir.path(), "spot ", &outside.path().join("x.plab")).unwrap();
+        assert_eq!(rename(dir.path(), "spot ", "fixed").unwrap(), "fixed");
+        delete(dir.path(), "fixed").unwrap();
+        assert!(list(dir.path()).is_empty());
+    }
+
+    #[test]
+    fn case_only_rename_never_overwrites_another_file() {
+        let dir = tempfile::tempdir().unwrap();
+        save(dir.path(), "spot", &small_game(true), &meta(1), false).unwrap();
+        if dir.path().join("SPOT.plab").exists() {
+            return; // Case-insensitive file system: two such files cannot coexist.
+        }
+        save(dir.path(), "Spot", &small_game(true), &meta(2), false).unwrap();
+        assert_eq!(rename(dir.path(), "spot", "Spot").unwrap_err(), ERR_EXISTS);
+        assert_eq!(list(dir.path()).len(), 2);
     }
 }
