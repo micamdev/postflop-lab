@@ -89,7 +89,10 @@
             }}%)
           </div>
           <div class="flex mt-3 w-full justify-center gap-3">
-            <button class="button-base button-green" @click="invertRange(i - 1)">
+            <button
+              class="button-base button-green"
+              @click="invertRange(i - 1)"
+            >
               Invert
             </button>
             <button class="button-base button-green" @click="clearRange(i - 1)">
@@ -180,11 +183,10 @@
         <span v-if="store.bunchingFlop.length > 0">
           [Flop:
           <span
-            v-for="item in store.bunchingFlop.map(cardText)"
-            :key="item.rank + item.suit"
-            :class="'inline-block mx-px ' + item.colorClass"
-            >{{ item.rank + item.suit }}</span
-          >]
+            v-for="card in store.bunchingFlop"
+            :key="card"
+            :class="'inline-block mx-px ' + suitTextClasses[card & 3]"
+            >{{ cardText(card).rank + cardText(card).suit }}</span>]
         </span>
       </div>
     </div>
@@ -202,7 +204,7 @@
 <script setup lang="ts">
 import { ref } from "vue";
 import { useStore, useConfigStore } from "../store";
-import { trimRegex, rangeRegex, cardText } from "../utils";
+import { trimRegex, rangeRegex, cardText, suitTextClasses } from "../utils";
 import * as invokes from "../invokes";
 
 import RangeEditor from "./RangeEditor.vue";

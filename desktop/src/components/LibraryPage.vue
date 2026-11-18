@@ -69,16 +69,23 @@
             @click="onRowClick(entry)"
           >
             <td class="px-3 py-2 font-semibold">
-              <input
+              <span
                 v-if="renaming === entry.name"
-                v-model="newName"
-                v-focus
-                type="text"
-                class="ui-input h-7 w-56"
+                class="flex items-center gap-1.5"
                 @click.stop
-                @keydown.enter="rename(entry.name)"
-                @keydown.esc="renaming = null"
-              />
+              >
+                <input
+                  v-model="newName"
+                  v-focus
+                  type="text"
+                  class="ui-input h-7 w-56"
+                  @click.stop
+                  @keydown.enter="rename(entry.name)"
+                  @keydown.esc="renaming = null"
+                />
+                <UiButton size="sm" @click="rename(entry.name)">OK</UiButton>
+                <UiButton size="sm" @click="renaming = null">Cancel</UiButton>
+              </span>
               <span v-else>{{ entry.name }}</span>
             </td>
             <template v-if="entry.meta">
@@ -152,7 +159,10 @@ const renaming = ref<string | null>(null);
 const newName = ref("");
 
 /** Focuses an input as soon as it appears. */
-const vFocus = { mounted: (el: HTMLElement) => el.focus() };
+// After a menu closes (it gives the focus back to its button first).
+const vFocus = {
+  mounted: (el: HTMLElement) => void setTimeout(() => el.focus(), 50),
+};
 
 const COLUMNS: { key: SortKey; label: string }[] = [
   { key: "name", label: "Name" },

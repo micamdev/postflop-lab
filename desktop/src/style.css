@@ -124,8 +124,7 @@ input.input-error {
     color: rgb(var(--ink));
   }
 
-  [type="text"]:disabled,
-  [type="number"]:disabled,
+  input:disabled,
   select:disabled,
   textarea:disabled {
     opacity: 0.5;
@@ -139,9 +138,11 @@ input.input-error {
   }
 }
 
-/* Compact field of the Graphite UI kit (inputs and selects). */
-.ui-input {
-  @apply h-8 rounded-md border border-line bg-panel2 px-2 text-sm text-ink;
-  @apply focus:border-accent focus:ring-1 focus:ring-accent;
-  @apply disabled:opacity-50;
+/* Compact field of the Graphite UI kit (inputs and selects); utilities next to it win. */
+@layer components {
+  .ui-input {
+    @apply h-8 rounded-md border border-line bg-panel2 px-2 text-sm text-ink;
+    @apply focus:border-accent focus:ring-1 focus:ring-accent;
+    @apply disabled:opacity-50;
+  }
 }
