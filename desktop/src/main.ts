@@ -4,7 +4,6 @@ import { getCurrentWindow } from "@tauri-apps/api/window";
 import { Chart as ChartJS } from "chart.js";
 import App from "./components/App.vue";
 import "./style.css";
-import "./legacy.css";
 import "tippy.js/dist/tippy.css";
 
 createApp(App).use(createPinia()).mount("#app");

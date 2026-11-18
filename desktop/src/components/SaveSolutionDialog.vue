@@ -1,9 +1,11 @@
 <template>
   <div
-    class="fixed inset-0 z-50 flex items-center justify-center bg-black/40"
+    class="fixed inset-0 z-50 flex items-center justify-center bg-black/50"
     @click.self="!isSaving && emit('close')"
   >
-    <div class="w-[34rem] p-6 bg-white rounded-lg shadow-xl">
+    <div
+      class="w-[34rem] p-6 bg-panel border border-line rounded-lg shadow-2xl shadow-black/50"
+    >
       <div class="mb-4 text-lg font-bold">Save Solution</div>
 
       <label class="block font-semibold">
@@ -18,7 +20,7 @@
       </label>
 
       <div class="mt-4 font-semibold">Saved depth</div>
-      <div v-if="estimates.length === 0" class="mt-1 text-gray-500">
+      <div v-if="estimates.length === 0" class="mt-1 text-muted">
         Computing sizes...
       </div>
       <label
@@ -35,13 +37,13 @@
         />
         <span>
           <span class="font-semibold">{{ depthLabel(depth) }}</span>
-          <span class="ml-2 text-sm text-gray-600">
+          <span class="ml-2 text-sm text-muted">
             RAM to reload: {{ formatBytes(memory) }} · file: ~{{
               formatBytes(memory * FILE_SIZE_RATIO[depth])
             }}
           </span>
           <br />
-          <span class="text-sm text-gray-600">{{ depthLoss(depth) }}</span>
+          <span class="text-sm text-muted">{{ depthLoss(depth) }}</span>
         </span>
       </label>
 
@@ -49,18 +51,18 @@
         <span class="spinner inline-block mr-3"></span>
         Writing... {{ formatBytes(written) }}
       </div>
-      <div v-if="errorText" class="mt-4 text-red-500">{{ errorText }}</div>
+      <div v-if="errorText" class="mt-4 text-red-400">{{ errorText }}</div>
 
       <div class="flex justify-end gap-3 mt-6">
         <button
-          class="button-base button-blue"
+          class="button-base button-green"
           :disabled="isSaving"
           @click="emit('close')"
         >
           Cancel
         </button>
         <button
-          class="button-base button-green"
+          class="button-base button-blue"
           :disabled="isSaving || !name.trim() || estimates.length === 0"
           @click="save(false)"
         >

@@ -4,12 +4,12 @@
       <td
         v-for="col in 13"
         :key="col"
-        class="relative w-2.5 border-[0.5px] border-black"
+        class="relative w-2.5 border-[0.5px] border-line"
       >
         <div
           :class="
             'absolute w-full h-full left-0 top-0 ' +
-            (row === col ? 'bg-neutral-700' : 'bg-neutral-800')
+            (row === col ? 'bg-panel2' : 'bg-cell')
           "
         >
           <div

@@ -82,7 +82,7 @@
           </div>
 
           <div class="ml-auto p-1">
-            <button class="button-base button-blue" @click="clearConfig">
+            <button class="button-base button-green" @click="clearConfig">
               Clear
             </button>
           </div>
@@ -90,7 +90,7 @@
 
         <div
           v-if="errorBasics.length > 0"
-          class="flex font-semibold text-red-500"
+          class="flex font-semibold text-red-400"
         >
           <div class="underline">Error:</div>
           <div class="ml-2">
@@ -116,7 +116,7 @@
             </label>
             <div class="flex flex-grow justify-center">
               <Tippy
-                class="inline-block cursor-help text-gray-600"
+                class="inline-block cursor-help text-muted"
                 max-width="500px"
                 trigger="mouseenter click"
                 placement="bottom"
@@ -327,14 +327,14 @@
             <div class="mt-6 font-semibold">IP bet sizes</div>
             <div class="flex flex-grow items-center justify-center gap-6">
               <button
-                class="mt-3 button-base button-blue button-arrow"
+                class="mt-3 button-base button-green button-arrow"
                 :disabled="errorIp.length > 0 || hasEdit"
                 @click="ipToOop"
               >
                 ↑
               </button>
               <button
-                class="mt-3 button-base button-blue button-arrow"
+                class="mt-3 button-base button-green button-arrow"
                 :disabled="errorOop.length > 0 || hasEdit"
                 @click="oopToIp"
               >
@@ -462,7 +462,7 @@
 
         <div
           v-if="errorOop.length > 0 || errorIp.length > 0"
-          class="flex mt-1 font-semibold text-red-500"
+          class="flex mt-1 font-semibold text-red-400"
         >
           <div class="underline">Error:</div>
           <div class="ml-2">
@@ -487,7 +487,7 @@
                   :delay="[200, 0]"
                   :interactive="true"
                 >
-                  <QuestionMarkCircleIcon class="w-5 h-5 text-gray-600" />
+                  <QuestionMarkCircleIcon class="w-5 h-5 text-muted" />
                   <template #content>
                     <div class="px-1 py-0.5 text-justify">
                       Add all-in action to all spots where the ratio of the
@@ -521,7 +521,7 @@
                   :delay="[200, 0]"
                   :interactive="true"
                 >
-                  <QuestionMarkCircleIcon class="w-5 h-5 text-gray-600" />
+                  <QuestionMarkCircleIcon class="w-5 h-5 text-muted" />
                   <template #content>
                     <div class="px-1 py-0.5 text-justify">
                       <div>
@@ -572,7 +572,7 @@
                   :delay="[200, 0]"
                   :interactive="true"
                 >
-                  <QuestionMarkCircleIcon class="w-5 h-5 text-gray-600" />
+                  <QuestionMarkCircleIcon class="w-5 h-5 text-muted" />
                   <template #content>
                     <div class="px-1 py-0.5 text-justify">
                       <div>
@@ -614,7 +614,7 @@
           <div class="flex justify-center flex-grow">
             <div class="flex flex-col justify-center gap-3">
               <button
-                class="button-base button-blue"
+                class="button-base button-green"
                 :disabled="!isInputValid"
                 @click="startEdit"
               >
@@ -634,7 +634,7 @@
 
         <div
           v-if="errorMisc.length > 0"
-          class="flex mt-1 font-semibold text-red-500"
+          class="flex mt-1 font-semibold text-red-400"
         >
           <div class="underline">Error:</div>
           <div class="ml-2">
@@ -646,7 +646,7 @@
 
         <div
           v-if="warningMisc.length > 0"
-          class="flex mt-1 font-semibold text-orange-500"
+          class="flex mt-1 font-semibold text-ip"
         >
           <div class="underline">Warning:</div>
           <div class="ml-2">
@@ -694,7 +694,7 @@
           config.expectedBoardLength > 0 &&
           config.board.length !== config.expectedBoardLength
         "
-        class="flex mt-2 font-semibold text-orange-500"
+        class="flex mt-2 font-semibold text-ip"
       >
         <div class="underline">Warning:</div>
         <div class="ml-2">
@@ -708,7 +708,7 @@
 
     <div
       v-if="errorLines.length > 0"
-      class="flex mt-2 font-semibold text-red-500"
+      class="flex mt-2 font-semibold text-red-400"
     >
       <div class="underline">Error:</div>
       <div class="ml-2">
