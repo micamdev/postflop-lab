@@ -347,12 +347,8 @@ import { stackedGradient } from "../action-colors";
 import { computed, reactive, ref, toRefs, watch } from "vue";
 
 import {
-  ranks,
-  suitLetters,
   cardText,
   suitTextClasses,
-  cardPairOrder,
-  eqrOf,
   evDigitsFor,
   toFixed1,
   toFixed,
@@ -370,6 +366,16 @@ import {
   TableMode,
 } from "../result-types";
 
+import {
+  INDEX,
+  chanceRows,
+  columnIndex,
+  handRows,
+  sortRows,
+  summaryCsv,
+  summaryOf,
+  tableColumns,
+} from "../result-table-data";
 import { save } from "@tauri-apps/plugin-dialog";
 import { writeTextFile } from "@tauri-apps/plugin-fs";
 
@@ -388,88 +394,8 @@ type DisplayOptionsChance = {
   barWidth: (typeof barWidthListChance)[number];
 };
 
-type ColumnCard = {
-  label: string;
-  type: "card";
-};
-
-type ColumnBar = {
-  label: string;
-  type: "bar";
-};
-
-type ColumnWeight = {
-  label: string;
-  type: "weight";
-};
-
-type ColumnPercentage = {
-  label: string;
-  type: "percentage";
-  index: number;
-};
-
-type ColumnEv = {
-  label: string;
-  type: "ev";
-};
-
-type ColumnAction = {
-  label: string;
-  type: "action";
-  index: number;
-};
-
-type ColumnActionEV = {
-  label: string;
-  type: "action-ev";
-  index: number;
-};
-
-type Column =
-  | ColumnCard
-  | ColumnBar
-  | ColumnWeight
-  | ColumnPercentage
-  | ColumnEv
-  | ColumnAction
-  | ColumnActionEV;
-
-const INDEX_CARD_PAIR = 0;
-const INDEX_WEIGHT = 1;
-const INDEX_NORMALIZER = 2;
-const INDEX_EQUITY = 3;
-const INDEX_EV = 4;
-const INDEX_EQR = 5;
-const INDEX_STRATEGY_BASE = 6;
-
-const columnIndex = (column: Column) => {
-  switch (column.type) {
-    case "card":
-      return INDEX_CARD_PAIR;
-    case "bar":
-      return -1;
-    case "weight":
-      return INDEX_WEIGHT;
-    case "percentage":
-      return column.index;
-    case "ev":
-      return INDEX_EV;
-    case "action":
-      return INDEX_STRATEGY_BASE + column.index * 2;
-    case "action-ev":
-      return INDEX_STRATEGY_BASE + column.index * 2 + 1;
-  }
-};
-
 const yellow500 = "#eab308";
 const neutral800 = "#26262a"; // Graphite empty cell
-
-const cardStr = (card: number) => {
-  const rank = ranks[card >>> 2];
-  const suit = suitLetters[card & 3];
-  return rank + suit;
-};
 
 interface Props {
   tableMode: TableMode;
@@ -554,10 +480,10 @@ const pairText = (pair: number) => {
 };
 
 const defaultSortKey = computed(() => {
-  if (props.tableMode !== "graphs") return INDEX_CARD_PAIR;
-  if (props.graphType === "eq") return INDEX_EQUITY;
-  if (props.graphType === "ev") return INDEX_EV;
-  return INDEX_EQR;
+  if (props.tableMode !== "graphs") return INDEX.CARD_PAIR;
+  if (props.graphType === "eq") return INDEX.EQUITY;
+  if (props.graphType === "ev") return INDEX.EV;
+  return INDEX.EQR;
 });
 
 type Key = { key: number; order: "asc" | "desc" };
@@ -568,7 +494,7 @@ const savedSortKey = sessionStorage.getItem(sortStorageKey);
 
 if (savedSortKey) {
   const saved = JSON.parse(savedSortKey) as Key;
-  if (saved.key < INDEX_STRATEGY_BASE) {
+  if (saved.key < INDEX.STRATEGY_BASE) {
     sortKey.value = saved;
   }
 }
@@ -583,7 +509,7 @@ const sortBy = (key: number) => {
 };
 
 const resetSortKey = () => {
-  if (sortKey.value.key >= INDEX_STRATEGY_BASE) {
+  if (sortKey.value.key >= INDEX.STRATEGY_BASE) {
     sortBy(defaultSortKey.value);
   }
 };
@@ -636,175 +562,44 @@ const numActions = computed(() => {
   );
 });
 
-const columns = computed(() => {
-  const ret: Column[] = [];
+/** Actions of the player shown, when it acts here. */
+const shownActions = computed(() =>
+  numActions.value > 0 ? (props.selectedSpot as SpotPlayer).actions : []
+);
 
-  if (props.tableMode !== "chance") {
-    ret.push({ label: "Hand", type: "card" });
-    ret.push({
-      label: numActions.value > 0 ? "Strategy" : "Weight (Bar)",
-      type: "bar",
-    });
-
-    ret.push({ label: "Weight", type: "weight" });
-    ret.push({ label: "EQ", type: "percentage", index: INDEX_EQUITY });
-    ret.push({ label: "EV", type: "ev" });
-    ret.push({ label: "EQR", type: "percentage", index: INDEX_EQR });
-
-    const options = displayOptions as DisplayOptionsBasics;
-
-    if (numActions.value > 0) {
-      const spot = props.selectedSpot as SpotPlayer;
-      for (let i = 0; i < numActions.value; ++i) {
-        const j = numActions.value - i - 1; // reverse order
-        const action = spot.actions[j];
-        const label = shortLabel(action);
-        if (options.content === "percentage") {
-          ret.push({ label, type: "action", index: i });
-        } else {
-          ret.push({ label, type: "action-ev", index: i });
-        }
-      }
-    }
-  } else {
-    ret.push({ label: capitalize(props.chanceType), type: "card" });
-    ret.push({
-      label: numActions.value > 0 ? "Strategy" : "Combos (Bar)",
-      type: "bar",
-    });
-
-    ret.push({ label: "Combos", type: "weight" });
-    ret.push({ label: "EQ", type: "percentage", index: INDEX_EQUITY });
-    ret.push({ label: "EV", type: "ev" });
-    ret.push({ label: "EQR", type: "percentage", index: INDEX_EQR });
-
-    if (numActions.value > 0) {
-      const spot = props.selectedSpot as SpotPlayer;
-      for (let i = 0; i < numActions.value; ++i) {
-        const j = numActions.value - i - 1;
-        const action = spot.actions[j];
-        const label = shortLabel(action);
-        ret.push({ label, type: "action", index: i });
-      }
-    }
-  }
-
-  return ret;
-});
+const columns = computed(() =>
+  tableColumns(
+    props.tableMode,
+    props.chanceType,
+    shownActions.value,
+    props.tableMode !== "chance"
+      ? (displayOptions as DisplayOptionsBasics).content
+      : "percentage"
+  )
+);
 
 const resultsFiltered = computed(() => {
-  const ret: number[][] = [];
-
-  const playerIndex = props.displayPlayer === "oop" ? 0 : 1;
-
-  let cards: number[];
-  if (props.tableMode !== "chance" && props.cards) {
-    cards = props.cards[playerIndex];
-  } else {
-    cards = Array.from({ length: 52 }, (_, i) => 0xff00 + i);
+  const player = props.displayPlayer === "oop" ? 0 : 1;
+  if (props.tableMode === "chance") {
+    const reports = props.chanceReports;
+    return reports ? chanceRows(reports, player, numActions.value) : [];
   }
-
-  let dataRow: (index: number) => number[] | null;
-
-  if (props.tableMode !== "chance") {
-    dataRow = (index: number) => {
-      const results = props.results;
-      if (!results) return null;
-
-      const weight = results.weights[playerIndex][index];
-      const normalizer = results.normalizer[playerIndex][index];
-      if (weight === 0 || normalizer === 0) return null;
-
-      const ret: number[] = [];
-
-      ret.push(cards[index]);
-      ret.push(results.weights[playerIndex][index]);
-      ret.push(results.normalizer[playerIndex][index]);
-      // Undefined values are NaN (invokes); no values at all when a range is empty.
-      ret.push(results.equity[playerIndex][index] ?? Number.NaN);
-      ret.push(results.ev[playerIndex][index] ?? Number.NaN);
-      ret.push(results.eqr[playerIndex][index] ?? Number.NaN);
-
-      for (let i = numActions.value - 1; i >= 0; --i) {
-        const j = i * cards.length + index;
-        ret.push(results.strategy[j]);
-        ret.push(results.actionEv[j] ?? Number.NaN);
-      }
-
-      return ret;
-    };
-  } else {
-    dataRow = (index: number) => {
-      const reports = props.chanceReports;
-      if (!reports) return null;
-
-      const status = reports.status[index];
-      if (status === 0) return null;
-
-      const ret: number[] = [];
-
-      ret.push(cards[index]);
-      ret.push(reports.combos[playerIndex][index]);
-      ret.push(Number.NaN);
-
-      if (status === 1) {
-        ret.push(Number.NaN, Number.NaN, Number.NaN);
-      } else {
-        ret.push(reports.equity[playerIndex][index]);
-        ret.push(reports.ev[playerIndex][index]);
-        ret.push(reports.eqr[playerIndex][index]);
-      }
-
-      for (let i = numActions.value - 1; i >= 0; --i) {
-        const j = i * cards.length + index;
-        ret.push(reports.strategy[j]);
-        ret.push(Number.NaN);
-      }
-
-      return ret;
-    };
-  }
-
-  if (props.hoverContent) {
-    for (const index of props.hoverContent.indices) {
-      const data = dataRow(index);
-      if (data) ret.push(data);
-    }
-  } else {
-    for (let i = 0; i < cards.length; ++i) {
-      const data = dataRow(i);
-      if (data) ret.push(data);
-    }
-  }
-
-  return ret;
+  const results = props.results;
+  if (!results) return [];
+  const cards =
+    props.cards?.[player] ?? Array.from({ length: 52 }, (_, i) => 0xff00 + i);
+  return handRows(
+    results,
+    cards,
+    player,
+    numActions.value,
+    props.hoverContent?.indices ?? null
+  );
 });
 
-const resultsSorted = computed(() => {
-  const { key, order } = sortKey.value;
-  const ret = [...resultsFiltered.value];
-
-  if (key === 0) {
-    ret.sort((a, b) => {
-      return cardPairOrder(a[0]) - cardPairOrder(b[0]);
-    });
-  } else {
-    ret.sort((a, b) => {
-      if (!isNaN(a[key]) && !isNaN(b[key])) {
-        return a[key] - b[key] || cardPairOrder(a[0]) - cardPairOrder(b[0]);
-      } else if (!isNaN(a[key])) {
-        return -1;
-      } else if (!isNaN(b[key])) {
-        return 1;
-      } else {
-        return cardPairOrder(a[0]) - cardPairOrder(b[0]);
-      }
-    });
-  }
-
-  if (order === "desc") ret.reverse();
-  return ret;
-});
+const resultsSorted = computed(() =>
+  sortRows(resultsFiltered.value, sortKey.value.key, sortKey.value.order)
+);
 
 const rem = Number(
   getComputedStyle(document.documentElement).fontSize.slice(0, -2)
@@ -871,36 +666,10 @@ watch(scrollTarget, () => {
 });
 
 const summary = computed(() => {
-  const results = resultsFiltered.value;
-  if (!props.results || results.length === 0) return null;
-
-  let normalizer = 0;
-  const ret = results[0].map(() => 0);
-
-  for (const row of results) {
-    const n = row[INDEX_NORMALIZER];
-    normalizer += n;
-    ret[INDEX_WEIGHT] += row[INDEX_WEIGHT];
-    for (let i = INDEX_EQUITY; i < row.length; ++i) {
-      ret[i] += row[i] * n;
-    }
-  }
-
-  for (let i = INDEX_EQUITY; i < ret.length; ++i) {
-    ret[i] /= normalizer;
-  }
-
-  // EQR is not the average
-  const playerIndex = props.displayPlayer === "oop" ? 0 : 1;
-  const eqrBase = props.results.eqrBase[playerIndex];
-  ret[INDEX_EQR] = eqrOf(ret[INDEX_EV], ret[INDEX_EQUITY], eqrBase);
-
-  return ret;
+  if (!props.results) return null;
+  const player = props.displayPlayer === "oop" ? 0 : 1;
+  return summaryOf(resultsFiltered.value, props.results.eqrBase[player]);
 });
-
-/** Column label of an action: "Check", "B 30". */
-const shortLabel = (action: { name: string; amount: string }) =>
-  action.amount === "0" ? action.name : `${action.name[0]} ${action.amount}`;
 
 const actionColors = computed(() => {
   if (numActions.value === 0) return [];
@@ -909,23 +678,23 @@ const actionColors = computed(() => {
 });
 
 const maxWeight = computed(() => {
-  return Math.max(...resultsFiltered.value.map((r) => r[INDEX_WEIGHT]));
+  return Math.max(...resultsFiltered.value.map((r) => r[INDEX.WEIGHT]));
 });
 
 const strategyBarBgImage = (row: number[]) => {
-  if (!row || row.length === INDEX_STRATEGY_BASE) {
+  if (!row || row.length === INDEX.STRATEGY_BASE) {
     return `linear-gradient(${yellow500} 0% 100%)`;
   }
 
   const frequencies = Array.from(
     { length: numActions.value },
-    (_, i) => row[INDEX_STRATEGY_BASE + i * 2]
+    (_, i) => row[INDEX.STRATEGY_BASE + i * 2]
   );
   return stackedGradient(frequencies, actionColors.value, "right");
 };
 
 const strategyBarBgSize = (row: number[]) => {
-  const weight = row[INDEX_WEIGHT];
+  const weight = row[INDEX.WEIGHT];
   if (weight === 0) {
     return "0% 100%";
   } else if (displayOptions.barWidth === "normalized") {
@@ -939,84 +708,27 @@ const strategyBarBgSize = (row: number[]) => {
 
 const actionBarBg = (index: number, row: number[]) => {
   const color = actionColors.value[index];
-  const value = row[INDEX_STRATEGY_BASE + index * 2];
+  const value = row[INDEX.STRATEGY_BASE + index * 2];
   return `linear-gradient(to right, ${color} 0% ${
     value * 100
   }%, ${neutral800} ${value * 100}% 100%)`;
 };
 
 const exportSummary = async () => {
-  const data: string[] = [];
-
-  if (props.tableMode !== "chance") {
-    if (!props.results) return;
-
-    const ary = ["Hand", "Weight"];
-
-    if (!props.results.isEmpty) {
-      ary.push("Equity", "EV", "EQR");
-    }
-
-    if (numActions.value > 0) {
-      const actions = (props.selectedSpot as SpotPlayer).actions;
-      for (let i = actions.length - 1; i >= 0; --i) {
-        const action = actions[i];
-        const amount = action.amount === "0" ? "" : ` ${action.amount}`;
-        ary.push(`${action.name}${amount} %`);
-        ary.push(`${action.name}${amount} EV`);
-      }
-    }
-
-    data.push(ary.join(","));
-
-    const startIndex = props.results.isEmpty
-      ? INDEX_STRATEGY_BASE
-      : INDEX_EQUITY;
-
-    for (const row of resultsSorted.value) {
-      const card1 = row[0] & 0xff;
-      const card2 = row[0] >>> 8;
-      const pairStr = cardStr(card2) + cardStr(card1);
-      const ary = [pairStr, row[INDEX_WEIGHT], ...row.slice(startIndex)];
-      data.push(ary.join(","));
-    }
-  } else {
-    if (!props.chanceReports) return;
-
-    const ary = [columns.value[0].label, "Combos", "Equity", "EV", "EQR"];
-
-    if (numActions.value > 0) {
-      const actions = (props.selectedSpot as SpotPlayer).actions;
-      for (let i = actions.length - 1; i >= 0; --i) {
-        const action = actions[i];
-        const amount = action.amount === "0" ? "" : ` ${action.amount}`;
-        ary.push(`${action.name}${amount} %`);
-      }
-    }
-
-    data.push(ary.join(","));
-
-    for (const row of resultsSorted.value) {
-      const ary = [
-        cardStr(row[0] & 0xff),
-        row[INDEX_WEIGHT],
-        isNaN(row[INDEX_EQUITY]) ? "-" : row[INDEX_EQUITY],
-        isNaN(row[INDEX_EV]) ? "-" : row[INDEX_EV],
-        isNaN(row[INDEX_EQR]) ? "-" : row[INDEX_EQR],
-        ...row.slice(INDEX_STRATEGY_BASE).filter((_, i) => i % 2 === 0),
-      ];
-      data.push(ary.join(","));
-    }
-  }
-
+  const isChance = props.tableMode === "chance";
+  if (isChance ? !props.chanceReports : !props.results) return;
+  const csv = summaryCsv(
+    props.tableMode,
+    columns.value[0].label,
+    resultsSorted.value,
+    shownActions.value,
+    !isChance && Boolean(props.results?.isEmpty)
+  );
   const filePath = await save({
     defaultPath: "summary.csv",
     filters: [{ name: "CSV Files", extensions: ["csv"] }],
   });
-
-  if (filePath) {
-    await writeTextFile(filePath, data.join("\n"));
-  }
+  if (filePath) await writeTextFile(filePath, csv);
 };
 
 /* eslint-disable prefer-const */
