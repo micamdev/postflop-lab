@@ -83,8 +83,8 @@
                   @keydown.enter="rename(entry.name)"
                   @keydown.esc="renaming = null"
                 />
-                <UiButton size="sm" @click="rename(entry.name)">OK</UiButton>
-                <UiButton size="sm" @click="renaming = null">Cancel</UiButton>
+                <UiButton @click="rename(entry.name)">OK</UiButton>
+                <UiButton @click="renaming = null">Cancel</UiButton>
               </span>
               <span v-else>{{ entry.name }}</span>
             </td>

@@ -18,7 +18,9 @@
   --line: 50 50 56; /* #323238 */
   --ink: 236 236 238; /* #ececee */
   --muted: 154 154 163; /* #9a9aa3 */
-  --accent: 47 181 161; /* #2fb5a1 */
+  --accent: 123 114 192; /* #7b72c0, muted lavender */
+  --accent-ink: 169 162 220; /* #a9a2dc, accent text on dark backgrounds */
+  --sel: 58 58 64; /* #3a3a40, selected item of a segmented control */
   --cell: 38 38 42; /* #26262a */
   --oop: 91 141 239; /* #5b8def */
   --ip: 224 160 60; /* #e0a03c */
@@ -141,7 +143,7 @@ input.input-error {
 /* Compact field of the Graphite UI kit (inputs and selects); utilities next to it win. */
 @layer components {
   .ui-input {
-    @apply h-8 rounded-md border border-line bg-panel2 px-2 text-sm text-ink;
+    @apply h-7 rounded-md border border-line bg-panel2 px-2 text-xs text-ink;
     @apply focus:border-accent focus:ring-1 focus:ring-accent;
     @apply disabled:opacity-50;
   }

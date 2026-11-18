@@ -22,7 +22,7 @@
         />
       </UiField>
       <UiField label="SPR">
-        <span class="h-8 leading-8 text-sm tabular-nums">{{ spr }}</span>
+        <span class="h-7 leading-7 text-xs tabular-nums">{{ spr }}</span>
       </UiField>
     </div>
   </UiPanel>

@@ -59,7 +59,7 @@
       </span>
       <button
         type="button"
-        class="shrink-0 font-semibold text-accent hover:underline"
+        class="shrink-0 font-semibold text-accent-ink hover:underline"
         @click="store.sideView = 'tree-config'"
       >
         Edit tree ›

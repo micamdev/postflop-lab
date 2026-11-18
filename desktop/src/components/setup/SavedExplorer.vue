@@ -123,7 +123,7 @@
                 ? 'bg-oop/20 text-oop'
                 : tag === 'IP'
                   ? 'bg-ip/20 text-ip'
-                  : 'bg-accent/20 text-accent',
+                  : 'bg-accent/20 text-accent-ink',
             ]"
           >
             {{ tag }}

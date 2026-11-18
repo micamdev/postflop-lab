@@ -1,13 +1,14 @@
 <template>
-  <div class="w-full h-full min-w-0">
+  <!-- Size container: the cell fonts follow the side of the grid. -->
+  <div class="w-full h-full min-w-0 [container-type:size]">
     <table
       class="w-full h-full table-fixed select-none snug"
       :style="{
         '--font-scale': isCompareMode ? 0.875 : 1,
         '--pair-font-size':
-          'calc(max(1rem, min(1.35vw, 2.25vh)) * var(--font-scale))',
+          'calc(clamp(10px, 100cqmin / 13 * 0.36, 1.35rem) * var(--font-scale))',
         '--value-font-size':
-          'calc(max(0.889rem, min(1.2vw, 2vh)) * var(--font-scale))',
+          'calc(clamp(9px, 100cqmin / 13 * 0.3, 1.2rem) * var(--font-scale))',
       }"
       @mouseleave="onMouseLeaveTable"
     >

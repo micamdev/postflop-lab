@@ -94,20 +94,20 @@
     </UiTooltip>
 
     <template v-if="action === 'save'">
-      <UiButton :disabled="!canSolve" @click="onSolve">▶ Solve</UiButton>
-      <UiButton variant="primary" @click="store.isSaveDialogOpen = true">
+      <UiButton size="lg" :disabled="!canSolve" @click="onSolve">▶ Solve</UiButton>
+      <UiButton size="lg" variant="primary" @click="store.isSaveDialogOpen = true">
         Save
       </UiButton>
     </template>
     <template v-else-if="action === 'resolve-locks'">
-      <UiButton :disabled="!canSolve" @click="onSolve">▶ Solve</UiButton>
-      <UiButton
+      <UiButton size="lg" :disabled="!canSolve" @click="onSolve">▶ Solve</UiButton>
+      <UiButton size="lg"
         v-if="savesBeside(session.flags, session.canSave)"
         @click="store.isSaveDialogOpen = true"
       >
         Save
       </UiButton>
-      <UiButton
+      <UiButton size="lg"
         variant="primary"
         :disabled="
           !store.currentLine ||
@@ -120,7 +120,7 @@
         {{ lockResolve.isBusy ? "Preparing…" : "Re-solve with locks" }}
       </UiButton>
     </template>
-    <UiButton
+    <UiButton size="lg"
       v-else-if="action === 'solve'"
       variant="primary"
       :disabled="!canSolve"
@@ -172,7 +172,7 @@ const isAboutOpen = ref(false);
 
 const toneClass: Record<StatusTone, string> = {
   neutral: "bg-panel2 text-muted",
-  busy: "bg-accent/15 text-accent",
+  busy: "bg-accent/15 text-accent-ink",
   warn: "bg-ip/15 text-ip",
   ok: "bg-act-check/15 text-act-check",
   error: "bg-red-500/15 text-red-400",

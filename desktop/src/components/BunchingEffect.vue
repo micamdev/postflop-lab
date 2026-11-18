@@ -2,7 +2,7 @@
   <div v-if="editingPlayer === -1">
     <div class="flex">
       <div
-        class="flex pl-2.5 pr-3 py-1 text-accent bg-panel2 border-2 border-accent rounded-md font-semibold"
+        class="flex pl-2.5 pr-3 py-1 text-accent-ink bg-panel2 border-2 border-accent rounded-md font-semibold"
       >
         <InformationCircleIcon class="inline w-5 h-5 mt-[0.1875rem] mr-1.5" />
         <div>
