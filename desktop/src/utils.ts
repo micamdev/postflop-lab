@@ -171,6 +171,9 @@ const parseFloat = (s: string): number => {
   }
 };
 
+/** A size may be typed with a trailing "%" ("50%" = "50"). */
+const withoutPercent = (s: string) => (s.endsWith("%") ? s.slice(0, -1) : s);
+
 export const MAX_AMOUNT = 30000;
 export const MAX_BET_SIZES = 30;
 
@@ -263,7 +266,8 @@ export const sanitizeBetString = (
         return { s: `Invalid geometric size: ${e}`, valid: false };
       }
       const float1 = split[0] === "" ? null : parseFloat(split[0]);
-      const float2 = split[1] === "" ? null : parseFloat(split[1]);
+      const float2 =
+        split[1] === "" ? null : parseFloat(withoutPercent(split[1]));
       if (float1 !== null) {
         if (Number.isNaN(float1)) {
           return { s: `Invalid geometric size: ${e}`, valid: false };
@@ -285,7 +289,7 @@ export const sanitizeBetString = (
       sanitized += "a";
     } else {
       // Pot relative
-      const float = parseFloat(e);
+      const float = parseFloat(withoutPercent(e));
       if (Number.isNaN(float)) {
         return { s: `Invalid bet size: ${e}`, valid: false };
       }
@@ -301,7 +305,7 @@ export const convertBetString = (s: string): string => {
   return s
     .split(",")
     .map((e) => e.trim())
-    .map((e) => ("acerx".includes(e[e.length - 1]) ? e : e + "%"))
+    .map((e) => ("acerx%".includes(e[e.length - 1]) ? e : e + "%"))
     .join(",");
 };
 
