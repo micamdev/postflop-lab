@@ -7,12 +7,10 @@ import type { GameTreeArgs } from "./game-args";
  * have been reset (see guard.rs). */
 export const ERR_INTERNAL = "Internal error";
 
-let onInternalError: (message: string, command: string) => void = () => {};
+let onInternalError: (message: string) => void = () => {};
 
 /** Sets what the app does after an internal error (drop the results, show the message). */
-export const setInternalErrorHandler = (
-  handler: (message: string, command: string) => void
-) => {
+export const setInternalErrorHandler = (handler: (message: string) => void) => {
   onInternalError = handler;
 };
 
@@ -21,7 +19,7 @@ const invoke = async <T>(cmd: string, args?: InvokeArgs): Promise<T> => {
   try {
     return await tauriInvoke<T>(cmd, args);
   } catch (e) {
-    if (String(e).startsWith(ERR_INTERNAL)) onInternalError(String(e), cmd);
+    if (String(e).startsWith(ERR_INTERNAL)) onInternalError(String(e));
     throw e;
   }
 };

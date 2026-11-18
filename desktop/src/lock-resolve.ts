@@ -44,7 +44,8 @@ export const useLockResolve = defineStore("lockResolve", () => {
     try {
       compression = await invokes.gamePrepareLockSolve(locks);
     } catch (e) {
-      // The reference solution is untouched.
+      // The reference solution is untouched (unless an internal error reset it: then
+      // internal-error.ts already dropped it).
       store.isLibraryBusy = false;
       error.value = String(e);
       return;

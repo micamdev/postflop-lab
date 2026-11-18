@@ -42,6 +42,8 @@ fn main() {
             ThreadPoolBuilder::new().build().unwrap(),
         )))
         .setup(|app| {
+            // Panics in commands become errors (issue #38); they report where they happened.
+            guard::install(app.handle());
             // Temporary files of saves interrupted by a crash (a running save keeps its file
             // fresh, and no save runs this early).
             if let Ok(dir) = library_commands::library_dir(app.handle()) {

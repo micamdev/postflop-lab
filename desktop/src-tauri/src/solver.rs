@@ -306,7 +306,9 @@ pub fn game_set_bunching(
     crate::guard::guard(move || {
         Ok({
             let bunching_data = crate::guard::lock_or_reset(&bunching_state);
-            let bunching_data = bunching_data.as_ref().unwrap();
+            let Some(bunching_data) = bunching_data.as_ref() else {
+                return Err(ERR_BUNCHING_NOT_READY.to_string());
+            };
             let mut game = crate::guard::lock_or_reset(&game_state);
             game.set_bunching_effect(bunching_data).err()
         })
@@ -357,6 +359,10 @@ pub fn game_finalize(
 }
 
 /// Error returned when a position needs a card that a truncated save does not store.
+/// Error when the bunching data is missing (cleared, or reset after an internal error).
+pub const ERR_BUNCHING_NOT_READY: &str =
+    "The bunching data is not ready: run the precomputation again";
+
 pub const ERR_BEYOND_DEPTH: &str = "beyond saved depth";
 
 /// Plays `action`, refusing to deal a card past the saved depth (where `play` would panic and

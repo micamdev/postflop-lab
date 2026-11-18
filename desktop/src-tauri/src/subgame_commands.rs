@@ -194,7 +194,10 @@ mod tests {
             .entries
             .contains_key(&(vec![0, 0], river())));
         // The main game is back where it was.
-        assert_eq!(crate::guard::lock_or_reset(&main).history(), &[] as &[usize]);
+        assert_eq!(
+            crate::guard::lock_or_reset(&main).history(),
+            &[] as &[usize]
+        );
     }
 
     #[test]

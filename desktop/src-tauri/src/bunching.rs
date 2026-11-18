@@ -41,7 +41,9 @@ pub fn bunching_progress(
     crate::guard::guard(move || {
         Ok({
             let mut bunching_data = crate::guard::lock_or_reset(&bunching_state);
-            let bunching_data = bunching_data.as_mut().unwrap();
+            let Some(bunching_data) = bunching_data.as_mut() else {
+                return Err(crate::solver::ERR_BUNCHING_NOT_READY.to_string());
+            };
             let pool = crate::guard::lock(&pool_state);
 
             let phase = bunching_data.phase();

@@ -11,6 +11,7 @@ vi.mock("./invokes", () => ({
   libraryDelete: vi.fn(),
   libraryRename: vi.fn(),
   libraryImport: vi.fn(),
+  ERR_INTERNAL: "Internal error",
 }));
 
 import * as invokes from "./invokes";
@@ -91,5 +92,28 @@ describe("importing", () => {
     vi.mocked(invokes.libraryImport).mockResolvedValue("spot");
     await importSolution("C:/x/spot.plab", true);
     expect(store.isSolutionSaved).toBe(false);
+  });
+});
+
+describe("an internal error while loading", () => {
+  test("does not bring back the results of a game Rust reset", async () => {
+    const store = useStore();
+    Object.assign(store, {
+      isSolverFinished: true,
+      isSolutionSaved: true,
+      solutionInfo: {
+        name: "old",
+        loaded: true,
+        iterations: 1,
+        exploitability: 0,
+      },
+    });
+    vi.mocked(invokes.libraryCheckLoad).mockResolvedValue(undefined);
+    vi.mocked(invokes.libraryLoad).mockRejectedValue(
+      "Internal error (solution reset): boom."
+    );
+    await loadSolution("new");
+    expect(store.isSolverFinished).toBe(false);
+    expect(store.solutionInfo).toBeNull();
   });
 });
