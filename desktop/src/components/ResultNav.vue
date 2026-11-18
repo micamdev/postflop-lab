@@ -228,7 +228,7 @@ import { computed, nextTick, onBeforeUnmount, toRefs, ref, watch } from "vue";
 import { listen } from "@tauri-apps/api/event";
 import { useSavedConfigStore, useStore } from "../store";
 import { cardText, average, suitBgClasses } from "../utils";
-import { actionColor } from "../action-colors";
+import { ALL_IN, actionColor } from "../action-colors";
 import { nodeStrategy } from "../node-strategy";
 import * as invokes from "../invokes";
 
@@ -252,7 +252,7 @@ import {
 /** Colour of action `i` of `actions` ("Name:amount"), bets ranked by amount. */
 const colorOf = (actions: string[], i: number, numBetActions: number) => {
   const name = actions[i].split(":")[0];
-  const hasAllIn = actions[actions.length - 1].split(":")[0] === "AllIn";
+  const hasAllIn = actions[actions.length - 1].split(":")[0] === ALL_IN;
   const numBets = numBetActions - (hasAllIn ? 1 : 0);
   return actionColor(name, i - (actions.length - numBetActions), numBets);
 };

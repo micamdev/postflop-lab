@@ -104,7 +104,7 @@ export const chartChanceList = [
   "eqr",
 ] as const;
 
-/** Display options before the saved ones are read (results toolbar). */
+/** Display options before the saved ones are read (results view and toolbar). */
 export const defaultDisplayOptions = (): DisplayOptions => ({
   playerBasics: "auto",
   playerChance: "auto",

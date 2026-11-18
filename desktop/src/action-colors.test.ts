@@ -11,7 +11,7 @@ describe("actionColor", () => {
     expect(actionColor("Fold", 0, 0)).toBe("#4f86c6");
     expect(actionColor("Check", 0, 0)).toBe("#3fae6e");
     expect(actionColor("Call", 0, 0)).toBe("#3fae6e");
-    expect(actionColor("AllIn", 0, 3)).toBe("#7a1f1c");
+    expect(actionColor("Allin", 0, 3)).toBe("#7a1f1c");
   });
 
   test("one or two bets", () => {
@@ -27,7 +27,7 @@ describe("actionColor", () => {
     for (let i = 1; i < colors.length; i++) {
       expect(luminance(colors[i])).toBeLessThan(luminance(colors[i - 1]));
     }
-    expect(luminance(actionColor("AllIn", 0, 5))).toBeLessThan(
+    expect(luminance(actionColor("Allin", 0, 5))).toBeLessThan(
       luminance(colors[4])
     );
   });

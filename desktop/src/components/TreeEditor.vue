@@ -543,7 +543,7 @@ const pushResultsChance = async () => {
           index: i,
           name,
           amount,
-          rate: -1,
+
           isSelected: false,
           color: "#000",
         };
