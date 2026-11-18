@@ -57,21 +57,21 @@ pub fn resolve_into_cache(
         (built?, game.tree_config().starting_pot)
     };
 
-    let compression = if sub.kind == SubgameKind::Empty {
+    // Nothing to solve or show: not cached (the front end never navigates into it).
+    if sub.kind == SubgameKind::Empty {
+        return Ok(SubgameKind::Empty);
+    }
+    let (uncompressed, compressed) = sub.game.memory_usage();
+    let compression = if uncompressed <= available_memory {
         false
+    } else if compressed <= available_memory {
+        true
     } else {
-        let (uncompressed, compressed) = sub.game.memory_usage();
-        if uncompressed <= available_memory {
-            false
-        } else if compressed <= available_memory {
-            true
-        } else {
-            return Err(format!(
-                "Not enough memory to re-solve this river: {} needed, {} available",
-                gb(compressed),
-                gb(available_memory)
-            ));
-        }
+        return Err(format!(
+            "Not enough memory to re-solve this river: {} needed, {} available",
+            gb(compressed),
+            gb(available_memory)
+        ));
     };
 
     let sub_pot = sub.game.tree_config().starting_pot;

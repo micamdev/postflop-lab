@@ -24,7 +24,7 @@
               ? 'border-line cursor-default'
               : 'border-line cursor-pointer')
       "
-      @click="selectSpot(spot.index, false)"
+      @click="exclusive(() => selectSpot(spot.index, false))"
     >
       <!-- Root or Chance -->
       <template v-if="spot.type === 'root' || spot.type === 'chance'">
@@ -77,56 +77,18 @@
               "
             >
               <button
-                :class="
-                  'absolute -top-[1.375rem] left-1/2 -ml-3 w-6 h-6 ' +
-                  (isCardAvailable(spot, 0, 1)
+                v-for="arrow in ARROWS"
+                :key="arrow.key"
+                :class="[
+                  'absolute w-6 h-6',
+                  arrow.position,
+                  nextLiveCard(spot, arrow.rankDir, arrow.suitDir) !== -1
                     ? 'text-muted hover:text-ink'
-                    : 'text-muted/25')
-                "
-                @click.stop="
-                  isCardAvailable(spot, 0, 1) && dealArrow(spot, 0, 1)
-                "
+                    : 'text-muted/25',
+                ]"
+                @click.stop="dealArrow(spot, arrow.rankDir, arrow.suitDir)"
               >
-                <ChevronUpIcon class="w-full h-full" />
-              </button>
-              <button
-                :class="
-                  'absolute -left-[1.375rem] top-1/2 -mt-3 w-6 h-6 ' +
-                  (isCardAvailable(spot, 1, 0)
-                    ? 'text-muted hover:text-ink'
-                    : 'text-muted/25')
-                "
-                @click.stop="
-                  isCardAvailable(spot, 1, 0) && dealArrow(spot, 1, 0)
-                "
-              >
-                <ChevronLeftIcon class="w-full h-full" />
-              </button>
-              <button
-                :class="
-                  'absolute -right-[1.375rem] top-1/2 -mt-3 w-6 h-6 ' +
-                  (isCardAvailable(spot, -1, 0)
-                    ? 'text-muted hover:text-ink'
-                    : 'text-muted/25')
-                "
-                @click.stop="
-                  isCardAvailable(spot, -1, 0) && dealArrow(spot, -1, 0)
-                "
-              >
-                <ChevronRightIcon class="w-full h-full" />
-              </button>
-              <button
-                :class="
-                  'absolute -bottom-[1.375rem] left-1/2 -ml-3 w-6 h-6 ' +
-                  (isCardAvailable(spot, 0, -1)
-                    ? 'text-muted hover:text-ink'
-                    : 'text-muted/25')
-                "
-                @click.stop="
-                  isCardAvailable(spot, 0, -1) && dealArrow(spot, 0, -1)
-                "
-              >
-                <ChevronDownIcon class="w-full h-full" />
+                <component :is="arrow.icon" class="w-full h-full" />
               </button>
             </template>
           </div>
@@ -264,7 +226,7 @@
 </template>
 
 <script setup lang="ts">
-import { computed, nextTick, toRefs, ref, watch } from "vue";
+import { computed, nextTick, onBeforeUnmount, toRefs, ref, watch } from "vue";
 import { listen } from "@tauri-apps/api/event";
 import { useSavedConfigStore, useStore } from "../store";
 import { cardText, average, suitBgClasses } from "../utils";
@@ -508,6 +470,8 @@ const resolveAndDeal = async (card: number) => {
   ) {
     return;
   }
+  // Busy with something else (a library load): its busy flag must not be cleared here.
+  if (store.isLibraryBusy && !resolveStatus.value) return;
   const id = ++resolveId;
   const history = spots.value.slice(1, spot.index).map((s) => s.selectedIndex);
   const label = cardText(card).rank + cardText(card).suit;
@@ -554,15 +518,19 @@ const resolveAndDeal = async (card: number) => {
     return;
   }
 
-  spot.isBeyondDepth = false;
-  spot.isResolved = true;
-  spot.selectedIndex = card;
-  spot.cards[card].isSelected = true;
-  // Move to the river chance node first: in chance mode the current position is elsewhere.
-  await invokes.gameApplyHistory(history);
-  const nextActions = await invokes.gameActionsAfter([card]);
-  spliceSpotsPlayer(spot.index + 1, nextActions);
-  await selectSpot(spot.index + 1, false);
+  // Dealing is a navigation like the others: not while another one runs (the river stays
+  // in the cache, so picking it again is instant).
+  await exclusive(async () => {
+    spot.isBeyondDepth = false;
+    spot.isResolved = true;
+    spot.selectedIndex = card;
+    spot.cards[card].isSelected = true;
+    // Move to the river chance node first: in chance mode the current position is elsewhere.
+    await invokes.gameApplyHistory(history);
+    const nextActions = await invokes.gameActionsAfter([card]);
+    spliceSpotsPlayer(spot.index + 1, nextActions);
+    await selectSpot(spot.index + 1, false);
+  });
 };
 
 watch(resolveRequest, async (request) => {
@@ -611,8 +579,9 @@ const selectSpotUnsafe = async (
       riverIndex === -1 ? null : (spots.value[riverIndex] as SpotChance);
     selectedChanceIndexTmp = -1;
 
-    // A re-solved river belonged to the previous turn card: offer the pick again.
-    if (riverSpot?.isResolved) {
+    // A re-solved river belonged to the previous turn card: offer the pick again (not when the
+    // same turn card is dealt again, e.g. leaving the card view).
+    if (riverSpot?.isResolved && !isSameCardDeal) {
       reopenRiver(riverSpot);
       // The spots after the river are gone: stay on the river spot (position only).
       if (selectedSpotIndexTmp > riverSpot.index) {
@@ -994,7 +963,32 @@ const spliceSpotsPlayer = (spotIndex: number, actions: string[]) => {
   });
 };
 
-const play = async (spotIndex: number, actionIndex: number) => {
+// The results disappear (load, new solve) while a navigation runs: its final emit would be
+// dropped once unmounted, leaving the parent locked. Unlock while still mounted.
+onBeforeUnmount(() => {
+  if (props.isLocked) emit("update:is-locked", false);
+});
+
+// Set synchronously by a click, before any await: a second click while a navigation runs is
+// ignored (`isLocked` only reaches the props a tick later, and play/deal change the spots first).
+let isBusy = false;
+// The card being dealt is the one already selected (no new turn card).
+let isSameCardDeal = false;
+
+const exclusive = async (navigate: () => Promise<void>) => {
+  if (isBusy || props.isLocked) return;
+  isBusy = true;
+  try {
+    await navigate();
+  } finally {
+    isBusy = false;
+  }
+};
+
+const play = (spotIndex: number, actionIndex: number) =>
+  exclusive(() => playUnsafe(spotIndex, actionIndex));
+
+const playUnsafe = async (spotIndex: number, actionIndex: number) => {
   const spot = spots.value[spotIndex] as SpotPlayer;
 
   if (spot.selectedIndex !== -1) {
@@ -1006,9 +1000,12 @@ const play = async (spotIndex: number, actionIndex: number) => {
   await selectSpot(spotIndex + 1, true);
 };
 
-const deal = async (card: number) => {
+const deal = (card: number) => exclusive(() => dealUnsafe(card));
+
+const dealUnsafe = async (card: number) => {
   const spot = selectedChance.value;
   if (!spot) throw new Error("null spot");
+  isSameCardDeal = spot.selectedIndex === card;
 
   isDealing.value = true;
 
@@ -1019,23 +1016,19 @@ const deal = async (card: number) => {
   spot.selectedIndex = card;
 
   await selectSpot(selectedSpotIndex.value, false, true);
+  isSameCardDeal = false;
 };
 
-const dealArrow = async (
+const dealArrow = (spot: SpotChance, rankDir: number, suitDir: number) =>
+  exclusive(() => dealArrowUnsafe(spot, rankDir, suitDir));
+
+const dealArrowUnsafe = async (
   spot: SpotChance,
   rankDir: number,
   suitDir: number
 ) => {
-  const offset = rankDir ? 4 * rankDir : suitDir;
-  let card = spot.selectedIndex + offset;
-
-  for (; 0 <= card && card < 52; card += offset) {
-    if (!spot.cards[card].isDead) break;
-  }
-
-  if (card < 0 || 52 <= card) {
-    throw new Error("invalid card");
-  }
+  const card = nextLiveCard(spot, rankDir, suitDir);
+  if (card === -1) return;
 
   isDealing.value = true;
 
@@ -1043,41 +1036,56 @@ const dealArrow = async (
   spot.cards[card].isSelected = true;
   spot.selectedIndex = card;
 
-  const selectedChanceIndexBak = selectedChanceIndex.value;
   selectedChanceIndex.value = spot.index;
-
   await selectSpot(selectedSpotIndex.value, false, true);
+};
 
-  if (
-    selectedChanceIndex.value === -1 &&
-    selectedChanceIndexBak !== spot.index
+/** Next live card from the selected one: same suit by rank (`rankDir`), or same rank by suit
+ * (`suitDir`); -1 if none. */
+const nextLiveCard = (spot: SpotChance, rankDir: number, suitDir: number) => {
+  const step = rankDir ? 4 * rankDir : suitDir;
+  const rank = spot.selectedIndex >>> 2;
+  for (
+    let card = spot.selectedIndex + step;
+    0 <= card && card < 52 && (rankDir || card >>> 2 === rank);
+    card += step
   ) {
-    selectedChanceIndex.value = selectedChanceIndexBak;
+    if (!spot.cards[card].isDead) return card;
   }
+  return -1;
 };
 
-const isCardAvailable = (
-  spot: SpotChance,
-  rankDir: number,
-  suitDir: number
-) => {
-  let card = spot.selectedIndex;
-
-  if (rankDir) {
-    card += 4 * rankDir;
-    for (; 0 <= card && card < 52; card += 4 * rankDir) {
-      if (!spot.cards[card].isDead) return true;
-    }
-  } else {
-    const rank = card >>> 2;
-    card += suitDir;
-    for (; card >>> 2 === rank; card += suitDir) {
-      if (!spot.cards[card].isDead) return true;
-    }
-  }
-
-  return false;
-};
+// The four arrows around a dealt card.
+const ARROWS = [
+  {
+    key: "up",
+    rankDir: 0,
+    suitDir: 1,
+    icon: ChevronUpIcon,
+    position: "-top-[1.375rem] left-1/2 -ml-3",
+  },
+  {
+    key: "left",
+    rankDir: 1,
+    suitDir: 0,
+    icon: ChevronLeftIcon,
+    position: "-left-[1.375rem] top-1/2 -mt-3",
+  },
+  {
+    key: "right",
+    rankDir: -1,
+    suitDir: 0,
+    icon: ChevronRightIcon,
+    position: "-right-[1.375rem] top-1/2 -mt-3",
+  },
+  {
+    key: "down",
+    rankDir: 0,
+    suitDir: -1,
+    icon: ChevronDownIcon,
+    position: "-bottom-[1.375rem] left-1/2 -ml-3",
+  },
+];
 
 watch(dealtCard, async (card) => {
   if (card === -1) return;

@@ -8,7 +8,7 @@
 use crate::solver::{
     actions, apply_history_checked, results_of, GameResultsResponse, ERR_BEYOND_DEPTH,
 };
-use crate::subgame::{Subgame, SubgameKind};
+use crate::subgame::Subgame;
 use postflop_solver::*;
 use std::collections::HashMap;
 
@@ -77,10 +77,10 @@ pub fn split_history(
             }
             break;
         }
-        if !main.is_chance_node() && action >= main.available_actions().len() {
+        // An impossible action or card stops here instead of panicking (panic aborts the app).
+        if crate::solver::play_checked(main, action).is_err() {
             break;
         }
-        main.play(action);
     }
     (history.to_vec(), None)
 }
@@ -105,14 +105,9 @@ pub fn apply(
         main.apply_history(&previous);
         return Err(ERR_NOT_RESOLVED.to_string());
     };
-    if sub.kind == SubgameKind::Solve {
-        if let Err(e) = apply_history_checked(&mut sub.game, &rest) {
-            main.apply_history(&previous);
-            return Err(e);
-        }
-    } else if !rest.is_empty() {
+    if let Err(e) = apply_history_checked(&mut sub.game, &rest) {
         main.apply_history(&previous);
-        return Err(ERR_BEYOND_DEPTH.to_string());
+        return Err(e);
     }
     cache.active = Some(key);
     cache.current = history.to_vec();
@@ -158,21 +153,6 @@ pub fn results(main: &mut PostFlopGame, cache: &mut SubgameCache) -> GameResults
         cache.active = None;
         return results_of(main);
     };
-    if sub.kind == SubgameKind::Empty {
-        return GameResultsResponse {
-            current_player: "terminal".to_string(),
-            num_actions: 0,
-            is_empty: 3,
-            eqr_base: [0, 0],
-            weights: lens.map(|n| vec![0.0; n]),
-            normalizer: lens.map(|n| vec![0.0; n]),
-            equity: [Vec::new(), Vec::new()],
-            ev: [Vec::new(), Vec::new()],
-            eqr: [Vec::new(), Vec::new()],
-            strategy: Vec::new(),
-            action_ev: Vec::new(),
-        };
-    }
     let mut r = results_of(&mut sub.game);
     let map = &sub.hand_map;
     for p in 0..2 {
@@ -195,14 +175,12 @@ pub fn results(main: &mut PostFlopGame, cache: &mut SubgameCache) -> GameResults
 }
 
 /// Evaluates at `current + append` without moving the current position. `on_game` receives
-/// the game holding that position and the bet offset to add; `on_empty` handles a subgame with
-/// an empty range.
+/// the game holding that position and the bet offset to add.
 fn at_position<R>(
     main: &mut PostFlopGame,
     cache: &mut SubgameCache,
     append: &[usize],
     on_game: impl FnOnce(&mut PostFlopGame, i32) -> R,
-    on_empty: impl FnOnce(i32) -> R,
 ) -> Result<R, String> {
     let full: Vec<usize> = cache.current.iter().chain(append).copied().collect();
     let saved_main = main.history().to_vec();
@@ -212,7 +190,6 @@ fn at_position<R>(
         None => Err(ERR_BEYOND_DEPTH.to_string()),
         Some((card, rest)) => match cache.entries.get_mut(&(prefix, card)) {
             None => Err(ERR_NOT_RESOLVED.to_string()),
-            Some(sub) if sub.kind == SubgameKind::Empty => Ok(on_empty(sub.bet_offset)),
             Some(sub) => {
                 let saved_sub = sub.game.history().to_vec();
                 let r = apply_history_checked(&mut sub.game, &rest)
@@ -232,13 +209,7 @@ pub fn actions_after(
     cache: &mut SubgameCache,
     append: &[usize],
 ) -> Result<Vec<String>, String> {
-    at_position(
-        main,
-        cache,
-        append,
-        |game, _| actions(game),
-        |_| vec!["terminal".to_string()],
-    )
+    at_position(main, cache, append, |game, _| actions(game))
 }
 
 /// Total amount each player has bet at `current + append`, counted from the main game's root.
@@ -247,13 +218,9 @@ pub fn total_bet_amount(
     cache: &mut SubgameCache,
     append: &[usize],
 ) -> Result<[i32; 2], String> {
-    at_position(
-        main,
-        cache,
-        append,
-        |game, offset| game.total_bet_amount().map(|b| b + offset),
-        |offset| [offset, offset],
-    )
+    at_position(main, cache, append, |game, offset| {
+        game.total_bet_amount().map(|b| b + offset)
+    })
 }
 
 #[cfg(test)]
@@ -415,5 +382,23 @@ mod memory_tests {
             },
         );
         assert_eq!(cache.memory_usage(), 0);
+    }
+}
+
+#[cfg(test)]
+mod split_tests {
+    use super::*;
+    use crate::subgame::tree_edit_tests::game_with_removed_river_line;
+
+    #[test]
+    fn impossible_cards_do_not_panic() {
+        // A full turn game: the river can be dealt. Card 52 does not exist; Td is on the board.
+        let mut game = game_with_removed_river_line();
+        let td = card_from_str("Td").unwrap() as usize;
+        for card in [52, td] {
+            let (prefix, rest) = split_history(&mut game, &[0, 0, card, 0]);
+            assert_eq!(prefix, [0, 0, card, 0]);
+            assert!(rest.is_none());
+        }
     }
 }
