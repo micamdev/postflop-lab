@@ -23,72 +23,47 @@ export type SolutionInfo = {
   exploitability: number;
 };
 
-export const saveConfigTmp = () => {
-  const config = useConfigStore();
-  const tmpConfig = useTmpConfigStore();
+/** The setup fields (board, stacks, bet sizes, tree options), all zero or empty. */
+const emptySetup = () => ({
+  board: [] as number[],
+  startingPot: 0,
+  effectiveStack: 0,
+  rakePercent: 0,
+  rakeCap: 0,
+  donkOption: false,
+  oopFlopBet: "",
+  oopFlopRaise: "",
+  oopTurnBet: "",
+  oopTurnRaise: "",
+  oopTurnDonk: "",
+  oopRiverBet: "",
+  oopRiverRaise: "",
+  oopRiverDonk: "",
+  ipFlopBet: "",
+  ipFlopRaise: "",
+  ipTurnBet: "",
+  ipTurnRaise: "",
+  ipRiverBet: "",
+  ipRiverRaise: "",
+  addAllInThreshold: 0,
+  forceAllInThreshold: 0,
+  mergingThreshold: 0,
+  expectedBoardLength: 0,
+  addedLines: "",
+  removedLines: "",
+});
 
-  tmpConfig.$patch({
-    board: [...config.board],
-    startingPot: config.startingPot,
-    effectiveStack: config.effectiveStack,
-    rakePercent: config.rakePercent,
-    rakeCap: config.rakeCap,
-    donkOption: config.donkOption,
-    oopFlopBet: config.oopFlopBet,
-    oopFlopRaise: config.oopFlopRaise,
-    oopTurnBet: config.oopTurnBet,
-    oopTurnRaise: config.oopTurnRaise,
-    oopTurnDonk: config.oopTurnDonk,
-    oopRiverBet: config.oopRiverBet,
-    oopRiverRaise: config.oopRiverRaise,
-    oopRiverDonk: config.oopRiverDonk,
-    ipFlopBet: config.ipFlopBet,
-    ipFlopRaise: config.ipFlopRaise,
-    ipTurnBet: config.ipTurnBet,
-    ipTurnRaise: config.ipTurnRaise,
-    ipRiverBet: config.ipRiverBet,
-    ipRiverRaise: config.ipRiverRaise,
-    addAllInThreshold: config.addAllInThreshold,
-    forceAllInThreshold: config.forceAllInThreshold,
-    mergingThreshold: config.mergingThreshold,
-    expectedBoardLength: config.expectedBoardLength,
-    addedLines: config.addedLines,
-    removedLines: config.removedLines,
-  });
+export type SetupState = ReturnType<typeof emptySetup>;
+
+/** A copy of the setup being edited (the board array included). */
+export const snapshotSetup = (): SetupState => {
+  const config = useConfigStore();
+  return { ...config.$state, board: [...config.board] };
 };
 
-export const saveConfig = () => {
-  const tmpConfig = useTmpConfigStore();
-  const savedConfig = useSavedConfigStore();
-
-  savedConfig.$patch({
-    board: tmpConfig.board,
-    startingPot: tmpConfig.startingPot,
-    effectiveStack: tmpConfig.effectiveStack,
-    rakePercent: tmpConfig.rakePercent,
-    rakeCap: tmpConfig.rakeCap,
-    donkOption: tmpConfig.donkOption,
-    oopFlopBet: tmpConfig.oopFlopBet,
-    oopFlopRaise: tmpConfig.oopFlopRaise,
-    oopTurnBet: tmpConfig.oopTurnBet,
-    oopTurnRaise: tmpConfig.oopTurnRaise,
-    oopTurnDonk: tmpConfig.oopTurnDonk,
-    oopRiverBet: tmpConfig.oopRiverBet,
-    oopRiverRaise: tmpConfig.oopRiverRaise,
-    oopRiverDonk: tmpConfig.oopRiverDonk,
-    ipFlopBet: tmpConfig.ipFlopBet,
-    ipFlopRaise: tmpConfig.ipFlopRaise,
-    ipTurnBet: tmpConfig.ipTurnBet,
-    ipTurnRaise: tmpConfig.ipTurnRaise,
-    ipRiverBet: tmpConfig.ipRiverBet,
-    ipRiverRaise: tmpConfig.ipRiverRaise,
-    addAllInThreshold: tmpConfig.addAllInThreshold,
-    forceAllInThreshold: tmpConfig.forceAllInThreshold,
-    mergingThreshold: tmpConfig.mergingThreshold,
-    expectedBoardLength: tmpConfig.expectedBoardLength,
-    addedLines: tmpConfig.addedLines,
-    removedLines: tmpConfig.removedLines,
-  });
+/** Records `setup` as the setup of the tree in memory (built or loaded). */
+export const setSavedSetup = (setup: SetupState) => {
+  useSavedConfigStore().$patch({ ...setup, board: [...setup.board] });
 };
 
 export const useStore = defineStore("app", {
@@ -153,32 +128,12 @@ export const useStore = defineStore("app", {
 
 export const useConfigStore = defineStore("config", {
   state: () => ({
-    board: [] as number[],
+    ...emptySetup(),
     startingPot: 20,
     effectiveStack: 100,
-    rakePercent: 0,
-    rakeCap: 0,
-    donkOption: false,
-    oopFlopBet: "",
-    oopFlopRaise: "",
-    oopTurnBet: "",
-    oopTurnRaise: "",
-    oopTurnDonk: "",
-    oopRiverBet: "",
-    oopRiverRaise: "",
-    oopRiverDonk: "",
-    ipFlopBet: "",
-    ipFlopRaise: "",
-    ipTurnBet: "",
-    ipTurnRaise: "",
-    ipRiverBet: "",
-    ipRiverRaise: "",
     addAllInThreshold: 150,
     forceAllInThreshold: 20,
     mergingThreshold: 10,
-    expectedBoardLength: 0,
-    addedLines: "",
-    removedLines: "",
   }),
 
   getters: {
@@ -199,69 +154,11 @@ export const useConfigStore = defineStore("config", {
   },
 });
 
-export const useTmpConfigStore = defineStore("tmpConfig", {
-  state: () => ({
-    board: [] as number[],
-    startingPot: 0,
-    effectiveStack: 0,
-    rakePercent: 0,
-    rakeCap: 0,
-    donkOption: false,
-    oopFlopBet: "",
-    oopFlopRaise: "",
-    oopTurnBet: "",
-    oopTurnRaise: "",
-    oopTurnDonk: "",
-    oopRiverBet: "",
-    oopRiverRaise: "",
-    oopRiverDonk: "",
-    ipFlopBet: "",
-    ipFlopRaise: "",
-    ipTurnBet: "",
-    ipTurnRaise: "",
-    ipRiverBet: "",
-    ipRiverRaise: "",
-    addAllInThreshold: 0,
-    forceAllInThreshold: 0,
-    mergingThreshold: 0,
-    expectedBoardLength: 0,
-    addedLines: "",
-    removedLines: "",
-  }),
-});
-
+/** The setup of the tree in memory: the one the results, the saves and the solve target use. */
 export const useSavedConfigStore = defineStore("savedConfig", {
-  state: () => ({
-    board: [] as number[],
-    startingPot: 0,
-    effectiveStack: 0,
-    rakePercent: 0,
-    rakeCap: 0,
-    donkOption: false,
-    oopFlopBet: "",
-    oopFlopRaise: "",
-    oopTurnBet: "",
-    oopTurnRaise: "",
-    oopTurnDonk: "",
-    oopRiverBet: "",
-    oopRiverRaise: "",
-    oopRiverDonk: "",
-    ipFlopBet: "",
-    ipFlopRaise: "",
-    ipTurnBet: "",
-    ipTurnRaise: "",
-    ipRiverBet: "",
-    ipRiverRaise: "",
-    addAllInThreshold: 0,
-    forceAllInThreshold: 0,
-    mergingThreshold: 0,
-    expectedBoardLength: 0,
-    addedLines: "",
-    removedLines: "",
-  }),
+  state: emptySetup,
 });
 
-/** Sets the locks of the current solution; pending lock changes are dropped. */
 export const setSolutionLocks = (locks: NodeLock[]) => {
   const store = useStore();
   store.solutionLocks = locks;

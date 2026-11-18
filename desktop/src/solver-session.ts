@@ -6,10 +6,9 @@ import { computed, ref, watch } from "vue";
 import {
   useStore,
   useConfigStore,
-  useTmpConfigStore,
   useSavedConfigStore,
-  saveConfigTmp,
-  saveConfig,
+  snapshotSetup,
+  setSavedSetup,
   setSolutionLocks,
 } from "./store";
 import {
@@ -155,7 +154,6 @@ export const checkConfig = (
 export const useSolverSession = defineStore("solverSession", () => {
   const store = useStore();
   const config = useConfigStore();
-  const tmpConfig = useTmpConfigStore();
   const savedConfig = useSavedConfigStore();
 
   const settings = ref(
@@ -279,7 +277,8 @@ export const useSolverSession = defineStore("solverSession", () => {
       return false;
     }
 
-    saveConfigTmp();
+    // The setup as it is now: later edits do not change the tree being built.
+    const setup = snapshotSetup();
     isBuilding.value = true;
     isTreeBuilt.value = false;
     // The game is about to be replaced: hide the old results (and close the lock editor) so
@@ -290,7 +289,7 @@ export const useSolverSession = defineStore("solverSession", () => {
 
     let errorString: string | null;
     try {
-      errorString = await invokes.gameInit(gameTreeArgs(tmpConfig));
+      errorString = await invokes.gameInit(gameTreeArgs(setup));
     } finally {
       // Also on a rejected invoke: Solve must not stay disabled.
       isBuilding.value = false;
@@ -300,7 +299,7 @@ export const useSolverSession = defineStore("solverSession", () => {
       return false;
     }
 
-    saveConfig();
+    setSavedSetup(setup);
     setSolutionLocks([]);
     store.returnLine = null;
 
