@@ -51,6 +51,7 @@
 </template>
 
 <script setup lang="ts">
+import { resolvedThemeColor } from "../theme";
 import { stackedGradient } from "../action-colors";
 import { computed, ref } from "vue";
 import { cardText, cardPairOrder, toFixed1, toFixedAdaptive } from "../utils";
@@ -95,8 +96,8 @@ Chart.defaults.font.family =
   "system-ui, 'Noto Sans', 'Open Sans', Roboto, sans-serif";
 
 // Player colours (Graphite theme): OOP blue, IP orange.
-const sky500 = "#5b8def";
-const lime500 = "#e0a03c";
+const oopColor = resolvedThemeColor("oop");
+const ipColor = resolvedThemeColor("ip");
 const xTicks = 10000;
 
 const props = defineProps<{
@@ -225,8 +226,8 @@ const chartData = computed((): ChartData<"line", Point[]> => {
         label: oopLabel,
         data: data[0],
         borderWidth: props.displayPlayer === "oop" ? 4 : 2,
-        borderColor: sky500,
-        backgroundColor: sky500,
+        borderColor: oopColor,
+        backgroundColor: oopColor,
         pointStyle: false,
         stepped: "middle",
       },
@@ -234,8 +235,8 @@ const chartData = computed((): ChartData<"line", Point[]> => {
         label: ipLabel,
         data: data[1],
         borderWidth: props.displayPlayer === "ip" ? 4 : 2,
-        borderColor: lime500,
-        backgroundColor: lime500,
+        borderColor: ipColor,
+        backgroundColor: ipColor,
         pointStyle: false,
         stepped: "middle",
       },

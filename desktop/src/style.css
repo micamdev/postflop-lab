@@ -24,6 +24,9 @@
   --cell: 38 38 42; /* #26262a */
   --oop: 91 141 239; /* #5b8def */
   --ip: 224 160 60; /* #e0a03c */
+  --weight: 234 179 8; /* #eab308, weight of a hand in a range */
+  --no-value: 107 114 128; /* #6b7280, a cell without a value (e.g. EQR without equity) */
+  --scroll-target: 30 53 50; /* #1e3532, the table row of the hand clicked in the grid */
   color-scheme: dark;
 }
 

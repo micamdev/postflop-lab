@@ -94,6 +94,7 @@
 </template>
 
 <script setup lang="ts">
+import { themeColor } from "../theme";
 import { computed, h } from "vue";
 import {
   average,
@@ -111,8 +112,8 @@ import { StarIcon } from "@heroicons/vue/24/solid";
 
 const EPS = 2e-6;
 // Player colours (Graphite theme): OOP blue, IP orange.
-const oopColor = "#5b8def";
-const ipColor = "#e0a03c";
+const oopColor = themeColor("oop");
+const ipColor = themeColor("ip");
 
 const Adaptive = (props: { value: number; class: object }) => {
   if (isNaN(props.value)) return h("div", { class: "px-1" }, "-");

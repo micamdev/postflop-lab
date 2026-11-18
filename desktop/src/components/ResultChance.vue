@@ -50,6 +50,7 @@
 </template>
 
 <script setup lang="ts">
+import { suitChartColors } from "../utils";
 import { computed, ref, watch } from "vue";
 import { ranks, suits, cardId, toFixed1, toFixedAdaptive } from "../utils";
 import {
@@ -92,11 +93,6 @@ Chart.defaults.font.family =
 const labels = [...ranks].reverse();
 
 // Suit colours of the Graphite card chips (spades lighter to show on the dark chart).
-const green600 = "#3e9e5c";
-const blue600 = "#3d7fd6";
-const pink600 = "#d8455b";
-const black = "#9aa0ad";
-const suitColor = [green600, blue600, pink600, black];
 
 const props = defineProps<{
   selectedSpot: Spot;
@@ -166,7 +162,7 @@ const chartData = computed((): ChartData<"bar", number[]> | null => {
           if (reports.status[card] === 0) return 0;
           return isCombos ? reports.combos[playerIndex][card] : 1;
         }).reverse(),
-        backgroundColor: suitColor[suit],
+        backgroundColor: suitChartColors[suit],
         stack: stacks[suit],
         ...defaultData,
       })).reverse();
@@ -183,7 +179,7 @@ const chartData = computed((): ChartData<"bar", number[]> | null => {
         { length: 13 },
         (_, rank) => data[4 * rank + suit]
       ).reverse(),
-      backgroundColor: suitColor[suit],
+      backgroundColor: suitChartColors[suit],
       stack: stacks[suit],
       ...defaultData,
     })).reverse();

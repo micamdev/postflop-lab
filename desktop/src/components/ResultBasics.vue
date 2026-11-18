@@ -70,6 +70,7 @@
 </template>
 
 <script setup lang="ts">
+import { themeColor } from "../theme";
 import { stackedGradient } from "../action-colors";
 import { computed, ref, toRefs, onUnmounted, watch } from "vue";
 import { useSavedConfigStore } from "../store";
@@ -92,7 +93,6 @@ import {
   HoverContent,
 } from "../result-types";
 
-const yellow500 = "#eab308";
 const colorGradient = [
   { red: 0xef, green: 0x44, blue: 0x44 }, // red-500
   { red: 0xf9, green: 0x73, blue: 0x16 }, // orange-500
@@ -110,7 +110,7 @@ const getColor = (
   highest: number
 ) => {
   // No value (e.g. EQR without equity): neutral grey.
-  if (Number.isNaN(value)) return "#6b7280";
+  if (Number.isNaN(value)) return themeColor("no-value");
   if (value <= lowest) return colorString(colorGradient[0]);
   if (value > middle && value >= highest) return colorString(colorGradient[6]);
 
@@ -343,7 +343,7 @@ const cellContent = computed(() => {
       if (numActions.value === 0) {
         let color;
         if (isEmpty || options.contentBasics === "default") {
-          color = yellow500;
+          color = themeColor("weight");
         } else {
           let value: number;
           if (options.contentBasics === "eq") {

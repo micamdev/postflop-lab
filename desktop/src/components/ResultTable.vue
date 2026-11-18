@@ -213,7 +213,7 @@
             :key="item[0]"
             :class="
               'relative ' +
-              (item[0] === scrollTarget ? 'bg-[#1e3532]' : 'bg-panel')
+              (item[0] === scrollTarget ? 'bg-scroll-target' : 'bg-panel')
             "
             style="height: calc(1.9rem + 1px)"
           >
@@ -224,7 +224,7 @@
                 'row-divider ' +
                 (column.type === 'card'
                   ? 'sticky left-0 z-10 ' +
-                    (item[0] === scrollTarget ? 'bg-[#1e3532] ' : 'bg-panel ')
+                    (item[0] === scrollTarget ? 'bg-scroll-target ' : 'bg-panel ')
                   : 'relative ') +
                 (column.type === 'bar' ? 'pt-[0.3125rem] pb-1 px-1' : 'pt-0.5')
               "
@@ -343,6 +343,7 @@
 </template>
 
 <script setup lang="ts">
+import { themeColor } from "../theme";
 import { stackedGradient } from "../action-colors";
 import { computed, reactive, ref, toRefs, watch } from "vue";
 
@@ -394,8 +395,8 @@ type DisplayOptionsChance = {
   barWidth: (typeof barWidthListChance)[number];
 };
 
-const yellow500 = "#eab308";
-const neutral800 = "#26262a"; // Graphite empty cell
+const weightColor = themeColor("weight");
+const emptyColor = themeColor("cell");
 
 interface Props {
   tableMode: TableMode;
@@ -683,7 +684,7 @@ const maxWeight = computed(() => {
 
 const strategyBarBgImage = (row: number[]) => {
   if (!row || row.length === INDEX.STRATEGY_BASE) {
-    return `linear-gradient(${yellow500} 0% 100%)`;
+    return `linear-gradient(${weightColor} 0% 100%)`;
   }
 
   const frequencies = Array.from(
@@ -711,7 +712,7 @@ const actionBarBg = (index: number, row: number[]) => {
   const value = row[INDEX.STRATEGY_BASE + index * 2];
   return `linear-gradient(to right, ${color} 0% ${
     value * 100
-  }%, ${neutral800} ${value * 100}% 100%)`;
+  }%, ${emptyColor} ${value * 100}% 100%)`;
 };
 
 const exportSummary = async () => {
