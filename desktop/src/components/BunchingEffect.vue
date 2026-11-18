@@ -89,22 +89,19 @@
             }}%)
           </div>
           <div class="flex mt-3 w-full justify-center gap-3">
-            <button
-              class="button-base button-green"
-              @click="invertRange(i - 1)"
-            >
+            <UiButton variant="ghost" @click="invertRange(i - 1)">
               Invert
-            </button>
-            <button class="button-base button-green" @click="clearRange(i - 1)">
+            </UiButton>
+            <UiButton variant="ghost" @click="clearRange(i - 1)">
               Clear
-            </button>
+            </UiButton>
           </div>
         </div>
       </div>
 
       <div class="flex mt-8 gap-3 items-center">
-        <button
-          class="button-base button-green"
+        <UiButton
+          variant="ghost"
           :disabled="
             numCombos.every((x) => x === 0) ||
             store.isBunchingRunning ||
@@ -116,25 +113,25 @@
           @click="runPrecomputation"
         >
           Run Precomputation
-        </button>
-        <button
-          class="button-base button-red"
+        </UiButton>
+        <UiButton
+          variant="danger"
           :disabled="!hasBunchingRun"
           @click="clearPrecomputation"
         >
           Clear
-        </button>
-        <button
+        </UiButton>
+        <UiButton
           v-if="!isBunchingPaused"
-          class="button-base button-green"
+          variant="ghost"
           :disabled="!store.isBunchingRunning"
           @click="() => (pauseFlag = true)"
         >
           Pause
-        </button>
-        <button
+        </UiButton>
+        <UiButton
           v-else
-          class="button-base button-green"
+          variant="ghost"
           :disabled="
             store.isSolverRunning ||
             numThreads < 1 ||
@@ -144,7 +141,7 @@
           @click="resumePrecomputation"
         >
           Resume
-        </button>
+        </UiButton>
 
         <span class="pl-3">
           Number of threads:
@@ -202,6 +199,7 @@
 </template>
 
 <script setup lang="ts">
+import UiButton from "./ui/UiButton.vue";
 import { onUnmounted, ref, watch } from "vue";
 import { useStore, useConfigStore } from "../store";
 import {

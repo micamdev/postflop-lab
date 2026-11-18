@@ -32,26 +32,6 @@ body {
   font-family: Inter, system-ui, "Noto Sans", "Open Sans", Roboto, sans-serif;
 }
 
-.button-base {
-  @apply rounded-md px-3.5 py-1.5 text-sm font-semibold;
-  @apply transition-colors disabled:opacity-40 disabled:cursor-default;
-}
-
-/* Main action. */
-.button-blue {
-  @apply bg-accent text-white hover:brightness-110 disabled:hover:brightness-100;
-}
-
-/* Destructive action: outline. */
-.button-red {
-  @apply border border-red-500/60 text-red-400 hover:bg-red-500/10;
-}
-
-/* Secondary action: outline. */
-.button-green {
-  @apply border border-line text-ink hover:bg-panel2;
-}
-
 input.input-error {
   @apply !ring-1 !ring-red-500 !border-red-500 !bg-red-500/10;
 }

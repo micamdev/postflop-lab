@@ -141,8 +141,8 @@
   <!-- Edit -->
 
   <div v-if="!isTreeError" class="flex gap-3">
-    <button
-      class="button-base button-green"
+    <UiButton
+      variant="ghost"
       :disabled="
         isSelectedTerminal ||
         isAfterAllin ||
@@ -154,15 +154,15 @@
       @click="addBetAction"
     >
       Add Bet Action
-    </button>
+    </UiButton>
 
-    <button
-      class="button-base button-red"
+    <UiButton
+      variant="danger"
       :disabled="selectedSpotIndex === 1"
       @click="removeSelectedNode"
     >
       Remove Selected Node
-    </button>
+    </UiButton>
 
     <div class="pl-3">
       Bet amount:
@@ -192,17 +192,15 @@
   <!-- Save/Cancel -->
 
   <div class="flex my-6 gap-3">
-    <button
-      class="button-base button-green"
+    <UiButton
+      variant="ghost"
       :disabled="isTreeError || invalidLinesArray.length > 0"
       @click="saveEdit"
     >
       Save Edit
-    </button>
+    </UiButton>
 
-    <button class="button-base button-red" @click="cancelEdit">
-      Cancel Edit
-    </button>
+    <UiButton variant="danger" @click="cancelEdit"> Cancel Edit </UiButton>
   </div>
 
   <!-- Lines -->
@@ -252,6 +250,7 @@
 </template>
 
 <script setup lang="ts">
+import UiButton from "./ui/UiButton.vue";
 import { computed, nextTick, ref } from "vue";
 import { useConfigStore } from "../store";
 import { readableLineString } from "../utils";

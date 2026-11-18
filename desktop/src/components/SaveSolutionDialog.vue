@@ -54,26 +54,23 @@
       <div v-if="errorText" class="mt-4 text-red-400">{{ errorText }}</div>
 
       <div class="flex justify-end gap-3 mt-6">
-        <button
-          class="button-base button-green"
-          :disabled="isSaving"
-          @click="emit('close')"
-        >
+        <UiButton variant="ghost" :disabled="isSaving" @click="emit('close')">
           Cancel
-        </button>
-        <button
-          class="button-base button-blue"
+        </UiButton>
+        <UiButton
+          variant="primary"
           :disabled="isSaving || !name.trim() || estimates.length === 0"
           @click="save(false)"
         >
           Save
-        </button>
+        </UiButton>
       </div>
     </div>
   </div>
 </template>
 
 <script setup lang="ts">
+import UiButton from "./ui/UiButton.vue";
 import { onMounted, onUnmounted, ref } from "vue";
 import { listen, UnlistenFn } from "@tauri-apps/api/event";
 import { useStore, useSavedConfigStore, SolutionDepth } from "../store";
