@@ -19,7 +19,7 @@
           <div class="text-lg font-semibold leading-tight">
             {{ (item.frequency * 100).toFixed(1) }}%
           </div>
-          <div class="text-[11px] text-muted">
+          <div class="text-[11px] text-muted whitespace-nowrap truncate">
             {{ item.combos.toFixed(1) }} combos
           </div>
         </div>
