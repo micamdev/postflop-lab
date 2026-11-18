@@ -56,7 +56,7 @@ export const checkConfig = (
   }
 
   if (config.effectiveStack % 1 !== 0) {
-    return "Effective stack is be an integer";
+    return "Effective stack must be an integer";
   }
 
   const betConfig = [
@@ -89,15 +89,26 @@ export const checkConfig = (
     }
   }
 
-  if (config.addAllInThreshold < 0) {
+  // A cleared number field holds "" (or NaN): it would reach the engine as 0 or fail there.
+  const isNumber = (x: unknown): x is number =>
+    typeof x === "number" && Number.isFinite(x);
+  if (
+    !isNumber(config.rakePercent) ||
+    config.rakePercent < 0 ||
+    config.rakePercent > 100
+  ) {
+    return "Rake must be between 0 and 100%";
+  }
+  if (!isNumber(config.rakeCap) || config.rakeCap < 0) {
+    return "Invalid rake cap";
+  }
+  if (!isNumber(config.addAllInThreshold) || config.addAllInThreshold < 0) {
     return "Invalid add all-in threshold";
   }
-
-  if (config.forceAllInThreshold < 0) {
+  if (!isNumber(config.forceAllInThreshold) || config.forceAllInThreshold < 0) {
     return "Invalid force all-in threshold";
   }
-
-  if (config.mergingThreshold < 0) {
+  if (!isNumber(config.mergingThreshold) || config.mergingThreshold < 0) {
     return "Invalid merging threshold";
   }
 
@@ -157,6 +168,18 @@ export const useSolverSession = defineStore("solverSession", () => {
     },
     { deep: true }
   );
+  // Whether the current solution was solved with the bunching effect (it cannot be saved).
+  const solvedWithBunching = ref(false);
+  // The thread setting also applies to river re-solves: send it at once, not only on Solve.
+  watch(
+    () => settings.value.threads,
+    (threads) => {
+      if (Number.isInteger(threads) && threads >= 1) {
+        void invokes.setNumThreads(threads).catch(() => {});
+      }
+    },
+    { immediate: true }
+  );
   /** Not remembered: solve even when the memory looks insufficient. */
   const ignoreMemoryLimit = ref(false);
 
@@ -195,7 +218,7 @@ export const useSolverSession = defineStore("solverSession", () => {
 
   /** Why the current solution cannot be saved, or "" if it can. */
   const saveDisabledReason = computed(() => {
-    if (isBunchingActive()) {
+    if (solvedWithBunching.value) {
       return "Solutions computed with the bunching effect cannot be saved.";
     }
     if (store.solutionDepth !== "river") {
@@ -216,6 +239,7 @@ export const useSolverSession = defineStore("solverSession", () => {
     () => store.treeResetCount,
     () => {
       isTreeBuilt.value = false;
+      solvedWithBunching.value = false;
       memoryNeed32.value = 0;
       memoryNeed16.value = 0;
       memoryBunching.value = 0;
@@ -228,13 +252,15 @@ export const useSolverSession = defineStore("solverSession", () => {
 
   /** Forgets the previous solution when a new tree is built or solved. */
   const resetSolutionInfo = () => {
+    solvedWithBunching.value = false;
     store.solutionInfo = null;
     store.isSolutionSaved = false;
     store.solutionDepth = "river";
   };
 
+  // Checked against the Setup board before building: a refused solve keeps the old game.
   const areFlopMatching = () => {
-    const flop = savedConfig.board.slice(0, 3);
+    const flop = config.board.slice(0, 3);
     const bunchingFlop = store.bunchingFlop;
     return (
       !store.isBunchingEnabled ||
@@ -262,9 +288,13 @@ export const useSolverSession = defineStore("solverSession", () => {
     store.isSolverError = false;
     resetSolutionInfo();
 
-    const errorString = await invokes.gameInit(gameTreeArgs(tmpConfig));
-
-    isBuilding.value = false;
+    let errorString: string | null;
+    try {
+      errorString = await invokes.gameInit(gameTreeArgs(tmpConfig));
+    } finally {
+      // Also on a rejected invoke: Solve must not stay disabled.
+      isBuilding.value = false;
+    }
     if (errorString) {
       message.value = errorString;
       return false;
@@ -285,10 +315,13 @@ export const useSolverSession = defineStore("solverSession", () => {
     return true;
   };
 
-  /** Memory the solver may use: available memory, or 70% of the total on macOS. */
+  /** Memory the solver may use: available memory, or 70% of the total on macOS; unlimited
+   * when the system did not report it (0). */
   const memoryLimit = async () => {
     const [available, total] = await invokes.memory();
-    return (await invokes.osName()) === "macos" ? total * 0.7 : available;
+    const limit =
+      (await invokes.osName()) === "macos" ? total * 0.7 : available;
+    return limit > 0 ? limit : Number.POSITIVE_INFINITY;
   };
 
   /** Stops the solver state after an unexpected error, with the error shown. */
@@ -330,11 +363,11 @@ export const useSolverSession = defineStore("solverSession", () => {
       message.value =
         "Bunching effect is on but its data is not ready: solving without it.";
     }
-    if (!(await buildTree())) return false;
     if (!areFlopMatching()) {
       message.value = "The flop and the bunching data do not match.";
       return false;
     }
+    if (!(await buildTree())) return false;
 
     const extra = isBunchingActive() ? memoryBunching.value : 0;
     const choice = choosePrecision(
@@ -371,6 +404,7 @@ export const useSolverSession = defineStore("solverSession", () => {
     await invokes.setNumThreads(settings.value.threads);
     await invokes.gameAllocateMemory(compression.value);
 
+    solvedWithBunching.value = isBunchingActive();
     if (isBunchingActive()) {
       iteration.value = -2;
       const errorString = await invokes.gameSetBunching();
@@ -452,8 +486,9 @@ export const useSolverSession = defineStore("solverSession", () => {
         await invokes.setNumThreads(settings.value.threads);
       }
 
+      // The pot of the solved tree: the Setup one may have been edited since.
       const target =
-        (config.startingPot * settings.value.targetExploitability) / 100;
+        (savedConfig.startingPot * settings.value.targetExploitability) / 100;
 
       while (
         !terminateFlag &&
