@@ -865,6 +865,15 @@ mod tests {
     }
 
     #[test]
+    fn action_tree_errors_are_returned_not_panicked() {
+        assert!(build_action_tree(&setup_args("Td9d6h", "50%"), BoardState::Flop).is_ok());
+        assert!(build_action_tree(&setup_args("Td9d6h", "fifty"), BoardState::Flop).is_err());
+        let mut broken = setup_args("Td9d6h", "50%");
+        broken.added_lines = "X-Z".to_string();
+        assert!(build_action_tree(&broken, BoardState::Flop).is_err());
+    }
+
+    #[test]
     fn estimate_matches_built_game() {
         let ranges = setup_ranges("AA,KK", "QQ,JJ");
         let args = setup_args("Td9d6h", "50%");
