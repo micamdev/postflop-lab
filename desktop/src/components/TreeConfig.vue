@@ -172,149 +172,23 @@
           </div>
 
           <div class="flex gap-5">
-            <div>
-              <div class="my-1 underline">Flop</div>
-              <div class="my-1">
-                <span class="inline-block w-14">Bet:</span>
+            <div v-for="street in STREETS" :key="street">
+              <div class="my-1 underline">{{ street }}</div>
+              <div
+                v-for="field in betFields('oop', street)"
+                :key="field.key"
+                class="my-1"
+              >
+                <span class="inline-block w-14">{{ field.label }}:</span>
                 <input
-                  v-model="config.oopFlopBet"
+                  v-model="betText[field.key]"
                   type="text"
-                  :class="
-                    'w-24 px-2 py-1 rounded-lg text-sm ' +
-                    (!config.oopFlopBetSanitized.valid ? 'input-error' : '')
-                  "
+                  :class="[
+                    'w-24 px-2 py-1 rounded-lg text-sm',
+                    !sanitized(field.key).valid ? 'input-error' : '',
+                  ]"
                   :disabled="hasEdit"
-                  @change="
-                    config.oopFlopBetSanitized.valid &&
-                    (config.oopFlopBet = config.oopFlopBetSanitized.s)
-                  "
-                />
-                %
-              </div>
-              <div class="my-1">
-                <span class="inline-block w-14">Raise:</span>
-                <input
-                  v-model="config.oopFlopRaise"
-                  type="text"
-                  :class="
-                    'w-24 px-2 py-1 rounded-lg text-sm ' +
-                    (!config.oopFlopRaiseSanitized.valid ? 'input-error' : '')
-                  "
-                  :disabled="hasEdit"
-                  @change="
-                    config.oopFlopRaiseSanitized.valid &&
-                    (config.oopFlopRaise = config.oopFlopRaiseSanitized.s)
-                  "
-                />
-                %
-              </div>
-            </div>
-
-            <div>
-              <div class="my-1 underline">Turn</div>
-              <div class="my-1">
-                <span class="inline-block w-14">Bet:</span>
-                <input
-                  v-model="config.oopTurnBet"
-                  type="text"
-                  :class="
-                    'w-24 px-2 py-1 rounded-lg text-sm ' +
-                    (!config.oopTurnBetSanitized.valid ? 'input-error' : '')
-                  "
-                  :disabled="hasEdit"
-                  @change="
-                    config.oopTurnBetSanitized.valid &&
-                    (config.oopTurnBet = config.oopTurnBetSanitized.s)
-                  "
-                />
-                %
-              </div>
-              <div class="my-1">
-                <span class="inline-block w-14">Raise:</span>
-                <input
-                  v-model="config.oopTurnRaise"
-                  type="text"
-                  :class="
-                    'w-24 px-2 py-1 rounded-lg text-sm ' +
-                    (!config.oopTurnRaiseSanitized.valid ? 'input-error' : '')
-                  "
-                  :disabled="hasEdit"
-                  @change="
-                    config.oopTurnRaiseSanitized.valid &&
-                    (config.oopTurnRaise = config.oopTurnRaiseSanitized.s)
-                  "
-                />
-                %
-              </div>
-              <div v-if="config.donkOption" class="my-1">
-                <span class="inline-block w-14">Donk:</span>
-                <input
-                  v-model="config.oopTurnDonk"
-                  type="text"
-                  :class="
-                    'w-24 px-2 py-1 rounded-lg text-sm ' +
-                    (!config.oopTurnDonkSanitized.valid ? 'input-error' : '')
-                  "
-                  :disabled="hasEdit"
-                  @change="
-                    config.oopTurnDonkSanitized.valid &&
-                    (config.oopTurnDonk = config.oopTurnDonkSanitized.s)
-                  "
-                />
-                %
-              </div>
-            </div>
-
-            <div>
-              <div class="my-1 underline">River</div>
-              <div class="my-1">
-                <span class="inline-block w-14">Bet:</span>
-                <input
-                  v-model="config.oopRiverBet"
-                  type="text"
-                  :class="
-                    'w-24 px-2 py-1 rounded-lg text-sm ' +
-                    (!config.oopRiverBetSanitized.valid ? 'input-error' : '')
-                  "
-                  :disabled="hasEdit"
-                  @change="
-                    config.oopRiverBetSanitized.valid &&
-                    (config.oopRiverBet = config.oopRiverBetSanitized.s)
-                  "
-                />
-                %
-              </div>
-              <div class="my-1">
-                <span class="inline-block w-14">Raise:</span>
-                <input
-                  v-model="config.oopRiverRaise"
-                  type="text"
-                  :class="
-                    'w-24 px-2 py-1 rounded-lg text-sm ' +
-                    (!config.oopRiverRaiseSanitized.valid ? 'input-error' : '')
-                  "
-                  :disabled="hasEdit"
-                  @change="
-                    config.oopRiverRaiseSanitized.valid &&
-                    (config.oopRiverRaise = config.oopRiverRaiseSanitized.s)
-                  "
-                />
-                %
-              </div>
-              <div v-if="config.donkOption" class="my-1">
-                <span class="inline-block w-14">Donk:</span>
-                <input
-                  v-model="config.oopRiverDonk"
-                  type="text"
-                  :class="
-                    'w-24 px-2 py-1 rounded-lg text-sm ' +
-                    (!config.oopRiverDonkSanitized.valid ? 'input-error' : '')
-                  "
-                  :disabled="hasEdit"
-                  @change="
-                    config.oopRiverDonkSanitized.valid &&
-                    (config.oopRiverDonk = config.oopRiverDonkSanitized.s)
-                  "
+                  @change="normalize(field.key)"
                 />
                 %
               </div>
@@ -344,115 +218,23 @@
           </div>
 
           <div class="flex gap-5">
-            <div>
-              <div class="my-1 underline">Flop</div>
-              <div class="my-1">
-                <span class="inline-block w-14">Bet:</span>
+            <div v-for="street in STREETS" :key="street">
+              <div class="my-1 underline">{{ street }}</div>
+              <div
+                v-for="field in betFields('ip', street)"
+                :key="field.key"
+                class="my-1"
+              >
+                <span class="inline-block w-14">{{ field.label }}:</span>
                 <input
-                  v-model="config.ipFlopBet"
+                  v-model="betText[field.key]"
                   type="text"
-                  :class="
-                    'w-24 px-2 py-1 rounded-lg text-sm ' +
-                    (!config.ipFlopBetSanitized.valid ? 'input-error' : '')
-                  "
+                  :class="[
+                    'w-24 px-2 py-1 rounded-lg text-sm',
+                    !sanitized(field.key).valid ? 'input-error' : '',
+                  ]"
                   :disabled="hasEdit"
-                  @change="
-                    config.ipFlopBetSanitized.valid &&
-                    (config.ipFlopBet = config.ipFlopBetSanitized.s)
-                  "
-                />
-                %
-              </div>
-              <div class="my-1">
-                <span class="inline-block w-14">Raise:</span>
-                <input
-                  v-model="config.ipFlopRaise"
-                  type="text"
-                  :class="
-                    'w-24 px-2 py-1 rounded-lg text-sm ' +
-                    (!config.ipFlopRaiseSanitized.valid ? 'input-error' : '')
-                  "
-                  :disabled="hasEdit"
-                  @change="
-                    config.ipFlopRaiseSanitized.valid &&
-                    (config.ipFlopRaise = config.ipFlopRaiseSanitized.s)
-                  "
-                />
-                %
-              </div>
-            </div>
-
-            <div>
-              <div class="my-1 underline">Turn</div>
-              <div class="my-1">
-                <span class="inline-block w-14">Bet:</span>
-                <input
-                  v-model="config.ipTurnBet"
-                  type="text"
-                  :class="
-                    'w-24 px-2 py-1 rounded-lg text-sm ' +
-                    (!config.ipTurnBetSanitized.valid ? 'input-error' : '')
-                  "
-                  :disabled="hasEdit"
-                  @change="
-                    config.ipTurnBetSanitized.valid &&
-                    (config.ipTurnBet = config.ipTurnBetSanitized.s)
-                  "
-                />
-                %
-              </div>
-              <div class="my-1">
-                <span class="inline-block w-14">Raise:</span>
-                <input
-                  v-model="config.ipTurnRaise"
-                  type="text"
-                  :class="
-                    'w-24 px-2 py-1 rounded-lg text-sm ' +
-                    (!config.ipTurnRaiseSanitized.valid ? 'input-error' : '')
-                  "
-                  :disabled="hasEdit"
-                  @change="
-                    config.ipTurnRaiseSanitized.valid &&
-                    (config.ipTurnRaise = config.ipTurnRaiseSanitized.s)
-                  "
-                />
-                %
-              </div>
-            </div>
-
-            <div>
-              <div class="my-1 underline">River</div>
-              <div class="my-1">
-                <span class="inline-block w-14">Bet:</span>
-                <input
-                  v-model="config.ipRiverBet"
-                  type="text"
-                  :class="
-                    'w-24 px-2 py-1 rounded-lg text-sm ' +
-                    (!config.ipRiverBetSanitized.valid ? 'input-error' : '')
-                  "
-                  :disabled="hasEdit"
-                  @change="
-                    config.ipRiverBetSanitized.valid &&
-                    (config.ipRiverBet = config.ipRiverBetSanitized.s)
-                  "
-                />
-                %
-              </div>
-              <div class="my-1">
-                <span class="inline-block w-14">Raise:</span>
-                <input
-                  v-model="config.ipRiverRaise"
-                  type="text"
-                  :class="
-                    'w-24 px-2 py-1 rounded-lg text-sm ' +
-                    (!config.ipRiverRaiseSanitized.valid ? 'input-error' : '')
-                  "
-                  :disabled="hasEdit"
-                  @change="
-                    config.ipRiverRaiseSanitized.valid &&
-                    (config.ipRiverRaise = config.ipRiverRaiseSanitized.s)
-                  "
+                  @change="normalize(field.key)"
                 />
                 %
               </div>
@@ -743,6 +525,33 @@ import { QuestionMarkCircleIcon } from "@heroicons/vue/20/solid";
 
 const store = useStore();
 const config = useConfigStore();
+
+/* Bet size fields (one per player, street and kind) */
+
+const STREETS = ["Flop", "Turn", "River"] as const;
+type BetKey =
+  `${"oop" | "ip"}${(typeof STREETS)[number]}${"Bet" | "Raise" | "Donk"}`;
+
+/** The fields of one street: bet and raise, plus OOP's donk on the turn and river. */
+const betFields = (player: "oop" | "ip", street: (typeof STREETS)[number]) => [
+  { key: `${player}${street}Bet` as BetKey, label: "Bet" },
+  { key: `${player}${street}Raise` as BetKey, label: "Raise" },
+  ...(player === "oop" && street !== "Flop" && config.donkOption
+    ? [{ key: `oop${street}Donk` as BetKey, label: "Donk" }]
+    : []),
+];
+
+// The bet size texts, by field key.
+const betText = config as unknown as Record<BetKey, string>;
+const sanitized = (key: BetKey) =>
+  (config as unknown as Record<string, { s: string; valid: boolean }>)[
+    `${key}Sanitized`
+  ];
+/** Rewrites a valid size in its clean form ("50 , 100" -> "50, 100"). */
+const normalize = (key: BetKey) => {
+  const s = sanitized(key);
+  if (s.valid) betText[key] = s.s;
+};
 
 const isEditMode = ref(false);
 

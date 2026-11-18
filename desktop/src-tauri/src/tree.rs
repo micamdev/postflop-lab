@@ -81,101 +81,27 @@ pub fn default_action_tree() -> ActionTree {
     ActionTree::new(tree_config).unwrap()
 }
 
-// Tauri commands receive their arguments one by one from the front end.
-#[allow(clippy::too_many_arguments)]
+/// Builds the tree to edit from the setup; `board_len` (3 to 5) is the street it starts on.
+/// Returns false if the setup does not make a valid tree.
 #[tauri::command]
 pub fn tree_new(
     tree_state: tauri::State<Mutex<ActionTree>>,
-    board_len: i32,
-    starting_pot: i32,
-    effective_stack: i32,
-    donk_option: bool,
-    oop_flop_bet: String,
-    oop_flop_raise: String,
-    oop_turn_bet: String,
-    oop_turn_raise: String,
-    oop_turn_donk: String,
-    oop_river_bet: String,
-    oop_river_raise: String,
-    oop_river_donk: String,
-    ip_flop_bet: String,
-    ip_flop_raise: String,
-    ip_turn_bet: String,
-    ip_turn_raise: String,
-    ip_river_bet: String,
-    ip_river_raise: String,
-    add_allin_threshold: f64,
-    force_allin_threshold: f64,
-    merging_threshold: f64,
-    added_lines: String,
-    removed_lines: String,
+    args: crate::solver::GameTreeArgs,
+    board_len: usize,
 ) -> bool {
-    let initial_state = match board_len {
-        len if len <= 3 => BoardState::Flop,
+    let state = match board_len {
+        3 => BoardState::Flop,
         4 => BoardState::Turn,
         5 => BoardState::River,
-        _ => panic!("Invalid board length"),
+        _ => return false,
     };
-
-    let config = TreeConfig {
-        initial_state,
-        starting_pot,
-        effective_stack,
-        rake_rate: 0.0,
-        rake_cap: 0.0,
-        flop_bet_sizes: [
-            BetSizeOptions::try_from((oop_flop_bet.as_str(), oop_flop_raise.as_str())).unwrap(),
-            BetSizeOptions::try_from((ip_flop_bet.as_str(), ip_flop_raise.as_str())).unwrap(),
-        ],
-        turn_bet_sizes: [
-            BetSizeOptions::try_from((oop_turn_bet.as_str(), oop_turn_raise.as_str())).unwrap(),
-            BetSizeOptions::try_from((ip_turn_bet.as_str(), ip_turn_raise.as_str())).unwrap(),
-        ],
-        river_bet_sizes: [
-            BetSizeOptions::try_from((oop_river_bet.as_str(), oop_river_raise.as_str())).unwrap(),
-            BetSizeOptions::try_from((ip_river_bet.as_str(), ip_river_raise.as_str())).unwrap(),
-        ],
-        turn_donk_sizes: match donk_option {
-            false => None,
-            true => DonkSizeOptions::try_from(oop_turn_donk.as_str()).ok(),
-        },
-        river_donk_sizes: match donk_option {
-            false => None,
-            true => DonkSizeOptions::try_from(oop_river_donk.as_str()).ok(),
-        },
-        add_allin_threshold,
-        force_allin_threshold,
-        merging_threshold,
-    };
-
-    let mut tree = ActionTree::new(config).unwrap();
-
-    if !added_lines.is_empty() {
-        for line in added_lines.split(',') {
-            let line = line
-                .split(&['-', '|'][..])
-                .map(decode_action)
-                .collect::<Vec<_>>();
-            if tree.add_line(&line).is_err() {
-                return false;
-            }
+    match crate::solver::build_action_tree(&args, state) {
+        Ok(tree) => {
+            *tree_state.lock().unwrap() = tree;
+            true
         }
+        Err(_) => false,
     }
-
-    if !removed_lines.is_empty() {
-        for line in removed_lines.split(',') {
-            let line = line
-                .split(&['-', '|'][..])
-                .map(decode_action)
-                .collect::<Vec<_>>();
-            if tree.remove_line(&line).is_err() {
-                return false;
-            }
-        }
-    }
-
-    *tree_state.lock().unwrap() = tree;
-    true
 }
 
 #[tauri::command]

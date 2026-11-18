@@ -254,7 +254,8 @@
 <script setup lang="ts">
 import { computed, nextTick, ref } from "vue";
 import { useConfigStore } from "../store";
-import { convertBetString, readableLineString } from "../utils";
+import { readableLineString } from "../utils";
+import { gameTreeArgs } from "../game-args";
 import { Spot, SpotRoot, SpotChance, SpotPlayer } from "../result-types";
 import * as invokes from "../invokes";
 
@@ -273,31 +274,7 @@ let isLocked = false;
 
 const boardLength = config.expectedBoardLength;
 
-const isTreeError = !(await invokes.treeNew(
-  boardLength,
-  config.startingPot,
-  config.effectiveStack,
-  config.donkOption,
-  convertBetString(config.oopFlopBet),
-  convertBetString(config.oopFlopRaise),
-  convertBetString(config.oopTurnBet),
-  convertBetString(config.oopTurnRaise),
-  config.donkOption ? convertBetString(config.oopTurnDonk) : "",
-  convertBetString(config.oopRiverBet),
-  convertBetString(config.oopRiverRaise),
-  config.donkOption ? convertBetString(config.oopRiverDonk) : "",
-  convertBetString(config.ipFlopBet),
-  convertBetString(config.ipFlopRaise),
-  convertBetString(config.ipTurnBet),
-  convertBetString(config.ipTurnRaise),
-  convertBetString(config.ipRiverBet),
-  convertBetString(config.ipRiverRaise),
-  config.addAllInThreshold / 100,
-  config.forceAllInThreshold / 100,
-  config.mergingThreshold / 100,
-  config.addedLines,
-  config.removedLines
-));
+const isTreeError = !(await invokes.treeNew(gameTreeArgs(config), boardLength));
 
 const rootSpot: SpotRoot = {
   type: "root",
@@ -536,8 +513,7 @@ const pushResultsChance = async () => {
   type SpotTurn = SpotRoot | SpotChance;
   const prevSpot = spots.value[selectedSpotIndex.value - 1] as SpotPlayer;
   const turnSpot = spots.value.find((spot) => spot.player === "turn") as
-    | SpotTurn
-    | undefined;
+    SpotTurn | undefined;
 
   const nextActions = await invokes.treeActions();
 
