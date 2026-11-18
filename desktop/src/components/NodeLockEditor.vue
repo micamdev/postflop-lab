@@ -574,8 +574,6 @@ const removeLock = (lock: NodeLock) => {
 
 /* Re-solve */
 
-/** Why a re-solve with locks cannot start (shared with the top bar), or "". */
-
 const resolveWithLocks = async () => {
   await lockResolve.start(props.line);
   // Started (not cancelled, nor waiting for the save dialog): the results are being replaced.

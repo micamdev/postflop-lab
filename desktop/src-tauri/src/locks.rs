@@ -83,6 +83,16 @@ pub fn canonical_history(game: &mut PostFlopGame, history: &[usize]) -> Result<V
     result.map(|_| key)
 }
 
+/// Recomputes the key of each lock from its line (keys saved by older versions may differ:
+/// mirror rivers were not canonical). A lock whose line cannot be replayed keeps its key.
+pub fn refresh_lock_keys(game: &mut PostFlopGame, locks: &mut [NodeLock]) {
+    for lock in locks {
+        if let Ok(key) = canonical_history(game, &lock.history) {
+            lock.key = key;
+        }
+    }
+}
+
 /// Captures a lock at `history` on a solved game: the strategy of every hand at the node, with
 /// `edits` (combo -> frequency per action) replacing the edited hands. Leaves the game where it
 /// was.
@@ -438,7 +448,10 @@ mod river_mirror_tests {
     /// Flop Ks7c2s with suitless ranges: rivers of the same rank and suit class are mirrors.
     fn game() -> PostFlopGame {
         let card_config = CardConfig {
-            range: ["AA,KK,QQ,33".parse().unwrap(), "JJ,TT,99,44".parse().unwrap()],
+            range: [
+                "AA,KK,QQ,33".parse().unwrap(),
+                "JJ,TT,99,44".parse().unwrap(),
+            ],
             flop: flop_from_str("Ks7c2s").unwrap(),
             ..Default::default()
         };
@@ -476,5 +489,20 @@ mod river_mirror_tests {
         let mut locks = vec![a];
         merge_lock(&mut locks, b);
         assert_eq!(locks.len(), 1);
+    }
+
+    #[test]
+    fn keys_of_saved_locks_are_recomputed() {
+        let mut game = game();
+        let a_s = card_from_str("As").unwrap() as usize;
+        let five_d = card_from_str("5d").unwrap() as usize;
+        let check = BTreeMap::from([("QsQc".to_string(), vec![1.0, 0.0])]);
+        let mut lock = capture_lock(&mut game, &[0, 0, a_s, 0, 0, five_d], &check).unwrap();
+        let key = lock.key.clone();
+        // Saved before mirror rivers were canonical: the river kept its own card.
+        lock.key = lock.history.clone();
+        let mut locks = vec![lock];
+        refresh_lock_keys(&mut game, &mut locks);
+        assert_eq!(locks[0].key, key);
     }
 }

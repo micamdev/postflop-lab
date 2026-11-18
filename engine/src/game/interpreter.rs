@@ -258,8 +258,8 @@ impl PostFlopGame {
     /// suits absent from the flop and the ranges): they share one subtree, stored under a
     /// representative card. `card` itself is returned when it is not merged.
     ///
-    /// Returns `Err` when the current node is not the turn chance node or `card` cannot be
-    /// dealt there.
+    /// Returns `Err` when the current node is not the turn chance node, the turn cannot be dealt
+    /// there (a save that stops at the flop) or `card` cannot be dealt there.
     pub fn turn_representative(&self, card: Card) -> Result<Card, String> {
         if self.state < State::MemoryAllocated || !self.is_chance_node() || self.turn != NOT_DEALT {
             return Err("Not at the turn chance node".to_string());
