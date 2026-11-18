@@ -160,12 +160,12 @@
                   <span
                     v-else-if="column.type === 'action-ev'"
                     :data-set="
-                      strTmp = toFixed[evDigits - 1](
-                        summary[columnIndex(column)]
-                      )
+                      strTmp = toFixed1(summary[columnIndex(column) - 1] * 100)
                     "
                   >
-                    {{ strTmp }}
+                    <!-- Total row: how often the action is taken. -->
+                    <span>{{ strTmp.slice(0, -1) }}</span>
+                    <span class="text-xs">{{ strTmp.slice(-1) }}%</span>
                   </span>
                   <span
                     v-else-if="column.type === 'ev'"
@@ -604,20 +604,18 @@ if (props.tableMode === "graphs") {
   });
 }
 
-const maxEv = computed(() => {
+// Undefined EVs (NaN) are ignored: one of them must not force 3 decimals.
+const evDigits = computed(() => {
   const playerIndex = props.displayPlayer === "oop" ? 0 : 1;
   if (props.tableMode !== "chance") {
     const results = props.results;
-    if (!results || results.isEmpty) return 0;
-    return Math.max(...results.ev[playerIndex].map((v) => Math.abs(v)));
-  } else {
-    const reports = props.chanceReports;
-    if (!reports || reports.status.every((s) => s <= 1)) return 0;
-    return Math.max(...reports.ev[playerIndex].map((v) => Math.abs(v)));
+    if (!results || results.isEmpty) return 3;
+    return evDigitsFor(results.ev[playerIndex]);
   }
+  const reports = props.chanceReports;
+  if (!reports || reports.status.every((s) => s <= 1)) return 3;
+  return evDigitsFor(reports.ev[playerIndex]);
 });
-
-const evDigits = computed(() => evDigitsFor([maxEv.value]));
 
 const numActions = computed(() => {
   let data: Results | ChanceReports | null;

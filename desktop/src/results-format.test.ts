@@ -19,6 +19,8 @@ describe("evDigitsFor", () => {
     expect(evDigitsFor([1, 50])).toBe(2);
     expect(evDigitsFor([-50, 1])).toBe(2);
     expect(evDigitsFor([-500])).toBe(1);
+    // An undefined EV does not force 3 decimals.
+    expect(evDigitsFor([512.3, Number.NaN])).toBe(1);
   });
 });
 
