@@ -50,9 +50,16 @@
 </template>
 
 <script setup lang="ts">
-import { suitChartColors } from "../utils";
+import { resolvedThemeColor } from "../theme";
 import { computed, ref, watch } from "vue";
-import { ranks, suits, cardId, toFixed1, toFixedAdaptive } from "../utils";
+import {
+  ranks,
+  suits,
+  cardId,
+  suitChartColors,
+  toFixed1,
+  toFixedAdaptive,
+} from "../utils";
 import {
   ChanceReports,
   Spot,
@@ -91,8 +98,6 @@ Chart.defaults.font.family =
   "system-ui, 'Noto Sans', 'Open Sans', Roboto, sans-serif";
 
 const labels = [...ranks].reverse();
-
-// Suit colours of the Graphite card chips (spades lighter to show on the dark chart).
 
 const props = defineProps<{
   selectedSpot: Spot;
@@ -232,7 +237,7 @@ const chartOptions = computed((): ChartOptions<"bar"> => {
         display: true,
         text: titleText,
         font: { size: 16, weight: "normal" },
-        color: "rgba(236, 236, 238, 0.9)",
+        color: resolvedThemeColor("ink", 0.9),
       },
       legend: {
         display: false,

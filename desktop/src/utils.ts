@@ -432,10 +432,10 @@ export const suitBgClasses = [
   "bg-[#4b5263]",
 ];
 
-/** Suit text colours readable on the dark Graphite panels (clubs, diamonds, hearts, spades). */
-/** Suit colors for charts (clubs, diamonds, hearts, spades; spades lighter on dark). */
+/** Suit colors for charts, as the card chips (spades lighter to show on the dark chart). */
 export const suitChartColors = ["#3e9e5c", "#3d7fd6", "#d8455b", "#9aa0ad"];
 
+/** Suit text colours readable on the dark Graphite panels (clubs, diamonds, hearts, spades). */
 export const suitTextClasses = [
   "text-[#5fbf7f]",
   "text-[#6b9cf0]",

@@ -292,7 +292,7 @@ const chartOptions = computed((): ChartOptions<"line"> => {
       legend: {
         labels: {
           font: { size: 16 },
-          color: "rgba(236, 236, 238, 0.9)",
+          color: resolvedThemeColor("ink", 0.9),
           boxHeight: 12,
         },
       },
@@ -354,7 +354,7 @@ const verticalLinePlugin: Plugin<"line"> = {
     ctx.moveTo(x, chart.scales.y.top);
     ctx.lineTo(x, chart.scales.y.bottom);
     ctx.lineWidth = 1;
-    ctx.strokeStyle = "rgba(236, 236, 238, 0.9)";
+    ctx.strokeStyle = resolvedThemeColor("ink", 0.9);
     ctx.stroke();
     ctx.restore();
   },
