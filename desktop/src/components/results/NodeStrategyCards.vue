@@ -12,14 +12,25 @@
         <div
           v-for="item in items"
           :key="item.name + item.amount"
-          class="flex-1 min-w-[96px] px-2.5 py-1.5 rounded-md bg-panel2 border-l-[3px] tabular-nums"
-          :style="{ borderLeftColor: item.color }"
+          :class="[
+            'flex-1 min-w-[96px] px-2.5 py-1.5 rounded-md tabular-nums',
+            isPlayed(item)
+              ? 'text-white'
+              : 'bg-panel2 border-l-[3px] text-muted',
+          ]"
+          :style="
+            isPlayed(item)
+              ? {
+                  backgroundColor: `color-mix(in srgb, ${item.color} 82%, black)`,
+                }
+              : { borderLeftColor: item.color }
+          "
         >
-          <div class="text-xs text-muted truncate">{{ label(item) }}</div>
+          <div class="text-xs truncate opacity-90">{{ label(item) }}</div>
           <div class="text-lg font-semibold leading-tight">
             {{ (item.frequency * 100).toFixed(1) }}%
           </div>
-          <div class="text-[11px] text-muted whitespace-nowrap truncate">
+          <div class="text-[11px] whitespace-nowrap truncate opacity-75">
             {{ item.combos.toFixed(1) }} combos
           </div>
         </div>
@@ -42,6 +53,9 @@
 import type { StrategyItem } from "../../node-strategy";
 
 defineProps<{ items: StrategyItem[] | null; noHands: boolean }>();
+
+/** Actions taken at least once in 1000 get a filled card; the others stay discreet. */
+const isPlayed = (item: StrategyItem) => item.frequency >= 0.0005;
 
 const label = (item: StrategyItem) =>
   item.amount === "0" ? item.name : `${item.name} ${item.amount}`;

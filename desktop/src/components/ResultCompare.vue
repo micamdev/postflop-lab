@@ -161,6 +161,7 @@ import { computed, h } from "vue";
 import {
   average,
   equityBuckets,
+  nutAdvantageText as nutAdvantage,
   toFixed1,
   toFixed,
   toFixedAdaptive,
@@ -291,15 +292,10 @@ const buckets = computed(() => {
   ];
 });
 
-// Who holds the larger share of their range at 90%+ equity (1 point margin).
-const nutAdvantageText = computed(() => {
-  const [oop, ip] = [buckets.value[0][0], buckets.value[1][0]];
-  if (isNaN(oop) || isNaN(ip) || Math.abs(oop - ip) < 0.01) return "—";
-  const pct = (x: number) => (x * 100).toFixed(1) + "%";
-  return oop > ip
-    ? `OOP (${pct(oop)} vs ${pct(ip)} at 90%+)`
-    : `IP (${pct(ip)} vs ${pct(oop)} at 90%+)`;
-});
+// Who holds more strong hands (90%+, or 75%+ when the 90%+ shares are too close).
+const nutAdvantageText = computed(() =>
+  nutAdvantage(buckets.value[0], buckets.value[1])
+);
 
 const evDigits = computed(() => {
   const results = props.results;
