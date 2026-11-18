@@ -139,9 +139,8 @@ const tupleData = computed(() => {
     } else if (content === "ev") {
       values = results.ev[player];
     } else {
-      values = results.eqr[player]
-        .map((x) => x ?? Number.NaN)
-        .map((x) => (isFinite(x) ? x : Number.NaN));
+      // Undefined EQRs are already NaN (invokes).
+      values = results.eqr[player];
     }
 
     let allTuples: number[][];

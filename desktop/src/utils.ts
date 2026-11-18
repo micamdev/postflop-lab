@@ -148,20 +148,38 @@ export const nutAdvantageText = (
     : `IP (${pct(b)} vs ${pct(a)} at ${at})`;
 };
 
-export const toFixed1 = (value: number) => {
-  if (!isFinite(value)) return (value < 0 ? "-" : "") + "∞";
-  if (-0.05 < value && value < 0.05) return "0.0";
-  return value.toFixed(1);
+/** "-" for an undefined value, "∞" / "-∞" for an infinite one, else null. */
+const nonFinite = (value: number) =>
+  Number.isNaN(value)
+    ? "-"
+    : !isFinite(value)
+      ? value < 0
+        ? "-∞"
+        : "∞"
+      : null;
+
+/** `value` with `digits` decimals, without "-0.0" for values that round to zero. */
+const fixed = (value: number, digits: number) => {
+  const special = nonFinite(value);
+  if (special !== null) return special;
+  if (Math.abs(value) < 0.5 * 10 ** -digits) return (0).toFixed(digits);
+  return value.toFixed(digits);
 };
 
-export const toFixed2 = (value: number) => {
-  if (-0.005 < value && value < 0.005) return "0.00";
-  return value.toFixed(2);
+export const toFixed1 = (value: number) => fixed(value, 1);
+export const toFixed2 = (value: number) => fixed(value, 2);
+export const toFixed3 = (value: number) => fixed(value, 3);
+
+/** Equity realization: EV / (pot × equity); NaN when it is undefined (no equity). */
+export const eqrOf = (ev: number, equity: number, pot: number) => {
+  const eqr = ev / (pot * equity);
+  return isFinite(eqr) ? eqr : Number.NaN;
 };
 
-export const toFixed3 = (value: number) => {
-  if (-0.0005 < value && value < 0.0005) return "0.000";
-  return value.toFixed(3);
+/** Decimals to show EVs with: 3 below 10 chips, 2 below 100, else 1. */
+export const evDigitsFor = (evs: number[]) => {
+  const max = Math.max(0, ...evs.filter(isFinite).map(Math.abs));
+  return max < 9.9995 ? 3 : max < 99.995 ? 2 : 1;
 };
 
 export const toFixed = [toFixed1, toFixed2, toFixed3];
