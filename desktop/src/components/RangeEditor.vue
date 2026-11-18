@@ -59,17 +59,16 @@
             @change="onRangeTextChange"
           />
 
-          <button
+          <UiButton
             v-if="player >= 2"
-            class="mr-4 button-base button-green"
+            class="mr-4"
+            variant="ghost"
             @click="invertRange"
           >
             Invert
-          </button>
+          </UiButton>
 
-          <button class="button-base button-green" @click="clearRange">
-            Clear
-          </button>
+          <UiButton variant="ghost" @click="clearRange"> Clear </UiButton>
         </div>
 
         <div v-if="rangeTextError" class="mt-1 text-red-400">
@@ -128,18 +127,19 @@
       </div>
 
       <div v-if="player >= 2" class="flex mt-12 justify-center gap-4">
-        <button class="button-base button-green !px-5" @click="emit('save')">
+        <UiButton class="!px-5" variant="ghost" @click="emit('save')">
           Save Edit
-        </button>
-        <button class="button-base button-red !px-5" @click="emit('cancel')">
+        </UiButton>
+        <UiButton class="!px-5" variant="danger" @click="emit('cancel')">
           Cancel Edit
-        </button>
+        </UiButton>
       </div>
     </div>
   </div>
 </template>
 
 <script setup lang="ts">
+import UiButton from "./ui/UiButton.vue";
 import { ref } from "vue";
 import { useStore } from "../store";
 import { ranks } from "../utils";

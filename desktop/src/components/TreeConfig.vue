@@ -82,9 +82,7 @@
           </div>
 
           <div class="ml-auto p-1">
-            <button class="button-base button-green" @click="clearConfig">
-              Clear
-            </button>
+            <UiButton variant="ghost" @click="clearConfig"> Clear </UiButton>
           </div>
         </div>
 
@@ -200,20 +198,22 @@
           <div class="flex">
             <div class="mt-6 font-semibold">IP bet sizes</div>
             <div class="flex flex-grow items-center justify-center gap-6">
-              <button
-                class="mt-3 button-base button-green button-arrow"
+              <UiButton
+                class="mt-3 button-arrow"
+                variant="ghost"
                 :disabled="errorIp.length > 0 || hasEdit"
                 @click="ipToOop"
               >
                 ↑
-              </button>
-              <button
-                class="mt-3 button-base button-green button-arrow"
+              </UiButton>
+              <UiButton
+                class="mt-3 button-arrow"
+                variant="ghost"
                 :disabled="errorOop.length > 0 || hasEdit"
                 @click="oopToIp"
               >
                 ↓
-              </button>
+              </UiButton>
             </div>
           </div>
 
@@ -395,21 +395,17 @@
 
           <div class="flex justify-center flex-grow">
             <div class="flex flex-col justify-center gap-3">
-              <button
-                class="button-base button-green"
+              <UiButton
+                variant="ghost"
                 :disabled="!isInputValid"
                 @click="startEdit"
               >
                 Preview & Edit Tree
-              </button>
+              </UiButton>
 
-              <button
-                v-if="hasEdit"
-                class="button-base button-red"
-                @click="clearEdit"
-              >
+              <UiButton v-if="hasEdit" variant="danger" @click="clearEdit">
                 Clear Edit & Unlock
-              </button>
+              </UiButton>
             </div>
           </div>
         </div>
@@ -514,6 +510,7 @@
 </template>
 
 <script setup lang="ts">
+import UiButton from "./ui/UiButton.vue";
 import { computed, ref } from "vue";
 import { useStore, useConfigStore } from "../store";
 import { MAX_AMOUNT, readableLineString } from "../utils";
