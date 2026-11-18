@@ -31,6 +31,23 @@ pub struct SubgameCache {
 }
 
 impl SubgameCache {
+    /// Memory held by the cached subgames (freed when the main game is replaced).
+    pub fn memory_usage(&self) -> u64 {
+        self.entries
+            .values()
+            // An "empty" river keeps an uninitialized game (its memory_usage() would panic).
+            .filter(|sub| sub.kind == crate::subgame::SubgameKind::Solve)
+            .map(|sub| {
+                let (uncompressed, compressed) = sub.game.memory_usage();
+                if sub.game.is_compression_enabled() {
+                    compressed
+                } else {
+                    uncompressed
+                }
+            })
+            .sum()
+    }
+
     /// Forgets every subgame: the main game changed.
     pub fn clear(&mut self) {
         let generation = self.generation + 1;
@@ -376,5 +393,27 @@ pub(crate) mod tests {
         assert!(cache.entries.is_empty());
         assert!(cache.active.is_none());
         assert!(cache.current.is_empty());
+    }
+}
+
+#[cfg(test)]
+mod memory_tests {
+    use super::*;
+    use crate::subgame::{Subgame, SubgameKind};
+
+    #[test]
+    fn empty_rivers_count_no_memory() {
+        // An "empty" river keeps an uninitialized game, whose memory_usage() would panic.
+        let mut cache = SubgameCache::default();
+        cache.entries.insert(
+            (vec![0, 0], 0),
+            Subgame {
+                game: PostFlopGame::new(),
+                kind: SubgameKind::Empty,
+                hand_map: [Vec::new(), Vec::new()],
+                bet_offset: 0,
+            },
+        );
+        assert_eq!(cache.memory_usage(), 0);
     }
 }

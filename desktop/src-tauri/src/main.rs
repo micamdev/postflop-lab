@@ -37,7 +37,19 @@ fn main() {
         .manage(Mutex::new(session::SubgameCache::default()))
         .manage(subgame_commands::SubgameControl::default())
         .manage(lock_commands::CurrentLocks::default())
-        .manage(Mutex::new(ThreadPoolBuilder::new().build().unwrap()))
+        .manage(Mutex::new(std::sync::Arc::new(
+            ThreadPoolBuilder::new().build().unwrap(),
+        )))
+        .setup(|app| {
+            // Temporary files of saves interrupted by a crash (a running save keeps its file
+            // fresh, and no save runs this early).
+            if let Ok(dir) = library_commands::library_dir(app.handle()) {
+                std::thread::spawn(move || {
+                    library::remove_stale_tmp(&dir, std::time::Duration::from_secs(600))
+                });
+            }
+            Ok(())
+        })
         .invoke_handler(tauri::generate_handler![
             os_name,
             memory,
@@ -134,9 +146,14 @@ fn memory() -> (u64, u64) {
 }
 
 #[tauri::command]
-fn set_num_threads(pool_state: tauri::State<Mutex<ThreadPool>>, num_threads: usize) {
-    *pool_state.lock().unwrap() = ThreadPoolBuilder::new()
-        .num_threads(num_threads)
-        .build()
-        .unwrap();
+fn set_num_threads(
+    pool_state: tauri::State<Mutex<std::sync::Arc<ThreadPool>>>,
+    num_threads: usize,
+) {
+    *pool_state.lock().unwrap() = std::sync::Arc::new(
+        ThreadPoolBuilder::new()
+            .num_threads(num_threads)
+            .build()
+            .unwrap(),
+    );
 }

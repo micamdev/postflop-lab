@@ -372,16 +372,21 @@ export const librarySave = async (
     iterations: number;
     exploitability: number;
   }
-) => {
-  await invoke("library_save", { name, depth, overwrite, frontMeta });
+): Promise<string> => {
+  // The file name the library used (sanitized).
+  return await invoke("library_save", { name, depth, overwrite, frontMeta });
 };
 
 export const libraryLoad = async (name: string): Promise<SolutionMeta> => {
   return await invoke("library_load", { name });
 };
 
-export const libraryRename = async (from: string, to: string) => {
-  await invoke("library_rename", { from, to });
+/** Returns the new file name (sanitized by the library). */
+export const libraryRename = async (
+  from: string,
+  to: string
+): Promise<string> => {
+  return await invoke("library_rename", { from, to });
 };
 
 export const libraryDelete = async (name: string) => {

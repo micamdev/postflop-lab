@@ -108,6 +108,7 @@ const written = ref(0);
 const errorText = ref("");
 
 let unlisten: UnlistenFn | null = null;
+let isUnmounted = false;
 
 onMounted(async () => {
   try {
@@ -120,25 +121,37 @@ onMounted(async () => {
   } catch (e) {
     errorText.value = String(e);
   }
-  unlisten = await listen<{ written: number }>(
+  const stop = await listen<{ written: number }>(
     "library-save-progress",
     (event) => (written.value = event.payload.written)
   );
+  // The dialog may have closed while the listener was being set up.
+  if (isUnmounted) stop();
+  else unlisten = stop;
 });
 
-onUnmounted(() => unlisten?.());
+onUnmounted(() => {
+  isUnmounted = true;
+  unlisten?.();
+});
 
 const save = async (overwrite: boolean) => {
   if (isSaving.value || !name.value.trim()) return;
   isSaving.value = true;
   written.value = 0;
   errorText.value = "";
+  let savedName = "";
   try {
-    await invokes.librarySave(name.value, selectedDepth.value, overwrite, {
-      treeConfig: { ...savedConfig.$state },
-      iterations: store.solutionInfo?.iterations ?? 0,
-      exploitability: store.solutionInfo?.exploitability ?? 0,
-    });
+    savedName = await invokes.librarySave(
+      name.value,
+      selectedDepth.value,
+      overwrite,
+      {
+        treeConfig: { ...savedConfig.$state },
+        iterations: store.solutionInfo?.iterations ?? 0,
+        exploitability: store.solutionInfo?.exploitability ?? 0,
+      }
+    );
   } catch (e) {
     isSaving.value = false;
     if (String(e) === invokes.ERR_EXISTS) {
@@ -152,7 +165,7 @@ const save = async (overwrite: boolean) => {
   }
   isSaving.value = false;
   store.isSolutionSaved = true;
-  if (store.solutionInfo) store.solutionInfo.name = name.value.trim();
+  if (store.solutionInfo) store.solutionInfo.name = savedName;
   emit("close");
 };
 </script>

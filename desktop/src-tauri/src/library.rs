@@ -20,6 +20,9 @@ pub const ERR_EXISTS: &str = "exists";
 /// Version of the [`SolutionMeta`] schema.
 pub const META_SCHEMA: u32 = 2;
 
+/// Largest metadata JSON a file can hold (the engine reads header fields up to 1 MiB).
+pub const MAX_MEMO_BYTES: usize = 1_000_000;
+
 /// zstd level used for saved solutions (fast, good ratio on solver data).
 const COMPRESSION_LEVEL: i32 = 3;
 
@@ -101,6 +104,19 @@ pub fn sanitize_name(name: &str) -> Result<String, String> {
     Ok(trimmed)
 }
 
+/// Refuses a name that would reach a file outside the library folder. Names the app would
+/// not write itself (a file renamed in the explorer) stay usable.
+pub fn check_name(name: &str) -> Result<(), String> {
+    let mut components = Path::new(name).components();
+    let single = matches!(components.next(), Some(std::path::Component::Normal(_)))
+        && components.next().is_none();
+    if single && !name.contains(['/', '\\', '\0']) {
+        Ok(())
+    } else {
+        Err(format!("Invalid solution name: \"{name}\""))
+    }
+}
+
 fn file_path(dir: &Path, name: &str) -> PathBuf {
     dir.join(format!("{name}.{EXTENSION}"))
 }
@@ -156,7 +172,7 @@ pub fn save(
     game: &PostFlopGame,
     meta: &SolutionMeta,
     overwrite: bool,
-) -> Result<PathBuf, String> {
+) -> Result<String, String> {
     save_with_progress(dir, name, game, meta, overwrite, |_| {})
 }
 
@@ -168,13 +184,18 @@ pub fn save_with_progress(
     meta: &SolutionMeta,
     overwrite: bool,
     progress: impl FnMut(u64),
-) -> Result<PathBuf, String> {
+) -> Result<String, String> {
     let name = sanitize_name(name)?;
     fs::create_dir_all(dir).map_err(|e| format!("Failed to create the library folder: {e}"))?;
     if file_path(dir, &name).exists() && !overwrite {
         return Err(ERR_EXISTS.to_string());
     }
     let memo = serde_json::to_string(meta).map_err(|e| e.to_string())?;
+    if memo.len() > MAX_MEMO_BYTES {
+        return Err(
+            "The tree configuration is too large to save (over 1 MB of metadata)".to_string(),
+        );
+    }
     write_atomically(dir, &name, |tmp| {
         let file = File::create(tmp).map_err(|e| format!("Failed to create file: {e}"))?;
         let mut writer = ProgressWriter {
@@ -186,7 +207,8 @@ pub fn save_with_progress(
         writer
             .flush()
             .map_err(|e| format!("Failed to write file: {e}"))
-    })
+    })?;
+    Ok(name)
 }
 
 fn read_meta(path: &Path) -> Result<SolutionMeta, String> {
@@ -241,6 +263,7 @@ pub fn load(
     name: &str,
     max_memory: u64,
 ) -> Result<(PostFlopGame, SolutionMeta), String> {
+    check_name(name)?;
     let path = file_path(dir, name);
     let header = load_header_from_file::<PostFlopGame, _>(&path)?;
     if header.estimated_memory_usage > max_memory {
@@ -255,22 +278,61 @@ pub fn load(
     Ok((game, meta))
 }
 
-/// Renames a solution.
-pub fn rename(dir: &Path, from: &str, to: &str) -> Result<(), String> {
+/// Renames a solution; returns the new file name.
+pub fn rename(dir: &Path, from: &str, to: &str) -> Result<String, String> {
+    check_name(from)?;
     let to = sanitize_name(to)?;
     if to == from {
-        return Ok(());
+        return Ok(to);
     }
     let dest = file_path(dir, &to);
-    if dest.exists() {
+    // On Windows a case-only change (spot -> Spot) "exists": it is the same file. On a
+    // case-sensitive file system, another file may have exactly the new name.
+    let same_file = to.to_lowercase() == from.to_lowercase() && !has_exact_entry(dir, &dest);
+    if dest.exists() && !same_file {
         return Err(ERR_EXISTS.to_string());
     }
-    fs::rename(file_path(dir, from), dest).map_err(|e| format!("Failed to rename: {e}"))
+    fs::rename(file_path(dir, from), dest).map_err(|e| format!("Failed to rename: {e}"))?;
+    Ok(to)
+}
+
+/// Whether `dir` holds an entry named exactly like `path` (case included).
+fn has_exact_entry(dir: &Path, path: &Path) -> bool {
+    let Some(wanted) = path.file_name() else {
+        return false;
+    };
+    fs::read_dir(dir).is_ok_and(|entries| {
+        entries
+            .filter_map(Result::ok)
+            .any(|entry| entry.file_name() == wanted)
+    })
 }
 
 /// Deletes a solution.
 pub fn delete(dir: &Path, name: &str) -> Result<(), String> {
+    check_name(name)?;
     fs::remove_file(file_path(dir, name)).map_err(|e| format!("Failed to delete: {e}"))
+}
+
+/// Deletes the temporary files of saves interrupted by a crash (possibly several GB), if not
+/// modified for `max_age`: a recent one may belong to a save in progress.
+pub fn remove_stale_tmp(dir: &Path, max_age: std::time::Duration) {
+    let Ok(read_dir) = fs::read_dir(dir) else {
+        return;
+    };
+    for path in read_dir.filter_map(Result::ok).map(|e| e.path()) {
+        let is_tmp = path
+            .file_name()
+            .and_then(|n| n.to_str())
+            .is_some_and(|n| n.ends_with(&format!(".{EXTENSION}.tmp")));
+        let age = fs::metadata(&path)
+            .and_then(|m| m.modified())
+            .ok()
+            .and_then(|t| t.elapsed().ok());
+        if is_tmp && age.is_some_and(|age| age >= max_age) {
+            let _ = fs::remove_file(&path);
+        }
+    }
 }
 
 /// Copies an external `.plab` file into the library, after checking its header.
@@ -297,6 +359,7 @@ pub fn import(dir: &Path, src: &Path, overwrite: bool) -> Result<String, String>
 
 /// Copies a solution out of the library.
 pub fn export(dir: &Path, name: &str, dest: &Path) -> Result<(), String> {
+    check_name(name)?;
     fs::copy(file_path(dir, name), dest)
         .map(|_| ())
         .map_err(|e| format!("Failed to export: {e}"))
@@ -504,5 +567,105 @@ mod schema_tests {
         value["schema"] = serde_json::json!(1);
         let meta: SolutionMeta = serde_json::from_value(value).unwrap();
         assert!(meta.locks.is_empty());
+    }
+}
+
+#[cfg(test)]
+mod followup_tests {
+    use super::tests::{meta, small_game};
+    use super::*;
+    use std::time::Duration;
+
+    #[test]
+    fn save_and_rename_return_the_file_name() {
+        let dir = tempfile::tempdir().unwrap();
+        let game = small_game(true);
+        let name = save(dir.path(), "K/T 6", &game, &meta(1), false).unwrap();
+        assert_eq!(name, "K_T 6");
+        assert_eq!(rename(dir.path(), "K_T 6", "a:b").unwrap(), "a_b");
+        assert_eq!(list(dir.path())[0].name, "a_b");
+    }
+
+    #[test]
+    fn case_only_rename() {
+        let dir = tempfile::tempdir().unwrap();
+        save(dir.path(), "spot", &small_game(true), &meta(1), false).unwrap();
+        assert_eq!(rename(dir.path(), "spot", "Spot").unwrap(), "Spot");
+        let names: Vec<_> = list(dir.path()).into_iter().map(|e| e.name).collect();
+        assert_eq!(names, ["Spot"]);
+    }
+
+    #[test]
+    fn stale_tmp_files_are_removed() {
+        let dir = tempfile::tempdir().unwrap();
+        fs::write(dir.path().join("old.plab.tmp"), [0u8; 8]).unwrap();
+        fs::write(dir.path().join("notes.txt"), "x").unwrap();
+        // A recent temporary file may belong to a save in progress.
+        remove_stale_tmp(dir.path(), Duration::from_secs(3600));
+        assert!(dir.path().join("old.plab.tmp").exists());
+        remove_stale_tmp(dir.path(), Duration::ZERO);
+        assert!(!dir.path().join("old.plab.tmp").exists());
+        assert!(dir.path().join("notes.txt").exists());
+        remove_stale_tmp(&dir.path().join("missing"), Duration::ZERO);
+    }
+
+    #[test]
+    fn too_large_metadata_is_refused_before_writing() {
+        let dir = tempfile::tempdir().unwrap();
+        let mut big = meta(1);
+        big.tree_config = serde_json::Value::String("x".repeat(MAX_MEMO_BYTES + 1));
+        let err = save(dir.path(), "spot", &small_game(true), &big, false).unwrap_err();
+        assert!(err.contains("too large"), "{err}");
+        assert_eq!(fs::read_dir(dir.path()).unwrap().count(), 0);
+    }
+
+    #[test]
+    fn invalid_names_are_refused() {
+        let dir = tempfile::tempdir().unwrap();
+        let outside = tempfile::tempdir().unwrap();
+        save(dir.path(), "spot", &small_game(true), &meta(1), false).unwrap();
+        for bad in ["../spot", "a/b", r"a\b", "", "..", "."] {
+            assert!(load(dir.path(), bad, u64::MAX).is_err(), "load {bad}");
+            assert!(delete(dir.path(), bad).is_err(), "delete {bad}");
+            assert!(rename(dir.path(), bad, "x").is_err(), "rename {bad}");
+            assert!(
+                export(dir.path(), bad, &outside.path().join("x.plab")).is_err(),
+                "export {bad}"
+            );
+        }
+        assert_eq!(list(dir.path()).len(), 1);
+    }
+}
+
+#[cfg(test)]
+mod review_tests {
+    use super::tests::{meta, small_game};
+    use super::*;
+
+    #[test]
+    fn files_named_outside_the_app_stay_usable() {
+        let dir = tempfile::tempdir().unwrap();
+        let outside = tempfile::tempdir().unwrap();
+        save(dir.path(), "spot", &small_game(true), &meta(1), false).unwrap();
+        // Renamed in the file explorer: a name the app would not write itself.
+        fs::rename(dir.path().join("spot.plab"), dir.path().join("spot .plab")).unwrap();
+        assert_eq!(list(dir.path())[0].name, "spot ");
+        assert!(load(dir.path(), "spot ", u64::MAX).is_ok());
+        export(dir.path(), "spot ", &outside.path().join("x.plab")).unwrap();
+        assert_eq!(rename(dir.path(), "spot ", "fixed").unwrap(), "fixed");
+        delete(dir.path(), "fixed").unwrap();
+        assert!(list(dir.path()).is_empty());
+    }
+
+    #[test]
+    fn case_only_rename_never_overwrites_another_file() {
+        let dir = tempfile::tempdir().unwrap();
+        save(dir.path(), "spot", &small_game(true), &meta(1), false).unwrap();
+        if dir.path().join("SPOT.plab").exists() {
+            return; // Case-insensitive file system: two such files cannot coexist.
+        }
+        save(dir.path(), "Spot", &small_game(true), &meta(2), false).unwrap();
+        assert_eq!(rename(dir.path(), "spot", "Spot").unwrap_err(), ERR_EXISTS);
+        assert_eq!(list(dir.path()).len(), 2);
     }
 }

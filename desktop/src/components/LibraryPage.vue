@@ -148,7 +148,14 @@ import { SortKey, filterEntries, sortEntries } from "../library-list";
 import UiButton from "./ui/UiButton.vue";
 import UiMenu from "./ui/UiMenu.vue";
 import * as invokes from "../invokes";
-import { ask, depthLabel, formatBytes, loadSolution } from "../library";
+import {
+  ask,
+  deleteSolution,
+  depthLabel,
+  formatBytes,
+  loadSolution,
+  renameSolution,
+} from "../library";
 
 const store = useStore();
 
@@ -266,17 +273,16 @@ const rename = async (from: string) => {
   renaming.value = null;
   await run(async () => {
     try {
-      await invokes.libraryRename(from, to);
+      await renameSolution(from, to);
     } catch (e) {
       throw String(e) === invokes.ERR_EXISTS ? `"${to}" already exists.` : e;
     }
-    if (store.solutionInfo?.name === from) store.solutionInfo.name = to;
   });
 };
 
 const remove = async (name: string) => {
   if (!(await ask(`Delete "${name}"? This cannot be undone.`))) return;
-  await run(() => invokes.libraryDelete(name));
+  await run(() => deleteSolution(name));
 };
 
 const importFile = async () => {

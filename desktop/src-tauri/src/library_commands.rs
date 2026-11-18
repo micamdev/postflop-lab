@@ -13,7 +13,7 @@ use std::time::{Duration, Instant, SystemTime, UNIX_EPOCH};
 use tauri::{AppHandle, Emitter, Manager};
 use tauri_plugin_opener::OpenerExt;
 
-fn library_dir(app: &AppHandle) -> Result<PathBuf, String> {
+pub fn library_dir(app: &AppHandle) -> Result<PathBuf, String> {
     let documents = app
         .path()
         .document_dir()
@@ -67,7 +67,7 @@ pub fn library_save(
     depth: String,
     overwrite: bool,
     front_meta: FrontMeta,
-) -> Result<(), String> {
+) -> Result<String, String> {
     let dir = library_dir(&app)?;
     let mut game = game_state.lock().unwrap();
     if !game.is_solved() {
@@ -118,7 +118,7 @@ pub fn library_save(
         }
     });
     game.set_target_storage_mode(BoardState::River)?;
-    result.map(|_| ())
+    result
 }
 
 /// Error prefix of `library_load` when the current game was freed before the load failed: the
@@ -136,14 +136,15 @@ fn current_game_memory(game: &PostFlopGame) -> u64 {
     }
 }
 
-/// Memory a loaded solution may use: what is available now plus what the current game frees.
+/// Memory a loaded solution may use: what is available now plus what the current game and
+/// its cached river subgames free.
 /// On macOS, as in the Run Solver screen, the limit is 70% of the total memory.
-fn max_load_memory(current_game: &PostFlopGame) -> u64 {
+fn max_load_memory(current_game: &PostFlopGame, cache: &SubgameCache) -> u64 {
     let (available, total) = crate::memory();
     if cfg!(target_os = "macos") {
         return total / 10 * 7;
     }
-    available + current_game_memory(current_game)
+    available + current_game_memory(current_game) + cache.memory_usage()
 }
 
 fn gb(bytes: u64) -> String {
@@ -153,6 +154,7 @@ fn gb(bytes: u64) -> String {
 /// Checks that a solution can be loaded (readable header, enough memory), without touching
 /// the current game.
 fn check_load(dir: &std::path::Path, name: &str, max_memory: u64) -> Result<(), String> {
+    library::check_name(name)?;
     let header = load_header_from_file::<PostFlopGame, _>(
         dir.join(format!("{name}.{}", library::EXTENSION)),
     )?;
@@ -171,11 +173,16 @@ fn check_load(dir: &std::path::Path, name: &str, max_memory: u64) -> Result<(), 
 pub fn library_check_load(
     app: AppHandle,
     game_state: tauri::State<Mutex<PostFlopGame>>,
+    cache_state: tauri::State<Mutex<SubgameCache>>,
     name: String,
 ) -> Result<(), String> {
     let dir = library_dir(&app)?;
     let game = game_state.lock().unwrap();
-    check_load(&dir, &name, max_load_memory(&game))
+    check_load(
+        &dir,
+        &name,
+        max_load_memory(&game, &cache_state.lock().unwrap()),
+    )
 }
 
 #[tauri::command(async)]
@@ -189,7 +196,7 @@ pub fn library_load(
 ) -> Result<SolutionMeta, String> {
     let dir = library_dir(&app)?;
     let mut game = game_state.lock().unwrap();
-    let max_memory = max_load_memory(&game);
+    let max_memory = max_load_memory(&game, &cache_state.lock().unwrap());
 
     // Refuse before touching the current game if the solution cannot fit.
     check_load(&dir, &name, max_memory)?;
@@ -210,7 +217,7 @@ pub fn library_load(
 }
 
 #[tauri::command]
-pub fn library_rename(app: AppHandle, from: String, to: String) -> Result<(), String> {
+pub fn library_rename(app: AppHandle, from: String, to: String) -> Result<String, String> {
     library::rename(&library_dir(&app)?, &from, &to)
 }
 

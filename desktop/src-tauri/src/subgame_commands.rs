@@ -4,6 +4,7 @@ use crate::session::SubgameCache;
 use crate::solver::apply_history_checked;
 use crate::subgame::{build_subgame, solve_subgame, subgame_target, SubgameKind};
 use postflop_solver::*;
+use rayon::ThreadPool;
 use serde::Serialize;
 use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::{Arc, Mutex};
@@ -35,7 +36,8 @@ pub fn resolve_into_cache(
     reached_exploitability: Option<f32>,
     cancel: &AtomicBool,
     available_memory: u64,
-    progress: impl FnMut(u32, f32),
+    pool: &ThreadPool,
+    progress: impl FnMut(u32, f32) + Send,
 ) -> Result<SubgameKind, String> {
     let key = (history.to_vec(), card);
     let generation = {
@@ -74,14 +76,17 @@ pub fn resolve_into_cache(
 
     let sub_pot = sub.game.tree_config().starting_pot;
     let target = subgame_target(sub_pot, root_pot, reached_exploitability);
-    solve_subgame(
-        &mut sub,
-        target,
-        MAX_ITERATIONS,
-        compression,
-        cancel,
-        progress,
-    )?;
+    // On the user's thread setting, like the main solve.
+    pool.install(|| {
+        solve_subgame(
+            &mut sub,
+            target,
+            MAX_ITERATIONS,
+            compression,
+            cancel,
+            progress,
+        )
+    })?;
 
     let mut cache = cache.lock().unwrap();
     if cache.generation != generation {
@@ -100,11 +105,13 @@ struct SubgameProgress {
 
 /// Re-solves the river `card` at `history` if not cached yet. Returns "solve" or "empty".
 /// Starting a re-solve cancels the one in progress.
+#[allow(clippy::too_many_arguments)]
 #[tauri::command(async)]
 pub fn game_resolve_subgame(
     app: AppHandle,
     game_state: tauri::State<Mutex<PostFlopGame>>,
     cache_state: tauri::State<Mutex<SubgameCache>>,
+    pool_state: tauri::State<Mutex<Arc<ThreadPool>>>,
     control: tauri::State<SubgameControl>,
     history: Vec<usize>,
     card: usize,
@@ -115,6 +122,8 @@ pub fn game_resolve_subgame(
         previous.store(true, Ordering::Relaxed);
     }
     let (available, _) = crate::memory();
+    // Cloned so that the thread setting can change (and the main solve run) meanwhile.
+    let pool = pool_state.lock().unwrap().clone();
     let mut last_emit = Instant::now();
     let kind = resolve_into_cache(
         &game_state,
@@ -124,6 +133,7 @@ pub fn game_resolve_subgame(
         reached_exploitability,
         &cancel,
         available,
+        &pool,
         |iteration, exploitability| {
             if last_emit.elapsed() >= Duration::from_millis(100) {
                 last_emit = Instant::now();
@@ -173,6 +183,7 @@ mod tests {
             None,
             &cancel,
             u64::MAX,
+            &rayon::ThreadPoolBuilder::new().build().unwrap(),
             |_, _| {},
         )
         .unwrap();
@@ -199,6 +210,7 @@ mod tests {
             None,
             &cancel,
             u64::MAX,
+            &rayon::ThreadPoolBuilder::new().build().unwrap(),
             |_, _| {},
         )
         .unwrap_err();
@@ -220,6 +232,7 @@ mod tests {
             None,
             &cancel,
             u64::MAX,
+            &rayon::ThreadPoolBuilder::new().build().unwrap(),
             |_, _| {
                 cache.lock().unwrap().clear();
             },
@@ -230,12 +243,52 @@ mod tests {
     }
 
     #[test]
+    fn resolve_uses_the_given_thread_pool() {
+        let main = Mutex::new(turn_only_game());
+        let cache = Mutex::new(SubgameCache::default());
+        let cancel = AtomicBool::new(false);
+        let pool = rayon::ThreadPoolBuilder::new()
+            .num_threads(1)
+            .build()
+            .unwrap();
+        let mut threads = Vec::new();
+        resolve_into_cache(
+            &main,
+            &cache,
+            &[0, 0],
+            river(),
+            None,
+            &cancel,
+            u64::MAX,
+            &pool,
+            |_, _| threads.push(rayon::current_num_threads()),
+        )
+        .unwrap();
+        assert!(!threads.is_empty());
+        assert!(threads.iter().all(|&n| n == 1), "{threads:?}");
+        // The cache counts the memory of its subgames (freed before a load).
+        assert!(cache.lock().unwrap().memory_usage() > 0);
+        assert_eq!(SubgameCache::default().memory_usage(), 0);
+    }
+
+    #[test]
     fn not_enough_memory_is_refused() {
         let main = Mutex::new(turn_only_game());
         let cache = Mutex::new(SubgameCache::default());
         let cancel = AtomicBool::new(false);
-        let err = resolve_into_cache(&main, &cache, &[0, 0], river(), None, &cancel, 1, |_, _| {})
-            .unwrap_err();
+        let pool = rayon::ThreadPoolBuilder::new().build().unwrap();
+        let err = resolve_into_cache(
+            &main,
+            &cache,
+            &[0, 0],
+            river(),
+            None,
+            &cancel,
+            1,
+            &pool,
+            |_, _| {},
+        )
+        .unwrap_err();
         assert!(err.starts_with("Not enough memory"), "{err}");
     }
 }
