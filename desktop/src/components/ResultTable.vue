@@ -163,6 +163,7 @@
                       strTmp = toFixed1(summary[columnIndex(column) - 1] * 100)
                     "
                   >
+                    <!-- Total row: how often the action is taken. -->
                     <span>{{ strTmp.slice(0, -1) }}</span>
                     <span class="text-xs">{{ strTmp.slice(-1) }}%</span>
                   </span>
@@ -350,6 +351,8 @@ import {
   cardText,
   suitTextClasses,
   cardPairOrder,
+  eqrOf,
+  evDigitsFor,
   toFixed1,
   toFixed,
   toFixedAdaptive,
@@ -601,21 +604,17 @@ if (props.tableMode === "graphs") {
   });
 }
 
-const maxEv = computed(() => {
+// Undefined EVs (NaN) are ignored: one of them must not force 3 decimals.
+const evDigits = computed(() => {
   const playerIndex = props.displayPlayer === "oop" ? 0 : 1;
   if (props.tableMode !== "chance") {
     const results = props.results;
-    if (!results || results.isEmpty) return 0;
-    return Math.max(...results.ev[playerIndex].map((v) => Math.abs(v)));
-  } else {
-    const reports = props.chanceReports;
-    if (!reports || reports.status.every((s) => s <= 1)) return 0;
-    return Math.max(...reports.ev[playerIndex].map((v) => Math.abs(v)));
+    if (!results || results.isEmpty) return 3;
+    return evDigitsFor(results.ev[playerIndex]);
   }
-});
-
-const evDigits = computed(() => {
-  return maxEv.value < 9.9995 ? 3 : maxEv.value < 99.995 ? 2 : 1;
+  const reports = props.chanceReports;
+  if (!reports || reports.status.every((s) => s <= 1)) return 3;
+  return evDigitsFor(reports.ev[playerIndex]);
 });
 
 const numActions = computed(() => {
@@ -658,10 +657,7 @@ const columns = computed(() => {
       for (let i = 0; i < numActions.value; ++i) {
         const j = numActions.value - i - 1; // reverse order
         const action = spot.actions[j];
-        const label =
-          action.amount === "0"
-            ? action.name
-            : `${action.name[0]} ${action.amount}`;
+        const label = shortLabel(action);
         if (options.content === "percentage") {
           ret.push({ label, type: "action", index: i });
         } else {
@@ -686,10 +682,7 @@ const columns = computed(() => {
       for (let i = 0; i < numActions.value; ++i) {
         const j = numActions.value - i - 1;
         const action = spot.actions[j];
-        const label =
-          action.amount === "0"
-            ? action.name
-            : `${action.name[0]} ${action.amount}`;
+        const label = shortLabel(action);
         ret.push({ label, type: "action", index: i });
       }
     }
@@ -726,16 +719,15 @@ const resultsFiltered = computed(() => {
       ret.push(cards[index]);
       ret.push(results.weights[playerIndex][index]);
       ret.push(results.normalizer[playerIndex][index]);
+      // Undefined values are NaN (invokes); no values at all when a range is empty.
       ret.push(results.equity[playerIndex][index] ?? Number.NaN);
       ret.push(results.ev[playerIndex][index] ?? Number.NaN);
-
-      const eqr = results.eqr[playerIndex][index] ?? Number.NaN;
-      ret.push(isFinite(eqr) ? eqr : Number.NaN);
+      ret.push(results.eqr[playerIndex][index] ?? Number.NaN);
 
       for (let i = numActions.value - 1; i >= 0; --i) {
         const j = i * cards.length + index;
         ret.push(results.strategy[j]);
-        ret.push(results.actionEv[j] ?? 0);
+        ret.push(results.actionEv[j] ?? Number.NaN);
       }
 
       return ret;
@@ -900,11 +892,14 @@ const summary = computed(() => {
   // EQR is not the average
   const playerIndex = props.displayPlayer === "oop" ? 0 : 1;
   const eqrBase = props.results.eqrBase[playerIndex];
-  ret[INDEX_EQR] = ret[INDEX_EV] / (eqrBase * ret[INDEX_EQUITY]);
-  if (!isFinite(ret[INDEX_EQR])) ret[INDEX_EQR] = Number.NaN;
+  ret[INDEX_EQR] = eqrOf(ret[INDEX_EV], ret[INDEX_EQUITY], eqrBase);
 
   return ret;
 });
+
+/** Column label of an action: "Check", "B 30". */
+const shortLabel = (action: { name: string; amount: string }) =>
+  action.amount === "0" ? action.name : `${action.name[0]} ${action.amount}`;
 
 const actionColors = computed(() => {
   if (numActions.value === 0) return [];
@@ -962,7 +957,7 @@ const exportSummary = async () => {
   if (props.tableMode !== "chance") {
     if (!props.results) return;
 
-    const ary = ["Hand", "Weight", "Combos"];
+    const ary = ["Hand", "Weight"];
 
     if (!props.results.isEmpty) {
       ary.push("Equity", "EV", "EQR");
@@ -988,12 +983,7 @@ const exportSummary = async () => {
       const card1 = row[0] & 0xff;
       const card2 = row[0] >>> 8;
       const pairStr = cardStr(card2) + cardStr(card1);
-      const ary = [
-        pairStr,
-        row[INDEX_WEIGHT],
-        row[INDEX_NORMALIZER],
-        ...row.slice(startIndex),
-      ];
+      const ary = [pairStr, row[INDEX_WEIGHT], ...row.slice(startIndex)];
       data.push(ary.join(","));
     }
   } else {

@@ -94,7 +94,10 @@ export const breakdownRows = (
   const ev = results.ev[player];
   const n = cards.length;
   const numActions = results.numActions;
-  const totalWeight = weights.reduce((sum, w) => sum + w, 0);
+  const totalWeight = weights.reduce(
+    (sum, w, h) => sum + (normalizer[h] > 0 ? w : 0),
+    0
+  );
   // No draws on the river; no equity groups when the engine sent no equities (it sends
   // none when either player has no hands left).
   const hasEquity = equity.length === n;
@@ -115,7 +118,13 @@ export const breakdownRows = (
       let evSum = 0;
       const strategy = new Array<number>(numActions).fill(0);
       for (let h = 0; h < n; h++) {
-        if (categoryOf(cats, equity, group, h) !== name) continue;
+        // Hands the opponent fully blocks (normalizer 0) are not shown, as in the Summary.
+        if (
+          normalizer[h] === 0 ||
+          categoryOf(cats, equity, group, h) !== name
+        ) {
+          continue;
+        }
         combos += weights[h];
         norm += normalizer[h];
         eqSum += normalizer[h] * equity[h];

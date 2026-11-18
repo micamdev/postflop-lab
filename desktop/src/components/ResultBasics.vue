@@ -75,6 +75,8 @@ import { useSavedConfigStore } from "../store";
 import {
   ranks,
   cardPairCellIndex,
+  eqrOf,
+  evDigitsFor,
   toFixed1,
   toFixed,
   colorString,
@@ -106,6 +108,8 @@ const getColor = (
   middle: number,
   highest: number
 ) => {
+  // No value (e.g. EQR without equity): neutral grey.
+  if (Number.isNaN(value)) return "#6b7280";
   if (value <= lowest) return colorString(colorGradient[0]);
   if (value > middle && value >= highest) return colorString(colorGradient[6]);
 
@@ -160,8 +164,7 @@ const evDigits = computed(() => {
   const results = props.results;
   if (results.isEmpty) return 3;
   const playerIndex = props.displayPlayer === "oop" ? 0 : 1;
-  const maxEv = Math.max(...results.ev[playerIndex]);
-  return maxEv < 9.9995 ? 3 : maxEv < 99.995 ? 2 : 1;
+  return evDigitsFor(results.ev[playerIndex]);
 });
 
 const toFixedEv = computed(() => {
@@ -347,7 +350,7 @@ const cellContent = computed(() => {
           } else if (options.contentBasics === "ev") {
             value = suit.ev / normalizer;
           } else {
-            value = suit.ev / (eqrBase * suit.equity);
+            value = eqrOf(suit.ev, suit.equity, eqrBase);
           }
           color = getColor(value, lowest, middle, highest);
         }
@@ -429,7 +432,7 @@ const cellValueText = computed(() => {
     } else {
       const playerIndex = props.displayPlayer === "oop" ? 0 : 1;
       const eqrBase = props.results.eqrBase[playerIndex];
-      value = evSum / (eqrBase * equitySum);
+      value = eqrOf(evSum, equitySum, eqrBase);
     }
 
     if (displayOptions.contentBasics !== "default" && props.results.isEmpty) {
