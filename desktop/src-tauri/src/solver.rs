@@ -1,4 +1,4 @@
-use crate::library::SolutionSummary;
+use crate::library::{NodeFrequencies, SolutionSummary};
 use crate::range::*;
 use crate::session::{self, SubgameCache};
 use postflop_solver::*;
@@ -427,21 +427,71 @@ pub fn compute_summary(game: &mut PostFlopGame) -> SolutionSummary {
         summary.ev[player] = weighted_average(&game.expected_values(player), weights);
     }
 
+    let buckets = [0, 1].map(|p| equity_buckets(&game.equity(p), game.normalized_weights(p)));
+    // An empty range has no tranches (NaN cannot be saved as JSON).
+    if buckets.iter().flatten().all(|x| x.is_finite()) {
+        summary.equity_buckets = Some(buckets);
+    }
+
     summary.root_player = current_player(game);
-    if !game.is_terminal_node() && !game.is_chance_node() {
-        summary.root_actions = actions(game);
-        let player = game.current_player();
-        let weights = game.normalized_weights(player);
-        let strategy = game.strategy();
-        let num_hands = game.private_cards(player).len();
-        summary.root_frequencies = strategy
-            .chunks_exact(num_hands)
-            .map(|row| weighted_average(row, weights))
-            .collect();
+    if let Some(root) = node_frequencies(game) {
+        // OOP first, and a check: IP's strategy after it (the usual c-bet node).
+        if game.current_player() == 0 && root.actions.first().is_some_and(|a| a == "Check:0") {
+            game.play(0);
+            game.cache_normalized_weights();
+            if game.current_player() == 1 {
+                summary.ip_after_check = node_frequencies(game);
+            }
+            game.back_to_root();
+            game.cache_normalized_weights();
+        }
+        summary.root_actions = root.actions;
+        summary.root_frequencies = root.frequencies;
     }
 
     game.apply_history(&history);
     summary
+}
+
+/// Actions of the current node and the range-weighted frequency of each (None at a terminal
+/// or chance node). Weights must be cached.
+fn node_frequencies(game: &PostFlopGame) -> Option<NodeFrequencies> {
+    if game.is_terminal_node() || game.is_chance_node() {
+        return None;
+    }
+    let player = game.current_player();
+    let weights = game.normalized_weights(player);
+    let num_hands = game.private_cards(player).len();
+    let frequencies = game
+        .strategy()
+        .chunks_exact(num_hands)
+        .map(|row| weighted_average(row, weights))
+        .collect();
+    Some(NodeFrequencies {
+        actions: actions(game),
+        frequencies,
+    })
+}
+
+/// Equity tranches, highest first: a hand is in the first one whose bound its equity reaches.
+const EQUITY_BUCKET_BOUNDS: [f32; 4] = [0.9, 0.75, 0.5, 0.0];
+
+/// Share of a range (weighted like the average equity) in each equity tranche: >= 90%,
+/// 75-90%, 50-75%, < 50%, as `equityBuckets` in the front end. All NaN for an empty range.
+pub fn equity_buckets(equity: &[f32], weights: &[f32]) -> [f64; 4] {
+    let mut sums = [0.0f64; 4];
+    for (&e, &w) in equity.iter().zip(weights) {
+        if w == 0.0 {
+            continue;
+        }
+        let bucket = EQUITY_BUCKET_BOUNDS
+            .iter()
+            .position(|&b| e >= b)
+            .unwrap_or(3);
+        sums[bucket] += w as f64;
+    }
+    let total: f64 = sums.iter().sum();
+    sums.map(|s| if total > 0.0 { s / total } else { f64::NAN })
 }
 
 #[tauri::command]
@@ -868,6 +918,36 @@ mod tests {
         assert!(summary.equity.iter().all(|e| (0.0..=1.0).contains(e)));
         // compute_summary leaves the game where it was.
         assert_eq!(game.history(), &[0]);
+    }
+
+    #[test]
+    fn summary_has_equity_buckets_and_ip_after_check() {
+        let mut game = turn_game();
+        let summary = compute_summary(&mut game);
+        for buckets in summary.equity_buckets.expect("equity buckets") {
+            let total: f64 = buckets.iter().sum();
+            assert!((total - 1.0).abs() < 1e-6, "{total}");
+        }
+        // OOP acts first at the root and can check: IP's strategy after the check.
+        assert_eq!(summary.root_actions[0], "Check:0");
+        let after = summary.ip_after_check.expect("IP after check");
+        assert_eq!(after.actions.len(), after.frequencies.len());
+        let total: f64 = after.frequencies.iter().sum();
+        assert!((total - 1.0).abs() < 1e-4, "{total}");
+        assert_eq!(game.history(), &[] as &[usize]);
+    }
+
+    #[test]
+    fn equity_buckets_like_the_compare_tab() {
+        // Equities 0.95, 0.8, 0.6, 0.1 with weights 1, 1, 2, 0 (a hand without weight).
+        let b = equity_buckets(&[0.95, 0.8, 0.6, 0.1], &[1.0, 1.0, 2.0, 0.0]);
+        assert_eq!(b, [0.25, 0.25, 0.5, 0.0]);
+        // Bounds belong to the higher tranche.
+        assert_eq!(
+            equity_buckets(&[0.9, 0.75, 0.5], &[1.0, 1.0, 2.0]),
+            [0.25, 0.25, 0.5, 0.0]
+        );
+        assert!(equity_buckets(&[0.5], &[0.0]).iter().all(|x| x.is_nan()));
     }
 
     /// Setup arguments: `board`, OOP and IP flop bets `bet`, nothing else.

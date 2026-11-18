@@ -108,6 +108,7 @@ pub fn library_save(
             .to_string(),
             summary: compute_summary(&mut game),
             locks: crate::guard::lock(&locks_state.0).clone(),
+            flop_weight: None,
         };
 
         game.set_target_storage_mode(depth_from_name(&depth)?)?;
@@ -260,4 +261,19 @@ mod tests {
         assert_eq!(current_game_memory(&game), game.target_memory_usage());
         assert_eq!(current_game_memory(&PostFlopGame::new()), 0);
     }
+}
+
+/// Recomputes the summary of a saved solution (older saves lack what reports need) and returns
+/// its new metadata. The file is loaded in a separate game: the current one is untouched.
+#[tauri::command(async)]
+pub fn library_refresh_summary(app: AppHandle, name: String) -> Result<SolutionMeta, String> {
+    crate::guard::guard(move || {
+        let dir = library_dir(&app)?;
+        // The memory query failed (0): let the load try rather than refuse every file.
+        let available = match crate::memory().0 {
+            0 => u64::MAX,
+            available => available,
+        };
+        library::refresh_summary(&dir, &name, available, compute_summary)
+    })
 }
