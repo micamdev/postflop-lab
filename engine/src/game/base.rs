@@ -159,7 +159,8 @@ impl PostFlopGame {
 
     /// As [`update_config`](Self::update_config), first passing `check` the number of nodes the
     /// game tree will have, before its node arena is allocated: lets an application refuse a
-    /// tree too large to build. An error from `check` is returned and nothing is built.
+    /// tree too large to build. An error from `check` is returned before the node arena is
+    /// allocated, the game left unusable (as after any configuration error).
     pub fn update_config_checked(
         &mut self,
         card_config: CardConfig,

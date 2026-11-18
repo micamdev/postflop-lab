@@ -1,6 +1,12 @@
 import { describe, expect, test } from "vitest";
 import type { LibraryEntry, SolutionMeta } from "./invokes";
-import { filterEntries, sortEntries, withFailedLoads } from "./library-list";
+import {
+  DAMAGED_FILE,
+  filterEntries,
+  noteLoad,
+  sortEntries,
+  withFailedLoads,
+} from "./library-list";
 
 // Cards: 4 * rank + suit (c d h s); Jh = 38, 9d = 29, 4c = 8, As = 51.
 const entry = (
@@ -114,5 +120,21 @@ describe("withFailedLoads", () => {
   test("a file saved again under that name is listed normally", () => {
     const failed = new Map([["Spot 10", { size: 999, error: "truncated" }]]);
     expect(withFailedLoads([a], failed)).toEqual([a]);
+  });
+});
+
+describe("noteLoad", () => {
+  test("a damaged file is marked, a successful load clears the mark", () => {
+    const failed = new Map();
+    noteLoad(failed, a, `${DAMAGED_FILE}: truncated`);
+    expect(failed.get("Spot 10")).toEqual({ size: 50, error: "truncated" });
+    noteLoad(failed, a, null);
+    expect(failed.has("Spot 10")).toBe(false);
+  });
+
+  test("other errors (not enough memory) do not mark the file", () => {
+    const failed = new Map();
+    noteLoad(failed, a, "Not enough memory");
+    expect(failed.size).toBe(0);
   });
 });

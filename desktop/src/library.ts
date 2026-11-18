@@ -9,6 +9,7 @@ import {
   setSolutionLocks,
 } from "./store";
 import * as invokes from "./invokes";
+import { DAMAGED_FILE } from "./library-list";
 import { weightPercent } from "./utils";
 
 /** Asks a yes/no question in a native dialog. */
@@ -96,10 +97,6 @@ export const loadSolution = async (name: string): Promise<string | null> => {
     isLoading = false;
   }
 };
-
-/** Start of the error of a load that failed while reading the file's body. */
-export const DAMAGED_FILE =
-  "The solution could not be read (the file may be damaged)";
 
 /** A load is in progress (set before its first await, unlike `isLibraryBusy`). */
 let isLoading = false;

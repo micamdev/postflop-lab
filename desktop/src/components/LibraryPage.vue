@@ -148,6 +148,7 @@ import {
   FailedLoads,
   SortKey,
   filterEntries,
+  noteLoad,
   sortEntries,
   withFailedLoads,
 } from "../library-list";
@@ -155,7 +156,6 @@ import UiButton from "./ui/UiButton.vue";
 import UiMenu from "./ui/UiMenu.vue";
 import * as invokes from "../invokes";
 import {
-  DAMAGED_FILE,
   ask,
   deleteSolution,
   depthLabel,
@@ -210,16 +210,22 @@ const sortBy = (key: SortKey) => {
   }
 };
 
+/** Readable, or only marked after a failed load (which may have been temporary). */
+const canOpen = (entry: invokes.LibraryEntry) =>
+  entry.meta !== null || failedLoads.has(entry.name);
+
 const onRowClick = (entry: invokes.LibraryEntry) => {
-  if (!entry.meta || store.isLibraryBusy || renaming.value === entry.name)
+  if (!canOpen(entry) || store.isLibraryBusy || renaming.value === entry.name)
     return;
   void load(entry);
 };
 
 const rowMenu = (entry: invokes.LibraryEntry) => [
+  ...(canOpen(entry)
+    ? [{ label: "Open", onSelect: () => void load(entry) }]
+    : []),
   ...(entry.meta
     ? [
-        { label: "Open", onSelect: () => void load(entry) },
         { label: "Rename", onSelect: () => startRename(entry.name) },
         { label: "Export…", onSelect: () => void exportFile(entry.name) },
       ]
@@ -244,11 +250,18 @@ watch(
 );
 watch(
   () => store.isSolutionSaved,
-  (saved) => saved && refresh()
+  (saved) => {
+    if (!saved) return;
+    // The save may have replaced a marked file.
+    failedLoads.clear();
+    void refresh();
+  }
 );
 
+/** Renames, deletes, imports: any file may have been replaced, the marks are dropped. */
 const run = async (action: () => Promise<void>) => {
   errorText.value = "";
+  failedLoads.clear();
   try {
     await action();
   } catch (e) {
@@ -269,14 +282,8 @@ const load = async (entry: invokes.LibraryEntry) => {
   busyText.value = `Loading "${entry.name}"...`;
   const error = await loadSolution(entry.name);
   busyText.value = "";
-  if (!error) return;
-  errorText.value = error;
-  if (error.startsWith(DAMAGED_FILE)) {
-    failedLoads.set(entry.name, {
-      size: entry.file_size,
-      error: error.slice(DAMAGED_FILE.length + 2),
-    });
-  }
+  noteLoad(failedLoads, entry, error);
+  if (error) errorText.value = error;
 };
 
 const startRename = (name: string) => {

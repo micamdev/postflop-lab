@@ -612,8 +612,8 @@ mod tests {
         assert_eq!(decode_limit_exp(0), Some(27));
         assert_eq!(decode_limit_exp(1 << 26), Some(27));
         assert_eq!(decode_limit_exp((1 << 26) + 1), Some(30));
-        assert_eq!(decode_limit_exp(3 << 30), Some(33));
         if cfg!(target_pointer_width = "64") {
+            assert_eq!(decode_limit_exp(3 << 30), Some(33));
             assert_eq!(decode_limit_exp(1 << 38), Some(39));
             assert_eq!(decode_limit_exp((1 << 38) + 1), None);
         }

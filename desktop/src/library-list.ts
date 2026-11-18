@@ -88,3 +88,27 @@ export const withFailedLoads = (
       ? { ...entry, meta: null, error: failure.error }
       : entry;
   });
+
+/** Start of the error of a load that failed while reading the file's body. */
+export const DAMAGED_FILE =
+  "The solution could not be read (the file may be damaged)";
+
+/**
+ * Records the outcome of loading `entry`: a damaged file is marked (shown as unreadable, Open
+ * still offered to retry), a successful load clears its mark. Other errors (not enough
+ * memory, solver running) say nothing about the file.
+ */
+export const noteLoad = (
+  failed: FailedLoads,
+  entry: LibraryEntry,
+  error: string | null
+) => {
+  if (error === null) {
+    failed.delete(entry.name);
+  } else if (error.startsWith(DAMAGED_FILE)) {
+    failed.set(entry.name, {
+      size: entry.file_size,
+      error: error.slice(DAMAGED_FILE.length + 2),
+    });
+  }
+};
