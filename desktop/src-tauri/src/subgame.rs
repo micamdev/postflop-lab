@@ -71,6 +71,21 @@ fn last_aggressor_this_street(main: &mut PostFlopGame) -> Option<usize> {
     aggressor
 }
 
+/// Actions from the root to the current node of `main`, chance cards left out (the form of
+/// the added and removed lines). `main` is left where it was.
+fn line_to_node(main: &mut PostFlopGame) -> Vec<Action> {
+    let history = main.history().to_vec();
+    main.back_to_root();
+    let mut line = Vec::new();
+    for &index in &history {
+        if !main.is_chance_node() {
+            line.push(main.available_actions()[index]);
+        }
+        main.play(index);
+    }
+    line
+}
+
 /// `weights` with the hands containing `card` (the river being dealt) set to 0.
 pub fn weights_without_card(hands: &[(Card, Card)], weights: &[f32], card: Card) -> Vec<f32> {
     hands
@@ -147,7 +162,22 @@ pub fn build_subgame(main: &mut PostFlopGame, card: Card) -> Result<Subgame, Str
         merging_threshold: config.merging_threshold,
         ..Default::default()
     };
-    let tree = ActionTree::new(tree_config)?;
+    let mut tree = ActionTree::new(tree_config)?;
+    // Lines the user added or removed in the tree editor that go through this node.
+    let prefix = line_to_node(main);
+    let tails = |lines: &[Vec<Action>]| -> Vec<Vec<Action>> {
+        lines
+            .iter()
+            .filter(|line| line.len() > prefix.len() && line.starts_with(&prefix))
+            .map(|line| line[prefix.len()..].to_vec())
+            .collect()
+    };
+    for line in tails(main.added_lines()) {
+        tree.add_line(&line)?;
+    }
+    for line in tails(main.removed_lines()) {
+        tree.remove_line(&line)?;
+    }
     let game = PostFlopGame::with_config(card_config, tree)?;
 
     let index: [HashMap<(Card, Card), usize>; 2] =
@@ -395,5 +425,59 @@ mod river_card_tests {
         // Every hand left contains the river card: nothing to solve.
         let blocked = weights_without_card(&hands[..1], &[1.0], card("As"));
         assert_eq!(classify([&blocked, &[1.0]]), SubgameKind::Empty);
+    }
+}
+
+#[cfg(test)]
+pub(crate) mod tree_edit_tests {
+    use super::*;
+
+    /// Turn game where the user removed OOP's 100% river bet after turn check-check.
+    pub(crate) fn game_with_removed_river_line() -> PostFlopGame {
+        let card_config = CardConfig {
+            range: [
+                "AA,KK,QQ,AK".parse().unwrap(),
+                "QQ-99,AQ,KQ".parse().unwrap(),
+            ],
+            flop: flop_from_str("Td9d6h").unwrap(),
+            turn: card_from_str("Qc").unwrap(),
+            river: NOT_DEALT,
+        };
+        let bet: BetSizeOptions = ("50%, 100%", "").try_into().unwrap();
+        let tree_config = TreeConfig {
+            initial_state: BoardState::Turn,
+            starting_pot: 60,
+            effective_stack: 300,
+            turn_bet_sizes: [bet.clone(), bet.clone()],
+            river_bet_sizes: [bet.clone(), bet],
+            ..Default::default()
+        };
+        let mut tree = ActionTree::new(tree_config).unwrap();
+        tree.remove_line(&[Action::Check, Action::Check, Action::Bet(60)])
+            .unwrap();
+        let mut game = PostFlopGame::with_config(card_config, tree).unwrap();
+        game.allocate_memory(false);
+        for i in 0..30 {
+            solve_step(&game, i);
+        }
+        finalize(&mut game);
+        game
+    }
+
+    #[test]
+    fn river_subgame_keeps_the_tree_edits() {
+        let mut full = game_with_removed_river_line();
+        let dir = tempfile::tempdir().unwrap();
+        let path = dir.path().join("t.plab");
+        full.set_target_storage_mode(BoardState::Turn).unwrap();
+        save_data_to_file(&full, "", &path, None).unwrap();
+        let mut main: PostFlopGame = load_data_from_file(&path, None).unwrap().0;
+        main.apply_history(&[0, 0]);
+        let card = card_from_str("2s").unwrap();
+        let sub = build_subgame(&mut main, card).unwrap();
+        // The main game is left where it was.
+        assert_eq!(main.history(), &[0, 0]);
+        full.apply_history(&[0, 0, card as usize]);
+        assert_eq!(sub.game.available_actions(), full.available_actions());
     }
 }

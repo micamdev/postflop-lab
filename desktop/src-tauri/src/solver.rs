@@ -329,7 +329,7 @@ pub const ERR_BEYOND_DEPTH: &str = "beyond saved depth";
 
 /// Plays `action`, refusing to deal a card past the saved depth (where `play` would panic and
 /// poison the game's mutex).
-fn play_checked(game: &mut PostFlopGame, action: usize) -> Result<(), String> {
+pub(crate) fn play_checked(game: &mut PostFlopGame, action: usize) -> Result<(), String> {
     // Every case where `play` would panic (which aborts the app inside a command) is an error.
     if game.is_terminal_node() {
         return Err("No action after a terminal node".to_string());
@@ -646,6 +646,9 @@ pub fn game_get_chance_reports(
     // Inside a river subgame there is no chance node left to report on.
     if cache_state.lock().unwrap().active.is_some() {
         return Err(ERR_BEYOND_DEPTH.to_string());
+    }
+    if append.is_empty() {
+        return Err("No card to report on".to_string());
     }
     let history = game.history().to_vec();
     if !game.can_deal_card() {
