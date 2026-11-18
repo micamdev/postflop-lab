@@ -51,3 +51,17 @@ describe("nutAdvantageText", () => {
     expect(nutAdvantageText([NaN, NaN, NaN, NaN], [0, 0, 0, 1])).toBe("—");
   });
 });
+
+describe("best hands advantage (75%+)", () => {
+  test("adds up the 90%+ and 75-90% tranches", () => {
+    expect(
+      nutAdvantageText([0, 0.189, 0.811, 0], [0, 0.153, 0.025, 0.822], 2)
+    ).toBe("OOP (18.9% vs 15.3% at 75%+)");
+    expect(
+      nutAdvantageText([0.05, 0.1, 0.4, 0.45], [0, 0.3, 0.2, 0.5], 2)
+    ).toBe("IP (30.0% vs 15.0% at 75%+)");
+    expect(
+      nutAdvantageText([0, 0.1, 0.4, 0.5], [0, 0.105, 0.4, 0.495], 2)
+    ).toBe("None (OOP 10.0% vs IP 10.5% at 75%+)");
+  });
+});

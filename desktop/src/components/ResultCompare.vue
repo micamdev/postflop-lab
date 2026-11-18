@@ -153,6 +153,10 @@
       Nut advantage:
       <span class="font-semibold text-ink">{{ nutAdvantageText }}</span>
     </div>
+    <div class="text-xs text-muted">
+      Best hands advantage:
+      <span class="font-semibold text-ink">{{ bestHandsAdvantageText }}</span>
+    </div>
   </div>
 </template>
 
@@ -295,6 +299,10 @@ const buckets = computed(() => {
 // Who holds more nutted hands (90%+ equity), or "None".
 const nutAdvantageText = computed(() =>
   nutAdvantage(buckets.value[0], buckets.value[1])
+);
+// The same with the 75%+ hands (GTO Wizard's "Best hands").
+const bestHandsAdvantageText = computed(() =>
+  nutAdvantage(buckets.value[0], buckets.value[1], 2)
 );
 
 const evDigits = computed(() => {
