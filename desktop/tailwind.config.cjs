@@ -18,6 +18,8 @@ module.exports = {
         ink: v("ink"),
         muted: v("muted"),
         accent: v("accent"),
+        "accent-ink": v("accent-ink"),
+        sel: v("sel"),
         cell: v("cell"),
         oop: v("oop"),
         ip: v("ip"),

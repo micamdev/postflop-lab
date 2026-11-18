@@ -11,11 +11,11 @@
       :value="option.value"
       :disabled="option.disabled"
       :class="[
-        'px-3 py-1 rounded-[5px] text-sm font-medium transition-colors select-none',
+        'px-2.5 py-0.5 rounded-[5px] text-xs font-medium transition-colors select-none',
         'disabled:opacity-40 disabled:cursor-default',
         'focus-visible:outline focus-visible:outline-2 focus-visible:outline-accent',
         option.value === modelValue
-          ? 'bg-accent text-white'
+          ? 'bg-sel text-ink'
           : 'text-muted hover:text-ink',
       ]"
     >

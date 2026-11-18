@@ -84,7 +84,7 @@
               🔒 Lock node
               <span
                 v-if="store.locks.length > 0"
-                class="ml-1 px-1.5 rounded-full bg-accent/20 text-accent text-[11px]"
+                class="ml-1 px-1.5 rounded-full bg-accent/20 text-accent-ink text-[11px]"
               >
                 {{ store.locks.length }}
               </span>
