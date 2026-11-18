@@ -1,6 +1,6 @@
 <template>
   <div
-    class="flex flex-col h-full px-3 py-2 gap-2.5 overflow-y-auto text-sm bg-panel border-l border-line tabular-nums"
+    class="flex flex-col h-full px-3 py-2 gap-2.5 overflow-y-auto text-sm bg-panel tabular-nums"
   >
     <div class="flex text-[11px] font-bold tracking-wider">
       <div class="flex items-center">

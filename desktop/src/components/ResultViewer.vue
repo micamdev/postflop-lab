@@ -107,11 +107,13 @@
 
     <div
       v-else-if="store.navView === 'results' && selectedSpot && results"
-      class="flex flex-grow min-h-0"
+      class="flex flex-grow min-h-0 [container-type:size]"
     >
       <template v-if="displayMode === 'basics'">
+        <!-- Square grid; the width left over goes to the summary (at least 380 px). -->
         <ResultBasics
-          style="flex: 4"
+          class="shrink-0"
+          :style="{ width: BASICS_SIDE, height: BASICS_SIDE }"
           :cards="cards"
           :selected-spot="selectedSpot"
           :selected-chance="selectedChance"
@@ -125,7 +127,7 @@
         />
 
         <ResultTable
-          style="flex: 3"
+          class="flex-1 min-w-[380px]"
           table-mode="basics"
           :cards="cards"
           :selected-spot="selectedSpot"
@@ -162,38 +164,68 @@
       </template>
 
       <template v-else-if="displayMode === 'compare'">
-        <ResultBasics
-          style="flex: 1"
-          :cards="cards"
-          :selected-spot="selectedSpot"
-          :selected-chance="selectedChance"
-          :current-board="currentBoard"
-          :total-bet-amount="totalBetAmount"
-          :results="results"
-          :display-options="displayOptions"
-          display-player="oop"
-          :is-compare-mode="true"
-        />
+        <!-- OOP grid | statistics | IP grid, each grid square in its half. -->
+        <div
+          v-for="player in COMPARE_PLAYERS.slice(0, 1)"
+          :key="player"
+          class="flex flex-col flex-1 min-w-0 items-center pt-1"
+        >
+          <div
+            class="h-5 text-[11px] font-bold tracking-wider"
+            :class="player === 'oop' ? 'text-oop' : 'text-ip'"
+          >
+            {{ player.toUpperCase() }}
+          </div>
+          <ResultBasics
+            :style="{ width: COMPARE_SIDE, height: COMPARE_SIDE }"
+            :cards="cards"
+            :selected-spot="selectedSpot"
+            :selected-chance="selectedChance"
+            :current-board="currentBoard"
+            :total-bet-amount="totalBetAmount"
+            :results="results"
+            :display-options="displayOptions"
+            :display-player="player"
+            :is-compare-mode="true"
+          />
+        </div>
 
-        <ResultBasics
-          style="flex: 1"
-          :cards="cards"
-          :selected-spot="selectedSpot"
-          :selected-chance="selectedChance"
-          :current-board="currentBoard"
-          :total-bet-amount="totalBetAmount"
-          :results="results"
-          :display-options="displayOptions"
-          display-player="ip"
-          :is-compare-mode="true"
-        />
+        <div
+          class="flex flex-col w-[240px] shrink-0 bg-panel border-x border-line"
+        >
+          <NodeStrategyCards :items="strategyItems" :no-hands="noHandsAtNode" />
+          <ResultCompare
+            class="flex-1 min-h-0"
+            :selected-spot="selectedSpot"
+            :selected-chance="selectedChance"
+            :results="results"
+          />
+        </div>
 
-        <ResultCompare
-          class="w-[280px] shrink-0"
-          :selected-spot="selectedSpot"
-          :selected-chance="selectedChance"
-          :results="results"
-        />
+        <div
+          v-for="player in COMPARE_PLAYERS.slice(1)"
+          :key="player"
+          class="flex flex-col flex-1 min-w-0 items-center pt-1"
+        >
+          <div
+            class="h-5 text-[11px] font-bold tracking-wider"
+            :class="player === 'oop' ? 'text-oop' : 'text-ip'"
+          >
+            {{ player.toUpperCase() }}
+          </div>
+          <ResultBasics
+            :style="{ width: COMPARE_SIDE, height: COMPARE_SIDE }"
+            :cards="cards"
+            :selected-spot="selectedSpot"
+            :selected-chance="selectedChance"
+            :current-board="currentBoard"
+            :total-bet-amount="totalBetAmount"
+            :results="results"
+            :display-options="displayOptions"
+            :display-player="player"
+            :is-compare-mode="true"
+          />
+        </div>
       </template>
 
       <template v-else-if="displayMode === 'chance' && selectedChance">
@@ -270,6 +302,12 @@ const line = ref<{ history: number[]; label: string }>({
 });
 
 /* Node lock */
+
+/** Side of the square grid in Strategy mode (the summary keeps at least 380 px). */
+const BASICS_SIDE = "min(100cqh, 100cqw - 380px)";
+/** Side of each square grid in Compare mode (label 20 px + padding, statistics 240 px). */
+const COMPARE_SIDE = "min(100cqh - 24px, (100cqw - 240px) / 2)";
+const COMPARE_PLAYERS = ["oop", "ip"] as const;
 
 const isLockEditorOpen = ref(false);
 
