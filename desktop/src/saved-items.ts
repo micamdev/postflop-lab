@@ -280,7 +280,6 @@ export const renamedPath = (
     ? path.map((name, i) => (i === renamed.length - 1 ? newName : name))
     : path;
 
-/** What "Save current" can save from a tab: ranges (OOP or IP) or the tree config. */
 /** A range to save: OOP (0), IP (1) or a bunching fold range (2–5); or the tree. */
 export type SaveTarget = number | "tree";
 

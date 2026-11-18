@@ -233,3 +233,13 @@ describe("sourcesAfterOverwrite", () => {
     ]);
   });
 });
+
+describe("sourcesAfterOverwrite with a fold range", () => {
+  test("saving a fold range over an item marks the range that came from it", () => {
+    const x = { path: ["X"], modified: false };
+    expect(sourcesAfterOverwrite([x, null], 3, ["X"])).toEqual([
+      { path: ["X"], modified: true },
+      null,
+    ]);
+  });
+});

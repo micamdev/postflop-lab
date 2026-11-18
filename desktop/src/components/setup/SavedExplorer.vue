@@ -475,6 +475,14 @@ const confirmEditing = async () => {
     openFolders.value = next;
     selected.value = keyOf([...e.parent, name]);
   } else if (e.kind === "save") {
+    if (
+      e.target !== "tree" &&
+      e.target >= 2 &&
+      store.editedFoldRange !== e.target
+    ) {
+      message.value = "That fold range is no longer being edited.";
+      return;
+    }
     const path = [...e.folder, name];
     const value =
       e.target === "tree"
@@ -500,8 +508,8 @@ const confirmEditing = async () => {
       return;
     }
     if (e.target === "tree") setTreeSource(path, configToValue(config));
-    else if (e.target < 2) {
-      // The other player may have come from the item just overwritten.
+    else {
+      // A range (OOP, IP or fold) may have come from the item just overwritten.
       store.rangeSources = sourcesAfterOverwrite(
         store.rangeSources,
         e.target,

@@ -204,7 +204,13 @@
 <script setup lang="ts">
 import { onUnmounted, ref, watch } from "vue";
 import { useStore, useConfigStore } from "../store";
-import { trimRegex, rangeRegex, cardText, suitTextClasses } from "../utils";
+import {
+  trimRegex,
+  rangeRegex,
+  cardText,
+  suitTextClasses,
+  weightPercent,
+} from "../utils";
 import * as invokes from "../invokes";
 import { useSolverSession } from "../solver-session";
 import { threadsError } from "../solve-settings";
@@ -224,8 +230,10 @@ const numThreads = ref(navigator.hardwareConcurrency || 1);
 
 const editingPlayer = ref(-1);
 // The explorer offers "→ Fold" and "Save current › Fold range" while a fold range is edited.
-watch(editingPlayer, (player) => {
-  store.editedFoldRange = player === -1 ? null : player + 2;
+// Only on the Bunching page: this component stays mounted (hidden) on the other Setup pages.
+watch([editingPlayer, () => store.sideView], ([player, view]) => {
+  store.editedFoldRange =
+    player === -1 || view !== "bunching" ? null : player + 2;
 });
 onUnmounted(() => (store.editedFoldRange = null));
 const rangeTexts = ref(["", "", "", ""]);
@@ -246,7 +254,7 @@ let startTime = 0;
 const onUpdate = async (player: number) => {
   const weights = await invokes.rangeGetWeights(player + 2);
   for (let i = 0; i < 13 * 13; ++i) {
-    store.ranges[player + 2][i] = weights[i] * 100;
+    store.ranges[player + 2][i] = weightPercent(weights[i]);
   }
   isRangeTextError.value[player] = false;
 };
