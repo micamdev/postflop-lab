@@ -24,187 +24,27 @@
       "
       @click="exclusive(() => selectSpot(spot.index, false))"
     >
-      <!-- Root or Chance -->
-      <template v-if="spot.type === 'root' || spot.type === 'chance'">
-        <div
-          :class="
-            'px-1 pt-0.5 pb-1 text-[11px] font-bold tracking-wider text-muted ' +
-            (spot.index === selectedChanceIndex
-              ? ''
-              : isBeyondSkippedChance(spot.index)
-                ? 'opacity-70'
-                : 'group-hover:opacity-100 opacity-70')
-          "
-        >
-          {{ spot.player.toUpperCase() }}
-        </div>
-        <div
-          class="flex flex-col flex-grow px-3 items-center justify-evenly font-semibold"
-        >
-          <div class="relative">
-            <span
-              v-for="card of spotCards(spot)"
-              :key="card.rank + card.suit"
-              :class="
-                'inline-flex items-center justify-center w-6 h-8 mx-px rounded text-sm font-bold ' +
-                card.chipClass
-              "
-            >
-              {{ card.rank }}
-            </span>
-            <div
-              v-if="spot.type === 'chance' && spot.isBeyondDepth"
-              class="text-xs font-normal text-center text-muted whitespace-normal"
-            >
-              {{
-                spot.cards.some((c) => !c.isDead) ? "Pick a river" : "Not saved"
-              }}
-            </div>
-            <div
-              v-if="spot.type === 'chance' && spot.isResolved"
-              class="text-xs font-normal text-center text-muted"
-              title="Re-solved on demand from the ranges at this node: close to, not exactly, the full solution"
-            >
-              re-solved ≈
-            </div>
-            <template
-              v-if="
-                spot.type === 'chance' &&
-                spot.selectedIndex !== -1 &&
-                !spot.isResolved
-              "
-            >
-              <button
-                v-for="arrow in ARROWS"
-                :key="arrow.key"
-                :class="[
-                  'absolute w-6 h-6',
-                  arrow.position,
-                  nextLiveCard(spot, arrow.rankDir, arrow.suitDir) !== -1
-                    ? 'text-muted hover:text-ink'
-                    : 'text-muted/25',
-                ]"
-                @click.stop="dealArrow(spot, arrow.rankDir, arrow.suitDir)"
-              >
-                <component :is="arrow.icon" class="w-full h-full" />
-              </button>
-            </template>
-          </div>
-          <div
-            :class="
-              spot.index === selectedChanceIndex
-                ? ''
-                : isBeyondSkippedChance(spot.index)
-                  ? 'opacity-70'
-                  : 'group-hover:opacity-100 opacity-70'
-            "
-          >
-            <div class="text-xs text-muted tabular-nums">
-              Pot {{ spot.pot }} · {{ spot.stack }}
-            </div>
-          </div>
-        </div>
-
-        <button
-          v-if="
-            spot.index === selectedChanceIndex &&
-            spot.selectedIndex !== -1 &&
-            !isDealing
-          "
-          class="absolute top-1 right-1 text-muted hover:text-ink"
-          @click="deal(spot.selectedIndex)"
-        >
-          <XMarkIcon class="w-5 h-5" />
-        </button>
-      </template>
-
-      <!-- Player -->
-      <template v-if="spot.type === 'player'">
-        <div
-          :class="
-            'px-1 pt-0.5 pb-1 text-[11px] font-bold tracking-wider text-muted group-hover:opacity-100 ' +
-            (spot.index === selectedSpotIndex ? '' : 'opacity-70')
-          "
-        >
-          {{ spot.player.toUpperCase() }}
-        </div>
-        <div class="flex-grow overflow-y-auto">
-          <button
-            v-for="action of spot.actions"
-            :key="action.index"
-            :class="
-              'flex items-center w-full gap-1.5 px-1.5 py-px rounded-md text-sm transition-colors hover:bg-panel2 ' +
-              (action.isSelected ? 'bg-panel2 ' : '')
-            "
-            @click.stop="play(spot.index, action.index)"
-          >
-            <span
-              class="shrink-0 w-2 h-2 rounded-full"
-              :style="{ backgroundColor: action.color }"
-            ></span>
-            <span
-              :class="
-                'pr-0.5 font-medium group-hover:opacity-100 ' +
-                (action.isSelected || spot.index === selectedSpotIndex
-                  ? ''
-                  : 'opacity-70')
-              "
-            >
-              {{ action.name }}
-              {{ action.amount === "0" ? "" : action.amount }}
-            </span>
-            <span
-              v-if="spot.index === selectedSpotIndex && rates != null"
-              :class="
-                'ml-auto pl-2 text-xs text-muted tabular-nums group-hover:opacity-100 ' +
-                (action.isSelected || spot.index === selectedSpotIndex
-                  ? ''
-                  : 'opacity-70')
-              "
-            >
-              {{ (rates[action.index] * 100).toFixed(1) }}%
-            </span>
-          </button>
-        </div>
-      </template>
-
-      <!-- Terminal -->
-      <template v-else-if="spot.type === 'terminal'">
-        <div
-          :class="
-            'px-1 pt-0.5 pb-1 text-[11px] font-bold tracking-wider text-muted group-hover:opacity-100 ' +
-            (spot.index === selectedSpotIndex ? '' : 'opacity-70')
-          "
-        >
-          {{ spot.player.toUpperCase() }}
-        </div>
-        <div
-          :class="
-            'flex flex-col flex-grow items-center justify-evenly text-sm group-hover:opacity-100 ' +
-            (spot.index === selectedSpotIndex ? '' : 'opacity-70')
-          "
-        >
-          <div v-if="spot.equityOop === 0 || spot.equityOop === 1" class="px-3">
-            {{ ["IP", "OOP"][spot.equityOop] }} Wins
-          </div>
-          <div v-else-if="spot.equityOop !== -1" class="px-1.5">
-            <div class="mb-0.5">Equity</div>
-            <div class="flex w-full px-1.5">
-              <span>OOP</span>
-              <span class="ml-auto pl-2">
-                {{ (spot.equityOop * 100).toFixed(1) }}%
-              </span>
-            </div>
-            <div class="flex w-full px-1.5">
-              <span>IP</span>
-              <span class="ml-auto pl-2">
-                {{ ((1 - spot.equityOop) * 100).toFixed(1) }}%
-              </span>
-            </div>
-          </div>
-          <div class="px-3">Pot {{ spot.pot }}</div>
-        </div>
-      </template>
+      <NavCardSpot
+        v-if="spot.type === 'root' || spot.type === 'chance'"
+        :spot="spot"
+        :is-selected-chance="spot.index === selectedChanceIndex"
+        :is-inactive="isBeyondSkippedChance(spot.index)"
+        :is-dealing="isDealing"
+        @deal="deal"
+        @deal-arrow="dealArrow"
+      />
+      <NavPlayerSpot
+        v-else-if="spot.type === 'player'"
+        :spot="spot"
+        :is-selected="spot.index === selectedSpotIndex"
+        :rates="rates"
+        @play="(actionIndex) => play(spot.index, actionIndex)"
+      />
+      <NavTerminalSpot
+        v-else
+        :spot="spot"
+        :is-selected="spot.index === selectedSpotIndex"
+      />
     </div>
 
     <div
@@ -227,9 +67,16 @@
 import { computed, nextTick, onBeforeUnmount, toRefs, ref, watch } from "vue";
 import { listen } from "@tauri-apps/api/event";
 import { useSavedConfigStore, useStore } from "../store";
-import { cardText, average, suitBgClasses } from "../utils";
-import { ALL_IN, actionColor } from "../action-colors";
+import { cardText, average } from "../utils";
 import { nodeStrategy } from "../node-strategy";
+import {
+  boardAt,
+  cardsFromMask,
+  historyOf,
+  lineOf,
+  nextLiveCard,
+  toSpotActions,
+} from "../nav-spots";
 import * as invokes from "../invokes";
 
 import {
@@ -241,37 +88,9 @@ import {
   SpotPlayer,
 } from "../result-types";
 
-import {
-  XMarkIcon,
-  ChevronDownIcon,
-  ChevronLeftIcon,
-  ChevronRightIcon,
-  ChevronUpIcon,
-} from "@heroicons/vue/20/solid";
-
-/** Colour of action `i` of `actions` ("Name:amount"), bets ranked by amount. */
-const colorOf = (actions: string[], i: number, numBetActions: number) => {
-  const name = actions[i].split(":")[0];
-  const hasAllIn = actions[actions.length - 1].split(":")[0] === ALL_IN;
-  const numBets = numBetActions - (hasAllIn ? 1 : 0);
-  return actionColor(name, i - (actions.length - numBetActions), numBets);
-};
-
-/** The actions of a spot ("Name:amount") with their colours. Fold, check and call (amount 0)
- * come first; the others are bets and raises, ranked by amount for their colour. */
-const toSpotActions = (actions: string[]) => {
-  const numBetActions = actions.filter((a) => a.split(":")[1] !== "0").length;
-  return actions.map((action, i) => {
-    const [name, amount] = action.split(":");
-    return {
-      index: i,
-      name,
-      amount,
-      isSelected: false,
-      color: colorOf(actions, i, numBetActions),
-    };
-  });
-};
+import NavCardSpot from "./nav/NavCardSpot.vue";
+import NavPlayerSpot from "./nav/NavPlayerSpot.vue";
+import NavTerminalSpot from "./nav/NavTerminalSpot.vue";
 
 const props = defineProps<{
   isHandlerUpdated: boolean;
@@ -335,21 +154,13 @@ const isSelectedChanceSkipped = computed(() => {
 const isBeyondSkippedChance = (index: number) =>
   isSelectedChanceSkipped.value && index > selectedChanceIndex.value;
 
-const currentBoard = computed(() => {
-  const board = [...config.board];
-  const endIndex = selectedChance.value
-    ? selectedChanceIndex.value
-    : selectedSpotIndex.value;
-  for (let i = 3; i < endIndex; ++i) {
-    const spot = spots.value[i];
-    if (spot.type === "chance") {
-      const card = spot.selectedIndex;
-      if (card !== -1) board.push(card);
-      else return board;
-    }
-  }
-  return board;
-});
+const currentBoard = computed(() =>
+  boardAt(
+    config.board,
+    spots.value,
+    selectedChance.value ? selectedChanceIndex.value : selectedSpotIndex.value
+  )
+);
 
 let selectedSpotIndexTmp = -1;
 let selectedChanceIndexTmp = -1;
@@ -452,27 +263,8 @@ const reopenRiver = (spot: SpotChance) => {
 
 let resolveId = 0;
 
-/** History and readable line of the selected spot (e.g. "OOP Check, IP Bet 30, T♥"). */
-const selectedLine = () => {
-  const path = spots.value.slice(1, selectedSpotIndex.value);
-  const label = path
-    .map((spot) => {
-      if (spot.type === "chance") {
-        if (spot.selectedIndex === -1) return "?";
-        const card = cardText(spot.selectedIndex);
-        return card.rank + card.suit;
-      }
-      if (spot.type !== "player") return "";
-      const action = spot.actions[spot.selectedIndex];
-      const amount = action?.amount === "0" ? "" : ` ${action?.amount}`;
-      return `${spot.player.toUpperCase()} ${action?.name ?? "?"}${amount}`;
-    })
-    .join(", ");
-  return {
-    history: path.map((spot) => spot.selectedIndex),
-    label: label || "Root",
-  };
-};
+/** History and readable line of the selected spot. */
+const selectedLine = () => lineOf(spots.value, selectedSpotIndex.value);
 
 /**
  * Re-solves the river `card` at the selected "Pick a river" spot (past the saved depth), then
@@ -496,7 +288,7 @@ const resolveAndDeal = async (card: number) => {
     return;
   }
   const id = ++resolveId;
-  const history = spots.value.slice(1, spot.index).map((s) => s.selectedIndex);
+  const history = historyOf(spots.value, spot.index);
   const label = cardText(card).rank + cardText(card).suit;
   navError.value = "";
   resolveStatus.value = `Re-solving the river ${label}...`;
@@ -626,9 +418,7 @@ const selectSpotUnsafe = async (
       riverSpot &&
       !(riverSpot.isBeyondDepth && store.solutionDepth !== "turn")
     ) {
-      const history = spots.value
-        .slice(1, riverIndex)
-        .map((spot) => spot.selectedIndex);
+      const history = historyOf(spots.value, riverIndex);
       await invokes.gameApplyHistory(history);
       const possibleCards = await invokes.gamePossibleCards();
       for (let i = 0; i < 52; ++i) {
@@ -650,9 +440,7 @@ const selectSpotUnsafe = async (
       lastSpot.equityOop !== 0 &&
       lastSpot.equityOop !== 1
     ) {
-      const history = spots.value
-        .slice(1, -1)
-        .map((spot) => spot.selectedIndex);
+      const history = historyOf(spots.value, -1);
       await invokes.gameApplyHistory(history);
       const results = await invokes.gameGetResults();
       if (!results.isEmpty) {
@@ -698,9 +486,7 @@ const selectSpotUnsafe = async (
     endIndex = selectedChanceIndexTmp;
   }
 
-  const history = spots.value
-    .slice(1, endIndex)
-    .map((spot) => spot.selectedIndex);
+  const history = historyOf(spots.value, endIndex);
 
   // apply history
   await invokes.gameApplyHistory(history);
@@ -710,9 +496,11 @@ const selectSpotUnsafe = async (
 
   let append: number[] = [];
   if (selectedChanceIndexTmp !== -1) {
-    append = spots.value
-      .slice(selectedChanceIndexTmp, selectedSpotIndexTmp)
-      .map((spot) => spot.selectedIndex);
+    append = historyOf(
+      spots.value,
+      selectedSpotIndexTmp,
+      selectedChanceIndexTmp
+    );
   }
 
   // obtain actions after skipped chances
@@ -859,9 +647,7 @@ const spliceSpotsChance = async (spotIndex: number) => {
   ) {
     // Rivers of a turn save can be re-solved on demand: offer the possible ones.
     // The river can be re-solved only if the turn card is known (not skipped).
-    const riverPrefix = spots.value
-      .slice(1, spotIndex)
-      .map((spot) => spot.selectedIndex);
+    const riverPrefix = historyOf(spots.value, spotIndex);
     const resolvable =
       store.solutionDepth === "turn" &&
       dealing === "river" &&
@@ -878,11 +664,7 @@ const spliceSpotsChance = async (spotIndex: number) => {
       player: dealing,
       selectedIndex: -1,
       prevPlayer: prevSpot.player,
-      cards: Array.from({ length: 52 }, (_, i) => ({
-        card: i,
-        isSelected: false,
-        isDead: !(possible & (1n << BigInt(i))),
-      })),
+      cards: cardsFromMask(possible),
       pot: config.startingPot + 2 * totalBetAmountAppended[0],
       stack: config.effectiveStack - totalBetAmountAppended[0],
       isBeyondDepth: true,
@@ -892,9 +674,7 @@ const spliceSpotsChance = async (spotIndex: number) => {
 
   let append: number[] = [];
   if (selectedChanceIndexTmp !== -1) {
-    append = spots.value
-      .slice(selectedChanceIndexTmp, spotIndex)
-      .map((spot) => spot.selectedIndex);
+    append = historyOf(spots.value, spotIndex, selectedChanceIndexTmp);
   }
 
   let possibleCards = 0n;
@@ -924,11 +704,7 @@ const spliceSpotsChance = async (spotIndex: number) => {
       player: turnSpot ? "river" : "turn",
       selectedIndex: -1,
       prevPlayer: prevSpot.player,
-      cards: Array.from({ length: 52 }, (_, i) => ({
-        card: i,
-        isSelected: false,
-        isDead: !(possibleCards & (1n << BigInt(i))),
-      })),
+      cards: cardsFromMask(possibleCards),
       pot: config.startingPot + 2 * totalBetAmountAppended[0],
       stack: config.effectiveStack - totalBetAmountAppended[0],
     },
@@ -1041,77 +817,8 @@ const dealArrowUnsafe = async (
   await selectSpot(selectedSpotIndex.value, false, true);
 };
 
-/** Next live card from the selected one: same suit by rank (`rankDir`), or same rank by suit
- * (`suitDir`); -1 if none. */
-const nextLiveCard = (spot: SpotChance, rankDir: number, suitDir: number) => {
-  const step = rankDir ? 4 * rankDir : suitDir;
-  const rank = spot.selectedIndex >>> 2;
-  for (
-    let card = spot.selectedIndex + step;
-    0 <= card && card < 52 && (rankDir || card >>> 2 === rank);
-    card += step
-  ) {
-    if (!spot.cards[card].isDead) return card;
-  }
-  return -1;
-};
-
-// The four arrows around a dealt card.
-const ARROWS = [
-  {
-    key: "up",
-    rankDir: 0,
-    suitDir: 1,
-    icon: ChevronUpIcon,
-    position: "-top-[1.375rem] left-1/2 -ml-3",
-  },
-  {
-    key: "left",
-    rankDir: 1,
-    suitDir: 0,
-    icon: ChevronLeftIcon,
-    position: "-left-[1.375rem] top-1/2 -mt-3",
-  },
-  {
-    key: "right",
-    rankDir: -1,
-    suitDir: 0,
-    icon: ChevronRightIcon,
-    position: "-right-[1.375rem] top-1/2 -mt-3",
-  },
-  {
-    key: "down",
-    rankDir: 0,
-    suitDir: -1,
-    icon: ChevronDownIcon,
-    position: "-bottom-[1.375rem] left-1/2 -ml-3",
-  },
-];
-
 watch(dealtCard, async (card) => {
   if (card === -1) return;
   await deal(card);
 });
-
-const chip = (card: number) => ({
-  rank: cardText(card).rank,
-  suit: cardText(card).suit,
-  chipClass: "text-white " + suitBgClasses[card & 3],
-});
-
-const spotCards = (spot: SpotRoot | SpotChance) => {
-  if (spot.type === "root") {
-    return spot.board.map(chip);
-  } else if (spot.selectedIndex === -1) {
-    return [
-      {
-        rank: "?",
-        suit: "",
-        chipClass: "border border-dashed border-line text-muted",
-      },
-    ];
-  } else {
-    return [chip(spot.selectedIndex)];
-  }
-};
 </script>

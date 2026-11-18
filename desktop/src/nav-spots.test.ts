@@ -1,0 +1,131 @@
+import { describe, expect, test } from "vitest";
+import type { Spot, SpotChance, SpotPlayer } from "./result-types";
+import {
+  boardAt,
+  cardsFromMask,
+  historyOf,
+  lineOf,
+  nextLiveCard,
+  toSpotActions,
+} from "./nav-spots";
+
+// Cards: 4 * rank + suit (c d h s); 2c = 0, Th = 34, Ah = 50.
+const chance = (index: number, card: number, dead: number[] = []) =>
+  ({
+    type: "chance",
+    index,
+    player: "turn",
+    selectedIndex: card,
+    prevPlayer: "ip",
+    cards: Array.from({ length: 52 }, (_, i) => ({
+      card: i,
+      isSelected: i === card,
+      isDead: dead.includes(i),
+    })),
+    pot: 0,
+    stack: 0,
+  }) as SpotChance;
+
+const player = (
+  index: number,
+  who: "oop" | "ip",
+  actions: string[],
+  selected: number
+): SpotPlayer => ({
+  type: "player",
+  index,
+  player: who,
+  selectedIndex: selected,
+  actions: toSpotActions(actions),
+});
+
+const spots: Spot[] = [
+  {
+    type: "root",
+    index: 0,
+    player: "flop",
+    selectedIndex: -1,
+    board: [0, 1, 2],
+    pot: 10,
+    stack: 100,
+  },
+  player(1, "oop", ["Check:0", "Bet:5"], 0),
+  player(2, "ip", ["Check:0", "Bet:5"], 1),
+  player(3, "oop", ["Fold:0", "Call:0", "Raise:20"], 1),
+  chance(4, 34),
+  player(5, "oop", ["Check:0", "Bet:10"], -1),
+];
+
+describe("toSpotActions", () => {
+  test("fold, check and call first, bets ranked by amount for their colour", () => {
+    const actions = toSpotActions(["Check:0", "Bet:30", "Bet:60", "Allin:100"]);
+    expect(actions.map((a) => [a.index, a.name, a.amount])).toEqual([
+      [0, "Check", "0"],
+      [1, "Bet", "30"],
+      [2, "Bet", "60"],
+      [3, "Allin", "100"],
+    ]);
+    expect(actions.every((a) => !a.isSelected && a.color)).toBe(true);
+    expect(new Set(actions.map((a) => a.color)).size).toBe(4);
+  });
+});
+
+describe("historyOf", () => {
+  test("the selected index of each spot from the first action", () => {
+    expect(historyOf(spots, 5)).toEqual([0, 1, 1, 34]);
+    expect(historyOf(spots, 3)).toEqual([0, 1]);
+  });
+});
+
+describe("lineOf", () => {
+  test("history and readable line up to a spot", () => {
+    expect(lineOf(spots, 5)).toEqual({
+      history: [0, 1, 1, 34],
+      label: "OOP Check, IP Bet 5, OOP Call, T♥",
+    });
+  });
+
+  test("the root line", () => {
+    expect(lineOf(spots, 1)).toEqual({ history: [], label: "Root" });
+  });
+
+  test("a skipped card reads ?", () => {
+    const skipped = [...spots.slice(0, 4), chance(4, -1)];
+    expect(lineOf(skipped, 5).label).toBe("OOP Check, IP Bet 5, OOP Call, ?");
+  });
+});
+
+describe("boardAt", () => {
+  test("the board plus the cards dealt before a spot", () => {
+    expect(boardAt([0, 1, 2], spots, 5)).toEqual([0, 1, 2, 34]);
+    expect(boardAt([0, 1, 2], spots, 4)).toEqual([0, 1, 2]);
+  });
+
+  test("stops at a skipped card", () => {
+    const skipped = [...spots.slice(0, 4), chance(4, -1)];
+    expect(boardAt([0, 1, 2], skipped, 5)).toEqual([0, 1, 2]);
+  });
+});
+
+describe("cardsFromMask", () => {
+  test("cards whose bit is not set are dead", () => {
+    const cards = cardsFromMask((1n << 0n) | (1n << 51n));
+    expect(cards).toHaveLength(52);
+    expect(cards.filter((c) => !c.isDead).map((c) => c.card)).toEqual([0, 51]);
+    expect(cards.every((c) => !c.isSelected)).toBe(true);
+  });
+});
+
+describe("nextLiveCard", () => {
+  test("by rank in the same suit, skipping dead cards", () => {
+    // Th = 34; Jh = 38 dead, Qh = 42.
+    expect(nextLiveCard(chance(4, 34, [38]), 1, 0)).toBe(42);
+    expect(nextLiveCard(chance(4, 34), -1, 0)).toBe(30);
+  });
+
+  test("by suit within the same rank, -1 past it", () => {
+    expect(nextLiveCard(chance(4, 34), 0, 1)).toBe(35);
+    expect(nextLiveCard(chance(4, 35), 0, 1)).toBe(-1);
+    expect(nextLiveCard(chance(4, 50), 1, 0)).toBe(-1);
+  });
+});
