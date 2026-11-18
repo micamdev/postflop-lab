@@ -28,22 +28,50 @@ pub struct SubgameCache {
     pub current: Vec<usize>,
     /// Incremented by `clear`: a subgame solved for an older main game is not inserted.
     pub generation: u64,
+    /// When each subgame was last inserted or viewed (a tick of `clock`), for eviction.
+    last_used: HashMap<SubgameKey, u64>,
+    clock: u64,
+}
+
+/// Memory held by a subgame, as solved (compressed or not).
+fn subgame_memory(sub: &Subgame) -> u64 {
+    let (uncompressed, compressed) = sub.game.memory_usage();
+    if sub.game.is_compression_enabled() {
+        compressed
+    } else {
+        uncompressed
+    }
 }
 
 impl SubgameCache {
     /// Memory held by the cached subgames (freed when the main game is replaced).
     pub fn memory_usage(&self) -> u64 {
-        self.entries
-            .values()
-            .map(|sub| {
-                let (uncompressed, compressed) = sub.game.memory_usage();
-                if sub.game.is_compression_enabled() {
-                    compressed
-                } else {
-                    uncompressed
-                }
-            })
-            .sum()
+        self.entries.values().map(subgame_memory).sum()
+    }
+
+    /// Marks a subgame as just used.
+    pub fn touch(&mut self, key: &SubgameKey) {
+        self.clock += 1;
+        self.last_used.insert(key.clone(), self.clock);
+    }
+
+    /// Inserts a subgame, then evicts the least recently used ones until the cache holds at
+    /// most `budget` bytes. Neither the new subgame nor the one being viewed is evicted (an
+    /// evicted river is re-solved when picked again).
+    pub fn insert(&mut self, key: SubgameKey, sub: Subgame, budget: u64) {
+        self.touch(&key);
+        self.entries.insert(key.clone(), sub);
+        while self.memory_usage() > budget {
+            let oldest = self
+                .entries
+                .keys()
+                .filter(|k| **k != key && Some(*k) != self.active.as_ref())
+                .min_by_key(|k| self.last_used.get(*k).copied().unwrap_or(0))
+                .cloned();
+            let Some(oldest) = oldest else { break };
+            self.entries.remove(&oldest);
+            self.last_used.remove(&oldest);
+        }
     }
 
     /// Forgets every subgame: the main game changed.
@@ -107,6 +135,7 @@ pub fn apply(
         main.apply_history(&previous);
         return Err(e);
     }
+    cache.touch(&key);
     cache.active = Some(key);
     cache.current = history.to_vec();
     Ok(())
@@ -265,10 +294,51 @@ pub(crate) mod tests {
 
     /// Resolves the river `card` after `prefix` and inserts it in the cache.
     fn resolve(main: &mut PostFlopGame, cache: &mut SubgameCache, prefix: &[usize], card: usize) {
+        resolve_within(main, cache, prefix, card, u64::MAX);
+    }
+
+    /// As `resolve`, the cache keeping at most `budget` bytes.
+    fn resolve_within(
+        main: &mut PostFlopGame,
+        cache: &mut SubgameCache,
+        prefix: &[usize],
+        card: usize,
+        budget: u64,
+    ) {
         main.apply_history(prefix);
         let mut sub = build_subgame(main, card as u8).unwrap();
         solve_subgame(&mut sub, 0.5, 50, false, &AtomicBool::new(false), |_, _| {}).unwrap();
-        cache.entries.insert((prefix.to_vec(), card), sub);
+        cache.insert((prefix.to_vec(), card), sub, budget);
+    }
+
+    #[test]
+    fn the_least_recently_used_river_is_evicted_over_budget() {
+        let mut main = turn_only_game();
+        let mut cache = SubgameCache::default();
+        let [a, b, c] = ["2s", "3s", "4s"].map(|card| card_from_str(card).unwrap() as usize);
+        resolve(&mut main, &mut cache, &[0, 0], a);
+        let one = cache.memory_usage();
+        resolve(&mut main, &mut cache, &[0, 0], b);
+        // Room for two rivers: viewing `a` makes `b` the least recently used.
+        apply(&mut main, &mut cache, &[0, 0, a]).unwrap();
+        apply(&mut main, &mut cache, &[0]).unwrap();
+        resolve_within(&mut main, &mut cache, &[0, 0], c, 2 * one);
+        let mut kept: Vec<usize> = cache.entries.keys().map(|(_, card)| *card).collect();
+        kept.sort();
+        assert_eq!(kept, [a, c]);
+    }
+
+    #[test]
+    fn the_river_being_viewed_is_never_evicted() {
+        let mut main = turn_only_game();
+        let mut cache = SubgameCache::default();
+        let [a, b] = ["2s", "3s"].map(|card| card_from_str(card).unwrap() as usize);
+        resolve(&mut main, &mut cache, &[0, 0], a);
+        apply(&mut main, &mut cache, &[0, 0, a]).unwrap();
+        // No budget at all: only the river being viewed and the new one stay.
+        resolve_within(&mut main, &mut cache, &[0, 0], b, 0);
+        assert_eq!(cache.entries.len(), 2);
+        apply(&mut main, &mut cache, &[0, 0, a, 0]).unwrap();
     }
 
     #[test]
