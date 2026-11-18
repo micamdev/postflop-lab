@@ -5,6 +5,7 @@ import { effectScope, ref, watch } from "vue";
 import { useStore } from "./store";
 import * as invokes from "./invokes";
 import { parseRangeText } from "./range-text";
+import { weightPercent } from "./utils";
 
 type PaintMode = "none" | "enabling" | "disabling";
 
@@ -52,7 +53,7 @@ const createRangeEditing = (player: number) => {
     }
     const weights = await invokes.rangeGetWeights(player);
     for (let i = 0; i < 13 * 13; ++i) {
-      store.ranges[player][i] = weights[i] * 100;
+      store.ranges[player][i] = weightPercent(weights[i]);
     }
     await refresh();
     return true;

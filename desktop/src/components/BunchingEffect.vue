@@ -202,7 +202,7 @@
 </template>
 
 <script setup lang="ts">
-import { ref } from "vue";
+import { onUnmounted, ref, watch } from "vue";
 import { useStore, useConfigStore } from "../store";
 import { trimRegex, rangeRegex, cardText, suitTextClasses } from "../utils";
 import * as invokes from "../invokes";
@@ -223,6 +223,11 @@ const configStore = useConfigStore();
 const numThreads = ref(navigator.hardwareConcurrency || 1);
 
 const editingPlayer = ref(-1);
+// The explorer offers "→ Fold" and "Save current › Fold range" while a fold range is edited.
+watch(editingPlayer, (player) => {
+  store.editedFoldRange = player === -1 ? null : player + 2;
+});
+onUnmounted(() => (store.editedFoldRange = null));
 const rangeTexts = ref(["", "", "", ""]);
 const isRangeTextError = ref([false, false, false, false]);
 const numCombos = ref([0, 0, 0, 0]);

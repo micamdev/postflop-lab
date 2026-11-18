@@ -154,6 +154,13 @@
             <UiButton size="sm" class="!text-ip" @click="useRange(node, 1)">
               → IP
             </UiButton>
+            <UiButton
+              v-if="store.editedFoldRange !== null"
+              size="sm"
+              @click="useRange(node, store.editedFoldRange)"
+            >
+              → Fold
+            </UiButton>
           </template>
           <UiButton v-else size="sm" @click="useTree(node)">Load</UiButton>
         </div>
@@ -207,12 +214,15 @@ import {
   renamedPath,
   rowFor,
   saveTargets,
+  sourcesAfterOverwrite,
+  type SaveTarget,
   toJsonItems,
   visibleRows,
 } from "../../saved-items";
 import { RangeSource, useConfigStore, useStore } from "../../store";
 import { applyConfigValue, configToValue } from "../../tree-config-value";
 import { useRangeEditing } from "../../use-range-editing";
+import { setTreeSource } from "../../tree-source";
 import { useWindowWidth } from "../../use-window-width";
 import * as invokes from "../../invokes";
 import { ask } from "../../library";
@@ -229,7 +239,6 @@ const vFocus = {
 
 const store = useStore();
 const config = useConfigStore();
-const editors = [useRangeEditing(0), useRangeEditing(1)];
 
 const tab = ref<SavedStore>("ranges");
 const rows = ref<(Db.DbItem | Db.DbGroup)[]>([]);
@@ -241,7 +250,7 @@ const message = ref("");
 type Editing =
   | { kind: "rename"; key: string; node: SavedNode }
   | { kind: "newFolder"; parent: string[] }
-  | { kind: "save"; target: 0 | 1 | "tree"; folder: string[] };
+  | { kind: "save"; target: SaveTarget; folder: string[] };
 const editing = ref<Editing | null>(null);
 const nameInput = ref("");
 
@@ -273,20 +282,12 @@ const isOpen = (path: string[]) =>
   query.value.trim() !== "" || openFolders.value.has(keyOf(path));
 const shown = computed(() => visibleRows(filtered.value, isOpen));
 
-let channel = new BroadcastChannel(`item-picker-${tab.value}`);
-const listen = () => {
-  channel.onmessage = () => void reload();
-};
-
 const reload = async () => {
   rows.value = await Db.getArray(tab.value);
 };
 
-/** Reloads and tells the other pickers of this store (bunching editor) to reload too. */
-const changed = async () => {
-  await reload();
-  channel.postMessage({ type: "importJson" });
-};
+/** The saved items changed: show them again. */
+const changed = reload;
 
 const switchTab = async (value: SavedStore) => {
   if (value === tab.value) return;
@@ -294,19 +295,14 @@ const switchTab = async (value: SavedStore) => {
   selected.value = null;
   editing.value = null;
   message.value = "";
-  channel.close();
-  channel = new BroadcastChannel(`item-picker-${value}`);
-  listen();
   await reload();
 };
 
 onMounted(async () => {
-  listen();
   document.addEventListener("mousedown", onOutsideClick);
   await reload();
 });
 onUnmounted(() => {
-  channel.close();
   document.removeEventListener("mousedown", onOutsideClick);
 });
 watch(tab, () => (query.value = ""));
@@ -358,17 +354,19 @@ const onDragStart = (e: DragEvent, node: SavedNode) => {
 };
 
 /* Using saved items */
-const useRange = async (node: SavedNode, player: 0 | 1) => {
+/** Loads a saved range into OOP (0), IP (1) or the fold range being edited (2–5). */
+const useRange = async (node: SavedNode, player: number) => {
   if (node.kind !== "item") return;
-  const ok = await editors[player].loadText(String(node.value), node.path);
-  message.value = ok ? "" : editors[player].error.value;
+  const editor = useRangeEditing(player);
+  const ok = await editor.loadText(String(node.value), node.path);
+  message.value = ok ? "" : editor.error.value;
   if (ok && isNarrow.value) isExpanded.value = false;
 };
 
 const useTree = (node: SavedNode) => {
   if (node.kind !== "item") return;
   applyConfigValue(config, node.value);
-  store.treeSource = { path: node.path, modified: false };
+  setTreeSource(node.path, configToValue(config));
   if (isNarrow.value) isExpanded.value = false;
 };
 
@@ -400,7 +398,7 @@ const startNewFolder = () => {
   message.value = "";
 };
 
-const startSave = (target: 0 | 1 | "tree") => {
+const startSave = (target: SaveTarget) => {
   const folder = targetFolder();
   if (folder.length >= MAX_DEPTH) {
     message.value = "Select a folder that is not this deep.";
@@ -408,7 +406,11 @@ const startSave = (target: 0 | 1 | "tree") => {
   }
   editing.value = { kind: "save", target, folder };
   const source =
-    target === "tree" ? store.treeSource : store.rangeSources[target];
+    target === "tree"
+      ? store.treeSource
+      : target < 2
+        ? store.rangeSources[target]
+        : null;
   nameInput.value = source ? source.path[source.path.length - 1] : "";
   message.value = "";
 };
@@ -431,7 +433,13 @@ const editingLabel = computed(() => {
   const place = where.length > 0 ? ` in ${where.join(" › ")}` : "";
   if (e.kind === "newFolder") return `New folder${place}`;
   const what =
-    e.target === "tree" ? "tree" : e.target === 0 ? "OOP range" : "IP range";
+    e.target === "tree"
+      ? "tree"
+      : e.target === 0
+        ? "OOP range"
+        : e.target === 1
+          ? "IP range"
+          : "fold range";
   return `Save the ${what}${place}`;
 });
 
@@ -491,9 +499,15 @@ const confirmEditing = async () => {
       message.value = "It could not be saved.";
       return;
     }
-    const source = { path, modified: false };
-    if (e.target === "tree") store.treeSource = source;
-    else store.rangeSources[e.target] = source;
+    if (e.target === "tree") setTreeSource(path, configToValue(config));
+    else if (e.target < 2) {
+      // The other player may have come from the item just overwritten.
+      store.rangeSources = sourcesAfterOverwrite(
+        store.rangeSources,
+        e.target,
+        path
+      ) as typeof store.rangeSources;
+    }
     selected.value = keyOf(path);
   } else {
     const node = e.node;
@@ -580,7 +594,7 @@ const rowMenu = (node: SavedNode) => [
 
 // Each tab saves its own kind of item, into the folder selected in that tab.
 const saveMenu = computed(() =>
-  saveTargets(tab.value).map(({ label, target }) => ({
+  saveTargets(tab.value, store.editedFoldRange).map(({ label, target }) => ({
     label,
     onSelect: () => startSave(target),
   }))

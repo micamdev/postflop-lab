@@ -85,3 +85,13 @@ describe("shared editing state", () => {
     expect(useRangeEditing(1)).not.toBe(fromPanel);
   });
 });
+
+describe("weights read from the engine", () => {
+  test("are exact percentages (f32 0.7 is 70, not 69.9999988)", async () => {
+    mocked.rangeGetWeights.mockResolvedValue(
+      Array.from({ length: 169 }, (_, i) => (i === 0 ? Math.fround(0.7) : 0))
+    );
+    await useRangeEditing(0).loadText("AA:0.7");
+    expect(useStore().ranges[0][0]).toBe(70);
+  });
+});

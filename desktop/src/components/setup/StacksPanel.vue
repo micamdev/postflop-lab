@@ -8,7 +8,6 @@
           min="1"
           class="ui-input w-full"
           :disabled="locked"
-          @input="markTreeModified"
         />
       </UiField>
       <UiField label="Stack">
@@ -18,7 +17,6 @@
           min="1"
           class="ui-input w-full"
           :disabled="locked"
-          @input="markTreeModified"
         />
       </UiField>
       <UiField label="SPR">
@@ -30,13 +28,12 @@
 
 <script setup lang="ts">
 import { computed } from "vue";
-import { useConfigStore, useStore } from "../../store";
+import { useConfigStore } from "../../store";
 import UiField from "../ui/UiField.vue";
 import UiPanel from "../ui/UiPanel.vue";
 import { hasManualEdits } from "../../tree-config-value";
 
 const config = useConfigStore();
-const store = useStore();
 
 const spr = computed(() =>
   config.startingPot > 0
@@ -45,8 +42,4 @@ const spr = computed(() =>
 );
 
 const locked = computed(() => hasManualEdits(config));
-
-const markTreeModified = () => {
-  if (store.treeSource) store.treeSource.modified = true;
-};
 </script>

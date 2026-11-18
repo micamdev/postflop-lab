@@ -21,10 +21,6 @@ const MAX_ITERATIONS: u32 = 1000;
 #[derive(Default)]
 pub struct SubgameControl(Mutex<Option<Arc<AtomicBool>>>);
 
-fn gb(bytes: u64) -> String {
-    format!("{:.2} GB", bytes as f64 / (1u64 << 30) as f64)
-}
-
 /// Builds and solves the river subgame for `card` at `history` (a river chance node past the
 /// saved depth) and inserts it in the cache. Neither lock is held while solving.
 #[allow(clippy::too_many_arguments)]
@@ -69,8 +65,8 @@ pub fn resolve_into_cache(
     } else {
         return Err(format!(
             "Not enough memory to re-solve this river: {} needed, {} available",
-            gb(compressed),
-            gb(available_memory)
+            crate::gb(compressed),
+            crate::gb(available_memory)
         ));
     };
 

@@ -135,6 +135,11 @@ fn os_name() -> String {
     "linux".to_string()
 }
 
+/// A memory size in gigabytes, for messages ("1.25 GB").
+pub fn gb(bytes: u64) -> String {
+    format!("{:.2} GB", bytes as f64 / (1u64 << 30) as f64)
+}
+
 /// Returns `(available, total)` memory in bytes, or `(0, 0)` if it cannot be read
 /// (sysinfo >= 0.40 can fail; a panic would abort the whole app in release).
 #[tauri::command]

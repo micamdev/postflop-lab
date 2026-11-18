@@ -34,6 +34,7 @@
 </template>
 
 <script setup lang="ts">
+import { trackTreeModified } from "../tree-source";
 import { useStore } from "../store";
 import { useSolverSession } from "../solver-session";
 
@@ -44,4 +45,6 @@ import ResultViewer from "./ResultViewer.vue";
 
 const store = useStore();
 const session = useSolverSession();
+// Marks the saved tree "modified" on any setup edit, whichever page made it.
+trackTreeModified();
 </script>
