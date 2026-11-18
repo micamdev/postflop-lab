@@ -30,9 +30,9 @@
     v-else
     :class="[
       'flex flex-col h-full',
-      lockResolve.blocksResults ? 'pointer-events-none opacity-60' : '',
+      lockResolve.isBusy ? 'pointer-events-none opacity-60' : '',
     ]"
-    :inert="lockResolve.blocksResults"
+    :inert="lockResolve.isBusy"
   >
     <ResultNav
       :is-handler-updated="isHandlerUpdated"

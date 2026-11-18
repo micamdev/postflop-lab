@@ -13,16 +13,18 @@ type Line = { history: number[]; label: string };
 
 export const useLockResolve = defineStore("lockResolve", () => {
   const store = useStore();
+  // While the tree is rebuilt with the locks: no click may reach the game.
   const isBusy = ref(false);
   const error = ref("");
   /** Line to come back to once the save dialog opened by "Save first" closes. */
   let waitingLine: Line | null = null;
 
-  /** While the tree is rebuilt with the locks, no click may reach the game. */
-  const blocksResults = computed(() => isBusy.value);
+  /** The lock editor is storing a lock: the lock list is about to change. */
+  const isCapturing = ref(false);
 
   /** Why a re-solve with locks cannot start now, or "" (shared by both buttons). */
   const disabledReason = computed(() => {
+    if (isCapturing.value) return "A lock is being saved.";
     if (store.isLibraryBusy && !isBusy.value) return "The library is busy.";
     if (store.isBunchingEnabled && store.bunchingFlop.length > 0) {
       return "Locks are not available with the bunching effect.";
@@ -100,7 +102,7 @@ export const useLockResolve = defineStore("lockResolve", () => {
   return {
     isBusy,
     error,
-    blocksResults,
+    isCapturing,
     disabledReason,
     start,
     onSaveDialogClosed,

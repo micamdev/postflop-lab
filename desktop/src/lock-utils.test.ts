@@ -52,3 +52,29 @@ describe("hasPendingLocks", () => {
     expect(hasPendingLocks([lock([0], { AsAh: [0, 1] })], [a])).toBe(true);
   });
 });
+
+describe("mirror lines with several dealt cards", () => {
+  // Turn Kc (44) then river 5c (12), versus turn Ks (47) then river 5h (14): the turn swaps
+  // clubs and spades, then the river swaps (in that frame) spades and hearts.
+  test("composes the suit swaps of the turn and the river", () => {
+    const edits = { AcQc: [1, 0], AhQh: [0, 1] };
+    expect(
+      mirrorEdits(edits, [0, 0, 44, 0, 0, 12], [0, 0, 47, 0, 0, 14])
+    ).toEqual({
+      AhQh: [1, 0],
+      AsQs: [0, 1],
+    });
+  });
+
+  test("a lock captured again from the mirror line is not a change", () => {
+    const fromKc = {
+      ...lock([0, 0, 44, 0], { AcQc: [1, 0] }),
+      history: [0, 0, 44, 0],
+    };
+    const fromKs = {
+      ...lock([0, 0, 44, 0], { AsQs: [1, 0] }),
+      history: [0, 0, 47, 0],
+    };
+    expect(hasPendingLocks([fromKs], [fromKc])).toBe(false);
+  });
+});

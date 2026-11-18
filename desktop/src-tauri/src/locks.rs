@@ -39,8 +39,8 @@ fn swap_suits(card: usize, a: usize, b: usize) -> usize {
     }
 }
 
-/// The identity of the node reached by `history`: the turn card is replaced by its
-/// representative and the suits of later cards are swapped the same way.
+/// The identity of the node reached by `history`: each dealt card (turn and river) is replaced by
+/// its representative in the stored tree, so mirror lines share one key.
 pub fn canonical_history(game: &mut PostFlopGame, history: &[usize]) -> Result<Vec<usize>, String> {
     let saved = game.history().to_vec();
     game.back_to_root();
@@ -51,11 +51,11 @@ pub fn canonical_history(game: &mut PostFlopGame, history: &[usize]) -> Result<V
         if game.is_chance_node() {
             let is_turn = game.current_board().len() == 3;
             let mut card = action;
-            if is_turn && action < 52 {
-                match game.turn_representative(action as Card) {
+            if action < 52 && game.can_deal_card() {
+                match game.chance_representative(action as Card) {
                     Ok(rep) => {
                         let rep = rep as usize;
-                        if rep != action {
+                        if is_turn && rep != action {
                             swap = Some((action & 3, rep & 3));
                         }
                         card = rep;
@@ -428,5 +428,53 @@ pub(crate) mod tests {
             broken.hands.insert(last.clone(), freqs.clone());
             assert!(apply_locks(&mut other, &[broken]).is_err(), "{freqs:?}");
         }
+    }
+}
+
+#[cfg(test)]
+mod river_mirror_tests {
+    use super::*;
+
+    /// Flop Ks7c2s with suitless ranges: rivers of the same rank and suit class are mirrors.
+    fn game() -> PostFlopGame {
+        let card_config = CardConfig {
+            range: ["AA,KK,QQ,33".parse().unwrap(), "JJ,TT,99,44".parse().unwrap()],
+            flop: flop_from_str("Ks7c2s").unwrap(),
+            ..Default::default()
+        };
+        let bet: BetSizeOptions = ("50%", "").try_into().unwrap();
+        let tree_config = TreeConfig {
+            starting_pot: 60,
+            effective_stack: 300,
+            river_bet_sizes: [bet.clone(), bet],
+            ..Default::default()
+        };
+        let tree = ActionTree::new(tree_config).unwrap();
+        let mut game = PostFlopGame::with_config(card_config, tree).unwrap();
+        game.allocate_memory(false);
+        for i in 0..20 {
+            solve_step(&game, i);
+        }
+        finalize(&mut game);
+        game
+    }
+
+    #[test]
+    fn mirror_rivers_share_one_lock() {
+        let mut game = game();
+        let a_s = card_from_str("As").unwrap() as usize;
+        let five_h = card_from_str("5h").unwrap() as usize;
+        let five_d = card_from_str("5d").unwrap() as usize;
+        let on_h = [0, 0, a_s, 0, 0, five_h];
+        let on_d = [0, 0, a_s, 0, 0, five_d];
+        let check = BTreeMap::from([("QsQc".to_string(), vec![1.0, 0.0])]);
+        let bet = BTreeMap::from([("QsQc".to_string(), vec![0.0, 1.0])]);
+        let a = capture_lock(&mut game, &on_h, &check).unwrap();
+        let b = capture_lock(&mut game, &on_d, &bet).unwrap();
+        // The engine holds one node for both rivers: one key, the second lock replaces the first.
+        assert_eq!(a.key, b.key);
+        let mut locks = vec![a];
+        merge_lock(&mut locks, b);
+        assert_eq!(locks.len(), 1);
     }
 }
