@@ -37,7 +37,7 @@ pub fn resolve_into_cache(
 ) -> Result<SubgameKind, String> {
     let key = (history.to_vec(), card);
     let generation = {
-        let cache = cache.lock().unwrap();
+        let cache = crate::guard::lock(cache);
         if let Some(sub) = cache.entries.get(&key) {
             return Ok(sub.kind);
         }
@@ -45,7 +45,7 @@ pub fn resolve_into_cache(
     };
 
     let (mut sub, root_pot) = {
-        let mut game = main.lock().unwrap();
+        let mut game = crate::guard::lock_or_reset(main);
         let saved = game.history().to_vec();
         apply_history_checked(&mut game, history)?;
         let built = build_subgame(&mut game, card as Card);
@@ -84,7 +84,7 @@ pub fn resolve_into_cache(
         )
     })?;
 
-    let mut cache = cache.lock().unwrap();
+    let mut cache = crate::guard::lock(cache);
     if cache.generation != generation {
         return Err(ERR_STALE.to_string());
     }
@@ -115,45 +115,47 @@ pub fn game_resolve_subgame(
     card: usize,
     reached_exploitability: Option<f32>,
 ) -> Result<String, String> {
-    let cancel = Arc::new(AtomicBool::new(false));
-    if let Some(previous) = control.0.lock().unwrap().replace(cancel.clone()) {
-        previous.store(true, Ordering::Relaxed);
-    }
-    let (available, _) = crate::memory();
-    // Cloned so that the thread setting can change (and the main solve run) meanwhile.
-    let pool = pool_state.lock().unwrap().clone();
-    let mut last_emit = Instant::now();
-    let kind = resolve_into_cache(
-        &game_state,
-        &cache_state,
-        &history,
-        card,
-        reached_exploitability,
-        &cancel,
-        available,
-        &pool,
-        |iteration, exploitability| {
-            if last_emit.elapsed() >= Duration::from_millis(100) {
-                last_emit = Instant::now();
-                let progress = SubgameProgress {
-                    iteration,
-                    exploitability,
-                };
-                let _ = app.emit("subgame-progress", progress);
-            }
-        },
-    )?;
-    Ok(match kind {
-        SubgameKind::Solve => "solve",
-        SubgameKind::Empty => "empty",
-    }
-    .to_string())
+    crate::guard::guard(move || {
+        let cancel = Arc::new(AtomicBool::new(false));
+        if let Some(previous) = crate::guard::lock(&control.0).replace(cancel.clone()) {
+            previous.store(true, Ordering::Relaxed);
+        }
+        let (available, _) = crate::memory();
+        // Cloned so that the thread setting can change (and the main solve run) meanwhile.
+        let pool = crate::guard::lock(&pool_state).clone();
+        let mut last_emit = Instant::now();
+        let kind = resolve_into_cache(
+            &game_state,
+            &cache_state,
+            &history,
+            card,
+            reached_exploitability,
+            &cancel,
+            available,
+            &pool,
+            |iteration, exploitability| {
+                if last_emit.elapsed() >= Duration::from_millis(100) {
+                    last_emit = Instant::now();
+                    let progress = SubgameProgress {
+                        iteration,
+                        exploitability,
+                    };
+                    let _ = app.emit("subgame-progress", progress);
+                }
+            },
+        )?;
+        Ok(match kind {
+            SubgameKind::Solve => "solve",
+            SubgameKind::Empty => "empty",
+        }
+        .to_string())
+    })
 }
 
 /// Cancels the re-solve in progress, if any.
 #[tauri::command]
 pub fn game_cancel_subgame(control: tauri::State<SubgameControl>) {
-    if let Some(cancel) = control.0.lock().unwrap().as_ref() {
+    if let Some(cancel) = crate::guard::lock(&control.0).as_ref() {
         cancel.store(true, Ordering::Relaxed);
     }
 }
@@ -192,7 +194,7 @@ mod tests {
             .entries
             .contains_key(&(vec![0, 0], river())));
         // The main game is back where it was.
-        assert_eq!(main.lock().unwrap().history(), &[] as &[usize]);
+        assert_eq!(crate::guard::lock_or_reset(&main).history(), &[] as &[usize]);
     }
 
     #[test]
@@ -213,7 +215,7 @@ mod tests {
         )
         .unwrap_err();
         assert_eq!(err, "cancelled");
-        assert!(cache.lock().unwrap().entries.is_empty());
+        assert!(crate::guard::lock(&cache).entries.is_empty());
     }
 
     #[test]
@@ -232,12 +234,12 @@ mod tests {
             u64::MAX,
             &rayon::ThreadPoolBuilder::new().build().unwrap(),
             |_, _| {
-                cache.lock().unwrap().clear();
+                crate::guard::lock(&cache).clear();
             },
         )
         .unwrap_err();
         assert_eq!(err, ERR_STALE);
-        assert!(cache.lock().unwrap().entries.is_empty());
+        assert!(crate::guard::lock(&cache).entries.is_empty());
     }
 
     #[test]
@@ -265,7 +267,7 @@ mod tests {
         assert!(!threads.is_empty());
         assert!(threads.iter().all(|&n| n == 1), "{threads:?}");
         // The cache counts the memory of its subgames (freed before a load).
-        assert!(cache.lock().unwrap().memory_usage() > 0);
+        assert!(crate::guard::lock(&cache).memory_usage() > 0);
         assert_eq!(SubgameCache::default().memory_usage(), 0);
     }
 

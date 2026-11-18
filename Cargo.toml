@@ -8,7 +8,9 @@ rust-version = "1.100"
 
 [profile.release]
 codegen-units = 1
-panic = "abort"
+# Unwind (not abort): a panic inside a command becomes an error instead of closing the app
+# (guard.rs, issue #38). No measurable cost on the solver (reference spot, 500 iterations).
+panic = "unwind"
 strip = true
 
 # The solver is unusably slow unoptimized: optimize it (and its hot

@@ -96,6 +96,8 @@ export const useStore = defineStore("app", {
     returnLine: null as number[] | null,
     /** Engine index (2–5) of the bunching fold range being edited, or null. */
     editedFoldRange: null as number | null,
+    /** An internal error to show the user (see internal-error.ts), or "". */
+    appError: "",
     isSolutionSaved: false,
     /** A library operation (load) holds the game: solver controls are locked. */
     isLibraryBusy: false,

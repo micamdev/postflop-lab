@@ -7,19 +7,19 @@ pub struct RangeManager(pub [Range; 6]);
 
 #[tauri::command]
 pub fn range_num_combos(range_state: tauri::State<Mutex<RangeManager>>, player: usize) -> f64 {
-    let range = &(range_state.lock().unwrap().0)[player];
+    let range = &(crate::guard::lock(&range_state).0)[player];
     range.raw_data().iter().fold(0.0, |acc, &x| acc + x as f64)
 }
 
 #[tauri::command]
 pub fn range_clear(range_state: tauri::State<Mutex<RangeManager>>, player: usize) {
-    let range = &mut (range_state.lock().unwrap().0)[player];
+    let range = &mut (crate::guard::lock(&range_state).0)[player];
     range.clear();
 }
 
 #[tauri::command]
 pub fn range_invert(range_state: tauri::State<Mutex<RangeManager>>, player: usize) {
-    let range = &mut (range_state.lock().unwrap().0)[player];
+    let range = &mut (crate::guard::lock(&range_state).0)[player];
     range.invert();
 }
 
@@ -31,7 +31,7 @@ pub fn range_update(
     col: u8,
     weight: f32,
 ) {
-    let range = &mut (range_state.lock().unwrap().0)[player];
+    let range = &mut (crate::guard::lock(&range_state).0)[player];
     let rank1 = 13 - row;
     let rank2 = 13 - col;
     match row.cmp(&col) {
@@ -47,7 +47,7 @@ pub fn range_from_string(
     player: usize,
     str: String,
 ) -> Option<String> {
-    let range = &mut (range_state.lock().unwrap().0)[player];
+    let range = &mut (crate::guard::lock(&range_state).0)[player];
     let result = Range::from_sanitized_str(str.as_str());
     if let Ok(unwrap) = result {
         *range = unwrap;
@@ -59,7 +59,7 @@ pub fn range_from_string(
 
 #[tauri::command]
 pub fn range_to_string(range_state: tauri::State<Mutex<RangeManager>>, player: usize) -> String {
-    let range = &(range_state.lock().unwrap().0)[player];
+    let range = &(crate::guard::lock(&range_state).0)[player];
     range.to_string()
 }
 
@@ -68,7 +68,7 @@ pub fn range_get_weights(
     range_state: tauri::State<Mutex<RangeManager>>,
     player: usize,
 ) -> Vec<f32> {
-    let range = &(range_state.lock().unwrap().0)[player];
+    let range = &(crate::guard::lock(&range_state).0)[player];
     let mut weights = vec![0.0; 13 * 13];
 
     for row in 0..13 {
@@ -88,6 +88,6 @@ pub fn range_get_weights(
 
 #[tauri::command]
 pub fn range_raw_data(range_state: tauri::State<Mutex<RangeManager>>, player: usize) -> Vec<f32> {
-    let range = &(range_state.lock().unwrap().0)[player];
+    let range = &(crate::guard::lock(&range_state).0)[player];
     range.raw_data().to_vec()
 }
