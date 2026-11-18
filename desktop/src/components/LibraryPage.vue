@@ -140,15 +140,22 @@
 </template>
 
 <script setup lang="ts">
-import { computed, onMounted, ref, watch } from "vue";
+import { computed, onMounted, reactive, ref, watch } from "vue";
 import { open, save } from "@tauri-apps/plugin-dialog";
 import { useStore } from "../store";
 import { cardText, suitBgClasses } from "../utils";
-import { SortKey, filterEntries, sortEntries } from "../library-list";
+import {
+  FailedLoads,
+  SortKey,
+  filterEntries,
+  sortEntries,
+  withFailedLoads,
+} from "../library-list";
 import UiButton from "./ui/UiButton.vue";
 import UiMenu from "./ui/UiMenu.vue";
 import * as invokes from "../invokes";
 import {
+  DAMAGED_FILE,
   ask,
   deleteSolution,
   depthLabel,
@@ -161,6 +168,7 @@ import {
 const store = useStore();
 
 const entries = ref<invokes.LibraryEntry[]>([]);
+const failedLoads: FailedLoads = reactive(new Map());
 const errorText = ref("");
 const busyText = ref("");
 const renaming = ref<string | null>(null);
@@ -186,7 +194,7 @@ const sortKey = ref<SortKey>("date");
 const descending = ref(true);
 const shown = computed(() =>
   sortEntries(
-    filterEntries(entries.value, query.value),
+    filterEntries(withFailedLoads(entries.value, failedLoads), query.value),
     sortKey.value,
     descending.value
   )
@@ -205,13 +213,13 @@ const sortBy = (key: SortKey) => {
 const onRowClick = (entry: invokes.LibraryEntry) => {
   if (!entry.meta || store.isLibraryBusy || renaming.value === entry.name)
     return;
-  void load(entry.name);
+  void load(entry);
 };
 
 const rowMenu = (entry: invokes.LibraryEntry) => [
   ...(entry.meta
     ? [
-        { label: "Open", onSelect: () => void load(entry.name) },
+        { label: "Open", onSelect: () => void load(entry) },
         { label: "Rename", onSelect: () => startRename(entry.name) },
         { label: "Export…", onSelect: () => void exportFile(entry.name) },
       ]
@@ -256,12 +264,19 @@ const exploitabilityText = (meta: invokes.SolutionMeta) => {
   return meta.exploitability.toFixed(2) + percent;
 };
 
-const load = async (name: string) => {
+const load = async (entry: invokes.LibraryEntry) => {
   errorText.value = "";
-  busyText.value = `Loading "${name}"...`;
-  const error = await loadSolution(name);
+  busyText.value = `Loading "${entry.name}"...`;
+  const error = await loadSolution(entry.name);
   busyText.value = "";
-  if (error) errorText.value = error;
+  if (!error) return;
+  errorText.value = error;
+  if (error.startsWith(DAMAGED_FILE)) {
+    failedLoads.set(entry.name, {
+      size: entry.file_size,
+      error: error.slice(DAMAGED_FILE.length + 2),
+    });
+  }
 };
 
 const startRename = (name: string) => {

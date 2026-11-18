@@ -69,3 +69,22 @@ export const filterEntries = (
       (entry.meta !== null && fold(boardText(entry.meta)).includes(q))
   );
 };
+
+/** Files whose body failed to load, by name, with their size then (and the error). */
+export type FailedLoads = Map<string, { size: number; error: string }>;
+
+/**
+ * Entries with each file that failed to load shown as unreadable. The listing only reads the
+ * header, so a file truncated in its body looks fine until loaded. A file saved again under
+ * that name (another size) is listed normally.
+ */
+export const withFailedLoads = (
+  entries: LibraryEntry[],
+  failed: FailedLoads
+): LibraryEntry[] =>
+  entries.map((entry) => {
+    const failure = failed.get(entry.name);
+    return failure && failure.size === entry.file_size
+      ? { ...entry, meta: null, error: failure.error }
+      : entry;
+  });

@@ -1,6 +1,6 @@
 import { describe, expect, test } from "vitest";
 import type { LibraryEntry, SolutionMeta } from "./invokes";
-import { filterEntries, sortEntries } from "./library-list";
+import { filterEntries, sortEntries, withFailedLoads } from "./library-list";
 
 // Cards: 4 * rank + suit (c d h s); Jh = 38, 9d = 29, 4c = 8, As = 51.
 const entry = (
@@ -100,5 +100,19 @@ describe("filterEntries", () => {
   test("accents are ignored", () => {
     const e = entry("Équilibre", { created_at: 1 });
     expect(names(filterEntries([e], "equi"))).toEqual(["Équilibre"]);
+  });
+});
+
+describe("withFailedLoads", () => {
+  test("a file that failed to load is listed as unreadable", () => {
+    const failed = new Map([["Spot 10", { size: 50, error: "truncated" }]]);
+    const [first, second] = withFailedLoads([a, b], failed);
+    expect(first).toEqual({ ...a, meta: null, error: "truncated" });
+    expect(second).toBe(b);
+  });
+
+  test("a file saved again under that name is listed normally", () => {
+    const failed = new Map([["Spot 10", { size: 999, error: "truncated" }]]);
+    expect(withFailedLoads([a], failed)).toEqual([a]);
   });
 });

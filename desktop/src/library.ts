@@ -97,6 +97,10 @@ export const loadSolution = async (name: string): Promise<string | null> => {
   }
 };
 
+/** Start of the error of a load that failed while reading the file's body. */
+export const DAMAGED_FILE =
+  "The solution could not be read (the file may be damaged)";
+
 /** A load is in progress (set before its first await, unlike `isLibraryBusy`). */
 let isLoading = false;
 
@@ -128,8 +132,7 @@ const replaceWithSolution = async (name: string): Promise<string | null> => {
       store.treeResetCount++;
       setSolutionLocks([]);
       return (
-        "The solution could not be read (the file may be damaged): " +
-        message.slice(invokes.ERR_GAME_FREED.length + 2)
+        DAMAGED_FILE + ": " + message.slice(invokes.ERR_GAME_FREED.length + 2)
       );
     }
     // Refused before the game was touched: restore the previous state and results view.
