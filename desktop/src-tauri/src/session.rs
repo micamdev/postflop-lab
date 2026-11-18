@@ -31,6 +31,21 @@ pub struct SubgameCache {
 }
 
 impl SubgameCache {
+    /// Memory held by the cached subgames (freed when the main game is replaced).
+    pub fn memory_usage(&self) -> u64 {
+        self.entries
+            .values()
+            .map(|sub| {
+                let (uncompressed, compressed) = sub.game.memory_usage();
+                if sub.game.is_compression_enabled() {
+                    compressed
+                } else {
+                    uncompressed
+                }
+            })
+            .sum()
+    }
+
     /// Forgets every subgame: the main game changed.
     pub fn clear(&mut self) {
         let generation = self.generation + 1;

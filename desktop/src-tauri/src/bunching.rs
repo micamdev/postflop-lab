@@ -36,7 +36,7 @@ pub fn bunching_clear(bunching_state: tauri::State<Mutex<Option<BunchingData>>>)
 #[tauri::command(async)]
 pub fn bunching_progress(
     bunching_state: tauri::State<Mutex<Option<BunchingData>>>,
-    pool_state: tauri::State<Mutex<ThreadPool>>,
+    pool_state: tauri::State<Mutex<std::sync::Arc<ThreadPool>>>,
 ) -> [u8; 2] {
     let mut bunching_data = bunching_state.lock().unwrap();
     let bunching_data = bunching_data.as_mut().unwrap();

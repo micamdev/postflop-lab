@@ -297,7 +297,7 @@ pub fn game_set_bunching(
 #[tauri::command(async)]
 pub fn game_solve_step(
     game_state: tauri::State<Mutex<PostFlopGame>>,
-    pool_state: tauri::State<Mutex<ThreadPool>>,
+    pool_state: tauri::State<Mutex<std::sync::Arc<ThreadPool>>>,
     current_iteration: u32,
 ) {
     let game = game_state.lock().unwrap();
@@ -308,7 +308,7 @@ pub fn game_solve_step(
 #[tauri::command(async)]
 pub fn game_exploitability(
     game_state: tauri::State<Mutex<PostFlopGame>>,
-    pool_state: tauri::State<Mutex<ThreadPool>>,
+    pool_state: tauri::State<Mutex<std::sync::Arc<ThreadPool>>>,
 ) -> f32 {
     let game = game_state.lock().unwrap();
     let pool = pool_state.lock().unwrap();
@@ -318,7 +318,7 @@ pub fn game_exploitability(
 #[tauri::command(async)]
 pub fn game_finalize(
     game_state: tauri::State<Mutex<PostFlopGame>>,
-    pool_state: tauri::State<Mutex<ThreadPool>>,
+    pool_state: tauri::State<Mutex<std::sync::Arc<ThreadPool>>>,
 ) {
     let pool = pool_state.lock().unwrap();
     pool.install(|| finalize(&mut *game_state.lock().unwrap()));

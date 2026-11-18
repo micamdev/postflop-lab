@@ -71,6 +71,15 @@ fn last_aggressor_this_street(main: &mut PostFlopGame) -> Option<usize> {
     aggressor
 }
 
+/// `weights` with the hands containing `card` (the river being dealt) set to 0.
+pub fn weights_without_card(hands: &[(Card, Card)], weights: &[f32], card: Card) -> Vec<f32> {
+    hands
+        .iter()
+        .zip(weights)
+        .map(|(&(c1, c2), &w)| if c1 == card || c2 == card { 0.0 } else { w })
+        .collect()
+}
+
 /// Builds (without solving) the river subgame for `card`. `main` must be at a river chance
 /// node it cannot deal (`!can_deal_card()`); it is left at that position.
 pub fn build_subgame(main: &mut PostFlopGame, card: Card) -> Result<Subgame, String> {
@@ -89,7 +98,15 @@ pub fn build_subgame(main: &mut PostFlopGame, card: Card) -> Result<Subgame, Str
     if stack <= 0 {
         return Err("No stack left at this node".to_string());
     }
-    let kind = classify([&weights[0], &weights[1]]);
+    let hands = [
+        main.private_cards(0).to_vec(),
+        main.private_cards(1).to_vec(),
+    ];
+    // The river card removes the hands it blocks: a player may have none left.
+    let kind = classify([
+        &weights_without_card(&hands[0], &weights[0], card),
+        &weights_without_card(&hands[1], &weights[1], card),
+    ]);
     if kind == SubgameKind::Empty {
         return Ok(Subgame {
             game: PostFlopGame::new(),
@@ -99,10 +116,6 @@ pub fn build_subgame(main: &mut PostFlopGame, card: Card) -> Result<Subgame, Str
         });
     }
 
-    let hands = [
-        main.private_cards(0).to_vec(),
-        main.private_cards(1).to_vec(),
-    ];
     let ranges = [
         Range::from_hands_weights(&hands[0], &weights[0])?,
         Range::from_hands_weights(&hands[1], &weights[1])?,
@@ -139,12 +152,16 @@ pub fn build_subgame(main: &mut PostFlopGame, card: Card) -> Result<Subgame, Str
 
     let index: [HashMap<(Card, Card), usize>; 2] =
         [0, 1].map(|p| hands[p].iter().enumerate().map(|(i, &h)| (h, i)).collect());
-    let hand_map = [0, 1].map(|p| {
+    let [map_oop, map_ip] = [0, 1].map(|p| {
         game.private_cards(p)
             .iter()
-            .map(|h| index[p][h])
-            .collect::<Vec<_>>()
+            .map(|h| index[p].get(h).copied())
+            .collect::<Option<Vec<_>>>()
     });
+    let hand_map = [
+        map_oop.ok_or("Subgame hands do not match the solution")?,
+        map_ip.ok_or("Subgame hands do not match the solution")?,
+    ];
 
     Ok(Subgame {
         game,
@@ -360,5 +377,23 @@ mod tests {
         assert!((subgame_target(120, 60, None) - 0.36).abs() < 1e-6);
         // 0.3 chips on a 60 root pot is 0.5%: 0.5% of 120 = 0.6 > 0.36.
         assert!((subgame_target(120, 60, Some(0.3)) - 0.6).abs() < 1e-6);
+    }
+}
+
+#[cfg(test)]
+mod river_card_tests {
+    use super::*;
+
+    #[test]
+    fn river_card_removes_the_hands_it_blocks() {
+        let card = |s: &str| card_from_str(s).unwrap();
+        let hands = [(card("Ah"), card("As")), (card("Kh"), card("Ks"))];
+        assert_eq!(
+            weights_without_card(&hands, &[1.0, 0.5], card("As")),
+            [0.0, 0.5]
+        );
+        // Every hand left contains the river card: nothing to solve.
+        let blocked = weights_without_card(&hands[..1], &[1.0], card("As"));
+        assert_eq!(classify([&blocked, &[1.0]]), SubgameKind::Empty);
     }
 }
