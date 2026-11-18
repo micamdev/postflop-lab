@@ -212,16 +212,16 @@ fn estimate_memory_capped(
     max_nodes: u64,
 ) -> Result<(u64, u64), String> {
     let (card_config, action_tree) = build_game_inputs(ranges, args)?;
-    let nodes = PostFlopGame::count_tree_nodes(card_config, action_tree)?;
-    if nodes > max_nodes {
-        return Err(format!(
-            "Tree too large to estimate while editing ({:.1} million nodes): fewer bet sizes would be needed to solve it on most computers",
-            nodes as f64 / 1e6
-        ));
-    }
-    // Small enough: build it (the inputs again, the action tree being consumed above).
-    let (card_config, action_tree) = build_game_inputs(ranges, args)?;
-    let game = PostFlopGame::with_config(card_config, action_tree)?;
+    let mut game = PostFlopGame::new();
+    game.update_config_checked(card_config, action_tree, |nodes| {
+        if nodes > max_nodes {
+            return Err(format!(
+                "Tree too large to estimate while editing ({:.1} million nodes): fewer bet sizes would be needed to solve it on most computers",
+                nodes as f64 / 1e6
+            ));
+        }
+        Ok(())
+    })?;
     Ok(game.memory_usage())
 }
 
@@ -938,7 +938,13 @@ mod tests {
         let ranges = setup_ranges("AA,KK", "QQ,JJ");
         let args = setup_args("Td9d6h", "50%");
         let (card_config, action_tree) = build_game_inputs(&ranges, &args).unwrap();
-        let nodes = PostFlopGame::count_tree_nodes(card_config, action_tree).unwrap();
+        let mut nodes = 0;
+        PostFlopGame::new()
+            .update_config_checked(card_config, action_tree, |n| {
+                nodes = n;
+                Ok(())
+            })
+            .unwrap();
         assert!(nodes > 1);
 
         // Just enough nodes: estimated; one fewer allowed: refused before building.

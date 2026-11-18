@@ -1349,3 +1349,42 @@ fn chance_representative_reaches_the_node_play_reaches() {
     game.play(0);
     assert!(game.chance_representative(card("Th")).is_err());
 }
+
+#[test]
+fn update_config_checked_sees_the_node_count_before_building() {
+    let config = || {
+        let card_config = CardConfig {
+            range: [Range::ones(); 2],
+            flop: flop_from_str("Td9d6h").unwrap(),
+            ..Default::default()
+        };
+        let tree_config = TreeConfig {
+            starting_pot: 60,
+            effective_stack: 970,
+            ..Default::default()
+        };
+        (card_config, ActionTree::new(tree_config).unwrap())
+    };
+
+    // Accepted: the game is built, and the count is the size of its node arena.
+    let mut seen = 0;
+    let mut game = PostFlopGame::new();
+    let (card_config, action_tree) = config();
+    game.update_config_checked(card_config, action_tree, |nodes| {
+        seen = nodes;
+        Ok(())
+    })
+    .unwrap();
+    assert!(seen > 1);
+    assert_eq!(game.node_arena.len() as u64, seen);
+
+    // Refused: the error is returned and nothing is built.
+    let mut game = PostFlopGame::new();
+    let (card_config, action_tree) = config();
+    let err = game
+        .update_config_checked(card_config, action_tree, |_| Err("too large".to_string()))
+        .unwrap_err();
+    assert_eq!(err, "too large");
+    assert!(game.node_arena.is_empty());
+    assert!(game.state == State::ConfigError);
+}
