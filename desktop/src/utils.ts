@@ -123,6 +123,31 @@ export const equityBuckets = (
   return total > 0 ? sums.map((s) => s / total) : sums.map(() => Number.NaN);
 };
 
+/**
+ * Who holds more of the strongest hands, from the shares of each range per equity tranche
+ * (`equityBuckets`), with a 1-point margin: the 90%+ tranche (`top` = 1, nut advantage)
+ * or the 90%+ and 75-90% tranches (`top` = 2, best hands advantage). "None (...)" says
+ * that neither range has the edge; "—" when there is no data.
+ */
+export const nutAdvantageText = (
+  oop: number[],
+  ip: number[],
+  top: 1 | 2 = 1
+): string => {
+  const share = (shares: number[]) =>
+    shares.slice(0, top).reduce((sum, x) => sum + x, 0);
+  const [a, b] = [share(oop), share(ip)];
+  const at = top === 1 ? "90%+" : "75%+";
+  if (isNaN(a) || isNaN(b)) return "—";
+  const pct = (x: number) => (x * 100).toFixed(1) + "%";
+  if (Math.abs(a - b) < 0.01) {
+    return `None (OOP ${pct(a)} vs IP ${pct(b)} at ${at})`;
+  }
+  return a > b
+    ? `OOP (${pct(a)} vs ${pct(b)} at ${at})`
+    : `IP (${pct(b)} vs ${pct(a)} at ${at})`;
+};
+
 export const toFixed1 = (value: number) => {
   if (!isFinite(value)) return (value < 0 ? "-" : "") + "∞";
   if (-0.05 < value && value < 0.05) return "0.0";
