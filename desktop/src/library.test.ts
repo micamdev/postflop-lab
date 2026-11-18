@@ -10,10 +10,16 @@ vi.mock("./invokes", () => ({
   libraryLoad: vi.fn(),
   libraryDelete: vi.fn(),
   libraryRename: vi.fn(),
+  libraryImport: vi.fn(),
 }));
 
 import * as invokes from "./invokes";
-import { deleteSolution, loadSolution, renameSolution } from "./library";
+import {
+  deleteSolution,
+  importSolution,
+  loadSolution,
+  renameSolution,
+} from "./library";
 import { useStore } from "./store";
 
 beforeEach(() => {
@@ -66,5 +72,24 @@ describe("deleting and renaming", () => {
     vi.mocked(invokes.libraryRename).mockResolvedValue("K_T");
     expect(await renameSolution("spot", "K/T")).toBe("K_T");
     expect(store.solutionInfo?.name).toBe("K_T");
+  });
+});
+
+describe("importing", () => {
+  test("replacing the loaded solution's file marks it unsaved", async () => {
+    const store = useStore();
+    store.solutionInfo = {
+      name: "spot",
+      loaded: true,
+      iterations: 1,
+      exploitability: 0,
+    };
+    store.isSolutionSaved = true;
+    vi.mocked(invokes.libraryImport).mockResolvedValue("other");
+    await importSolution("C:/x/other.plab", false);
+    expect(store.isSolutionSaved).toBe(true);
+    vi.mocked(invokes.libraryImport).mockResolvedValue("spot");
+    await importSolution("C:/x/spot.plab", true);
+    expect(store.isSolutionSaved).toBe(false);
   });
 });

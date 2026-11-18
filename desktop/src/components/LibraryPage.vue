@@ -152,6 +152,7 @@ import {
   ask,
   deleteSolution,
   depthLabel,
+  importSolution,
   formatBytes,
   loadSolution,
   renameSolution,
@@ -290,11 +291,11 @@ const importFile = async () => {
   if (!path) return;
   await run(async () => {
     try {
-      await invokes.libraryImport(path, false);
+      await importSolution(path, false);
     } catch (e) {
       if (String(e) !== invokes.ERR_EXISTS) throw e;
       if (await ask("A solution with this name already exists. Replace it?")) {
-        await invokes.libraryImport(path, true);
+        await importSolution(path, true);
       }
     }
   });

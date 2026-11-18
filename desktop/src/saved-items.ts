@@ -280,13 +280,39 @@ export const renamedPath = (
     ? path.map((name, i) => (i === renamed.length - 1 ? newName : name))
     : path;
 
-/** What "Save current" can save from a tab: ranges (OOP or IP) or the tree config. */
+/** A range to save: OOP (0), IP (1) or a bunching fold range (2–5); or the tree. */
+export type SaveTarget = number | "tree";
+
+/** What "Save current" offers; `foldPlayer` is the fold range being edited, if any. */
 export const saveTargets = (
-  store: SavedStore
-): { label: string; target: 0 | 1 | "tree" }[] =>
+  store: SavedStore,
+  foldPlayer: number | null = null
+): { label: string; target: SaveTarget }[] =>
   store === "ranges"
     ? [
         { label: "OOP range", target: 0 },
         { label: "IP range", target: 1 },
+        ...(foldPlayer === null
+          ? []
+          : [{ label: "Fold range", target: foldPlayer }]),
       ]
     : [{ label: "Tree config", target: "tree" }];
+
+type Source = { path: string[]; modified: boolean } | null;
+
+/**
+ * Range sources after saving range `saved` over the item at `path`: that range now comes from
+ * it, and another range that came from it no longer matches it.
+ */
+export const sourcesAfterOverwrite = (
+  sources: Source[],
+  saved: number,
+  path: string[]
+): Source[] =>
+  sources.map((source, i) =>
+    i === saved
+      ? { path, modified: false }
+      : source && JSON.stringify(source.path) === JSON.stringify(path)
+        ? { ...source, modified: true }
+        : source
+  );

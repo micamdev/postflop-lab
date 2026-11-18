@@ -37,7 +37,6 @@
                 'ui-input h-7 w-full px-1.5 text-xs',
                 errors[field] ? '!border-red-500' : '',
               ]"
-              @input="markTreeModified"
               @blur="sanitize(field)"
             />
           </td>
@@ -147,8 +146,4 @@ const sanitize = (field: BetField) => {
 const treeOrigin = computed(() =>
   store.treeSource ? store.treeSource.path.join(" › ") : "Unsaved tree"
 );
-
-const markTreeModified = () => {
-  if (store.treeSource) store.treeSource.modified = true;
-};
 </script>

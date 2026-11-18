@@ -113,14 +113,19 @@
     </div>
 
     <div class="flex-grow max-w-[18rem] ml-6">
-      <DbItemPicker
-        store-name="ranges"
-        :index="player"
-        :value="rangeText"
-        :allow-save="rangeText !== '' && rangeTextError === ''"
-        :hide-import-export="player >= 2"
-        @load-item="loadRange"
-      />
+      <!-- Saved ranges come from the explorer (drag one here, or its "→ Fold" button). -->
+      <div
+        :class="[
+          'flex items-center justify-center h-28 px-4 rounded-lg border-2 border-dashed text-center text-sm',
+          isDropTarget ? 'border-accent text-ink' : 'border-line text-muted',
+        ]"
+        @dragover="onDragOver"
+        @dragleave="isDropTarget = false"
+        @drop="onDrop"
+      >
+        Drop a saved range here, or use “→ Fold” in the explorer. Save it with
+        “Save current › Fold range”.
+      </div>
 
       <div v-if="player >= 2" class="flex mt-12 justify-center gap-4">
         <button class="button-base button-green !px-5" @click="emit('save')">
@@ -135,11 +140,10 @@
 </template>
 
 <script setup lang="ts">
+import { ref } from "vue";
 import { useStore } from "../store";
 import { ranks } from "../utils";
 import { useRangeEditing } from "../use-range-editing";
-
-import DbItemPicker from "./DbItemPicker.vue";
 
 const yellow500 = "#eab308";
 
@@ -175,5 +179,22 @@ const onWeightChange = editing.clampWeight;
 const onRangeTextChange = editing.applyText;
 const clearRange = editing.clear;
 const invertRange = editing.invert;
-const loadRange = (rangeStr: unknown) => editing.loadText(String(rangeStr));
+const RANGE_TYPE = "application/x-postflop-range";
+const isDropTarget = ref(false);
+
+const onDragOver = (e: DragEvent) => {
+  if (!e.dataTransfer?.types.includes(RANGE_TYPE)) return;
+  e.preventDefault();
+  e.dataTransfer.dropEffect = "copy";
+  isDropTarget.value = true;
+};
+
+const onDrop = async (e: DragEvent) => {
+  isDropTarget.value = false;
+  const data = e.dataTransfer?.getData(RANGE_TYPE);
+  if (!data) return;
+  e.preventDefault();
+  const { value } = JSON.parse(data) as { value: unknown };
+  await editing.loadText(String(value));
+};
 </script>

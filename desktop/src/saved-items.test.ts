@@ -9,6 +9,7 @@ import {
   renamedPath,
   rowFor,
   saveTargets,
+  sourcesAfterOverwrite,
   visibleRows,
   filterFolderTree,
   itemsToAdd,
@@ -199,6 +200,46 @@ describe("saveTargets", () => {
     ]);
     expect(saveTargets("configurations").map((t) => t.label)).toEqual([
       "Tree config",
+    ]);
+  });
+});
+
+describe("saveTargets with a fold range being edited", () => {
+  test("the fold range can be saved too", () => {
+    expect(saveTargets("ranges", 3)).toEqual([
+      { label: "OOP range", target: 0 },
+      { label: "IP range", target: 1 },
+      { label: "Fold range", target: 3 },
+    ]);
+    expect(saveTargets("ranges", null)).toHaveLength(2);
+    expect(saveTargets("configurations", 3)).toEqual([
+      { label: "Tree config", target: "tree" },
+    ]);
+  });
+});
+
+describe("sourcesAfterOverwrite", () => {
+  test("another range that came from the overwritten item is marked modified", () => {
+    const x = { path: ["X"], modified: false };
+    const y = { path: ["Y"], modified: false };
+    // IP saved over "X", which OOP had been loaded from.
+    expect(sourcesAfterOverwrite([x, null], 1, ["X"])).toEqual([
+      { path: ["X"], modified: true },
+      { path: ["X"], modified: false },
+    ]);
+    expect(sourcesAfterOverwrite([y, null], 1, ["X"])).toEqual([
+      y,
+      { path: ["X"], modified: false },
+    ]);
+  });
+});
+
+describe("sourcesAfterOverwrite with a fold range", () => {
+  test("saving a fold range over an item marks the range that came from it", () => {
+    const x = { path: ["X"], modified: false };
+    expect(sourcesAfterOverwrite([x, null], 3, ["X"])).toEqual([
+      { path: ["X"], modified: true },
+      null,
     ]);
   });
 });

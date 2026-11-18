@@ -147,10 +147,6 @@ fn max_load_memory(current_game: &PostFlopGame, cache: &SubgameCache) -> u64 {
     available + current_game_memory(current_game) + cache.memory_usage()
 }
 
-fn gb(bytes: u64) -> String {
-    format!("{:.2} GB", bytes as f64 / (1u64 << 30) as f64)
-}
-
 /// Checks that a solution can be loaded (readable header, enough memory), without touching
 /// the current game.
 fn check_load(dir: &std::path::Path, name: &str, max_memory: u64) -> Result<(), String> {
@@ -161,8 +157,8 @@ fn check_load(dir: &std::path::Path, name: &str, max_memory: u64) -> Result<(), 
     if header.estimated_memory_usage > max_memory {
         return Err(format!(
             "Not enough memory: this solution needs {}, {} available",
-            gb(header.estimated_memory_usage),
-            gb(max_memory)
+            crate::gb(header.estimated_memory_usage),
+            crate::gb(max_memory)
         ));
     }
     Ok(())

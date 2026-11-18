@@ -439,3 +439,7 @@ export const suitTextClasses = [
   "text-[#ef6a7e]",
   "text-[#c3c7d1]",
 ];
+
+/** Engine weight (f32, 0–1) as a percentage rounded to 0.01 (f32 0.7 is 70, not 69.9999988). */
+export const weightPercent = (weight: number) =>
+  Math.round(weight * 10000) / 100;

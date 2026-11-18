@@ -9,6 +9,7 @@ import {
   setSolutionLocks,
 } from "./store";
 import * as invokes from "./invokes";
+import { weightPercent } from "./utils";
 
 /** Asks a yes/no question in a native dialog. */
 export const ask = async (message: string): Promise<boolean> => {
@@ -142,7 +143,7 @@ const replaceWithSolution = async (name: string): Promise<string | null> => {
   for (const player of [0, 1]) {
     const weights = await invokes.rangeGetWeights(player);
     for (let i = 0; i < 13 * 13; ++i) {
-      store.ranges[player][i] = weights[i] * 100;
+      store.ranges[player][i] = weightPercent(weights[i]);
     }
   }
 
@@ -181,5 +182,19 @@ export const renameSolution = async (
   const name = await invokes.libraryRename(from, to);
   const store = useStore();
   if (store.solutionInfo?.name === from) store.solutionInfo.name = name;
+  return name;
+};
+
+/**
+ * Imports a `.plab` file into the library; returns its name there. Replacing the file of the
+ * solution in memory makes that solution unsaved (it is no longer on disk).
+ */
+export const importSolution = async (
+  path: string,
+  overwrite: boolean
+): Promise<string> => {
+  const name = await invokes.libraryImport(path, overwrite);
+  const store = useStore();
+  if (store.solutionInfo?.name === name) store.isSolutionSaved = false;
   return name;
 };

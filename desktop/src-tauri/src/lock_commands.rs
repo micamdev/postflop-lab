@@ -11,10 +11,6 @@ use std::sync::Mutex;
 #[derive(Default)]
 pub struct CurrentLocks(pub Mutex<Vec<NodeLock>>);
 
-fn gb(bytes: u64) -> String {
-    format!("{:.2} GB", bytes as f64 / (1u64 << 30) as f64)
-}
-
 /// Builds the solution's tree again, allocates it and places `locks`. Only if all of this
 /// succeeds is `game` replaced: on error the reference solution is untouched. `max_memory` is
 /// the memory the new tree may use (both games coexist while the locks are checked).
@@ -40,8 +36,8 @@ pub fn prepare_lock_solve(
     if needed > max_memory {
         return Err(format!(
             "Not enough memory: the re-solve needs {}, {} available",
-            gb(needed),
-            gb(max_memory)
+            crate::gb(needed),
+            crate::gb(max_memory)
         ));
     }
     next.allocate_memory(compression);

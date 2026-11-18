@@ -94,6 +94,8 @@ export const useStore = defineStore("app", {
     isSaveDialogOpen: false,
     /** Line (history) to show in Results once the locked solve ends. */
     returnLine: null as number[] | null,
+    /** Engine index (2–5) of the bunching fold range being edited, or null. */
+    editedFoldRange: null as number | null,
     isSolutionSaved: false,
     /** A library operation (load) holds the game: solver controls are locked. */
     isLibraryBusy: false,
@@ -107,6 +109,8 @@ export const useStore = defineStore("app", {
     rangeSources: [null, null] as [RangeSource | null, RangeSource | null],
     /** Where the tree config comes from (explorer path), null if typed or loaded. */
     treeSource: null as RangeSource | null,
+    /** JSON of the saved tree value `treeSource` was loaded from (see tree-source.ts). */
+    treeSourceValue: null as string | null,
     /** Locks the current solution was solved with. */
     solutionLocks: [] as NodeLock[],
     /** Locks for the next re-solve: the solution's locks plus pending changes. */
