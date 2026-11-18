@@ -95,8 +95,29 @@
 
     <template v-if="action === 'save'">
       <UiButton :disabled="!canSolve" @click="onSolve">▶ Solve</UiButton>
-      <UiButton variant="primary" @click="isSaveDialogOpen = true">
+      <UiButton variant="primary" @click="store.isSaveDialogOpen = true">
         Save
+      </UiButton>
+    </template>
+    <template v-else-if="action === 'resolve-locks'">
+      <UiButton :disabled="!canSolve" @click="onSolve">▶ Solve</UiButton>
+      <UiButton
+        v-if="savesBeside(session.flags, session.canSave)"
+        @click="store.isSaveDialogOpen = true"
+      >
+        Save
+      </UiButton>
+      <UiButton
+        variant="primary"
+        :disabled="
+          !store.currentLine ||
+          lockResolve.isBusy ||
+          !!lockResolve.disabledReason
+        "
+        :title="lockResolve.disabledReason"
+        @click="onResolveLocks"
+      >
+        {{ lockResolve.isBusy ? "Preparing…" : "Re-solve with locks" }}
       </UiButton>
     </template>
     <UiButton
@@ -111,8 +132,8 @@
 
   <SolveSettingsPanel v-model:open="isSettingsOpen" />
   <SaveSolutionDialog
-    v-if="isSaveDialogOpen"
-    @close="isSaveDialogOpen = false"
+    v-if="store.isSaveDialogOpen"
+    @close="onSaveDialogClose"
   />
   <AboutDialog v-model:open="isAboutOpen" />
 </template>
@@ -124,6 +145,7 @@ import { useSolverSession } from "../solver-session";
 import {
   StatusTone,
   primaryAction,
+  savesBeside,
   progressFraction,
   solutionStatus,
 } from "../solve-status";
@@ -135,6 +157,8 @@ import UiSegmented from "./ui/UiSegmented.vue";
 import UiTooltip from "./ui/UiTooltip.vue";
 import SolveSettingsPanel from "./SolveSettingsPanel.vue";
 import SaveSolutionDialog from "./SaveSolutionDialog.vue";
+import { useLockResolve } from "../lock-resolve";
+import { hasPendingLocks } from "../lock-utils";
 import AboutDialog from "./AboutDialog.vue";
 
 const store = useStore();
@@ -143,7 +167,7 @@ const savedConfig = useSavedConfigStore();
 const session = useSolverSession();
 
 const isSettingsOpen = ref(false);
-const isSaveDialogOpen = ref(false);
+const lockResolve = useLockResolve();
 const isAboutOpen = ref(false);
 
 const toneClass: Record<StatusTone, string> = {
@@ -159,7 +183,27 @@ const board = computed(() =>
 );
 const name = computed(() => store.solutionInfo?.name ?? "New spot");
 const status = computed(() => solutionStatus(session.flags));
-const action = computed(() => primaryAction(session.flags, session.canSave));
+const action = computed(() =>
+  primaryAction(
+    session.flags,
+    session.canSave,
+    hasPendingLocks(store.locks, store.solutionLocks)
+  )
+);
+
+const onResolveLocks = async () => {
+  if (!store.currentLine) return;
+  await lockResolve.start(store.currentLine);
+  if (lockResolve.error) session.message = lockResolve.error;
+};
+
+const onSaveDialogClose = async () => {
+  store.isSaveDialogOpen = false;
+  // A "Save first" of a re-solve with locks continues once saved.
+  if ((await lockResolve.onSaveDialogClosed()) && lockResolve.error) {
+    session.message = lockResolve.error;
+  }
+};
 const settingsError = computed(() => validateSolveSettings(session.settings));
 
 const canSolve = computed(

@@ -384,3 +384,11 @@ export const suitBgClasses = [
   "bg-[#d8455b]",
   "bg-[#4b5263]",
 ];
+
+/** Suit text colours readable on the dark Graphite panels (clubs, diamonds, hearts, spades). */
+export const suitTextClasses = [
+  "text-[#5fbf7f]",
+  "text-[#6b9cf0]",
+  "text-[#ef6a7e]",
+  "text-[#c3c7d1]",
+];

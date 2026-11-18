@@ -1,4 +1,5 @@
 // Node lock helpers without dependencies (combo strings as the engine writes them).
+import type { NodeLock } from "./invokes";
 
 const RANKS = "23456789TJQKA";
 const SUITS = "cdhs";
@@ -33,5 +34,29 @@ export const mirrorEdits = (
       const [hi, lo] = x > y ? [x, y] : [y, x];
       return [cardString(hi) + cardString(lo), freqs];
     })
+  );
+};
+
+const lockContent = (lock: NodeLock) =>
+  JSON.stringify([
+    lock.key,
+    lock.actions,
+    [...lock.edited].sort(),
+    Object.keys(lock.hands)
+      .sort()
+      .map((combo) => [combo, lock.hands[combo]]),
+  ]);
+
+/**
+ * Whether the locks to re-solve with (`locks`) differ from those the solution was solved
+ * with: added, removed or changed locks (order ignored).
+ */
+export const hasPendingLocks = (
+  locks: NodeLock[],
+  solutionLocks: NodeLock[]
+): boolean => {
+  const set = (list: NodeLock[]) => list.map(lockContent).sort().join("\n");
+  return (
+    locks.length !== solutionLocks.length || set(locks) !== set(solutionLocks)
   );
 };

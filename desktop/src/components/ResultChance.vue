@@ -91,10 +91,11 @@ Chart.defaults.font.family =
 
 const labels = [...ranks].reverse();
 
-const green600 = "#16a34a";
-const blue600 = "#2563eb";
-const pink600 = "#db2777";
-const black = "#000000";
+// Suit colours of the Graphite card chips (spades lighter to show on the dark chart).
+const green600 = "#3e9e5c";
+const blue600 = "#3d7fd6";
+const pink600 = "#d8455b";
+const black = "#9aa0ad";
 const suitColor = [green600, blue600, pink600, black];
 
 const props = defineProps<{
@@ -175,8 +176,8 @@ const chartData = computed((): ChartData<"bar", number[]> | null => {
       options.chartChance === "eq"
         ? reports.equity[playerIndex]
         : options.chartChance === "ev"
-        ? reports.ev[playerIndex]
-        : reports.eqr[playerIndex];
+          ? reports.ev[playerIndex]
+          : reports.eqr[playerIndex];
     datasets = Array.from({ length: 4 }, (_, suit) => ({
       data: Array.from(
         { length: 13 },
@@ -235,7 +236,7 @@ const chartOptions = computed((): ChartOptions<"bar"> => {
         display: true,
         text: titleText,
         font: { size: 16, weight: "normal" },
-        color: "rgba(0, 0, 0, 0.9)",
+        color: "rgba(236, 236, 238, 0.9)",
       },
       legend: {
         display: false,

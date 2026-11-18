@@ -1,26 +1,39 @@
 <template>
   <div
     v-if="!store.isSolverFinished"
-    class="flex w-full max-w-screen-xl mx-auto px-4 py-6 items-center"
+    class="flex flex-col items-center justify-center h-full gap-2 text-center"
   >
-    <span
-      v-if="store.isSolverRunning || store.isFinalizing"
-      class="spinner inline-block mr-3"
-    ></span>
-    {{
-      !store.hasSolverRun
-        ? "Solver has not run."
-        : store.isSolverRunning
-          ? "Solver running..."
-          : store.isFinalizing
-            ? "Finalizing..."
-            : store.isSolverError
-              ? "Solver error."
-              : "Solver paused."
-    }}
+    <template v-if="store.isSolverRunning || store.isFinalizing">
+      <span class="spinner inline-block"></span>
+      <p class="text-muted">
+        {{ store.isSolverRunning ? "Solving…" : "Finalizing…" }} The results
+        open when the solve ends.
+      </p>
+    </template>
+    <template v-else-if="store.isSolverPaused">
+      <p class="text-lg font-semibold">Solve paused</p>
+      <p class="text-muted">Resume or stop it from the top bar.</p>
+    </template>
+    <template v-else-if="store.isSolverError">
+      <p class="text-lg font-semibold">The solve failed</p>
+      <p class="text-muted">See the message under the top bar.</p>
+    </template>
+    <template v-else>
+      <p class="text-lg font-semibold">No solution yet</p>
+      <p class="text-muted">
+        Set up a spot and press Solve, or open one from the Library.
+      </p>
+    </template>
   </div>
 
-  <div v-else class="flex flex-col h-full">
+  <div
+    v-else
+    :class="[
+      'flex flex-col h-full',
+      lockResolve.blocksResults ? 'pointer-events-none opacity-60' : '',
+    ]"
+    :inert="lockResolve.blocksResults"
+  >
     <ResultNav
       :is-handler-updated="isHandlerUpdated"
       :is-locked="isLocked"
@@ -42,33 +55,49 @@
       @pick="pickRiver"
     />
 
-    <ResultMiddle
+    <ResultsToolbar
       :display-mode="displayMode"
       :chance-mode="chanceMode"
       :auto-player-basics="autoPlayerBasics"
       :auto-player-chance="autoPlayerChance"
-      :copy-success="copySuccess"
       @update:display-mode="updateDisplayMode"
       @update:display-options="updateDisplayOptions"
-      @copy-to-clipboard="copyRangeTextToClipboard"
-      @reset-copy-success="resetCopySuccess"
-    />
-
-    <div
-      v-if="selectedSpot && results && !isLockEditorOpen"
-      class="flex items-center gap-3 px-4 pt-1 text-sm"
     >
-      <button
-        class="button-base button-blue"
-        :disabled="store.isLibraryBusy"
-        @click="isLockEditorOpen = true"
-      >
-        Node lock
-      </button>
-      <span v-if="store.locks.length > 0" class="text-gray-600">
-        {{ store.locks.length }} lock{{ store.locks.length === 1 ? "" : "s" }}
-      </span>
-    </div>
+      <template #actions>
+        <UiTooltip
+          :text="
+            unlockableReason || 'Lock the strategy of this node and re-solve'
+          "
+        >
+          <span>
+            <UiButton
+              size="sm"
+              :disabled="
+                !selectedSpot ||
+                !results ||
+                isLockEditorOpen ||
+                store.isLibraryBusy ||
+                !!unlockableReason
+              "
+              @click="isLockEditorOpen = true"
+            >
+              🔒 Lock node
+              <span
+                v-if="store.locks.length > 0"
+                class="ml-1 px-1.5 rounded-full bg-accent/20 text-accent text-[11px]"
+              >
+                {{ store.locks.length }}
+              </span>
+            </UiButton>
+          </span>
+        </UiTooltip>
+      </template>
+    </ResultsToolbar>
+
+    <NodeStrategyBar
+      v-if="!isLockEditorOpen && displayMode !== 'chance'"
+      :items="strategyItems"
+    />
 
     <NodeLockEditor
       v-if="isLockEditorOpen && selectedSpot && results"
@@ -125,7 +154,7 @@
 
       <template v-else-if="displayMode === 'compare'">
         <ResultBasics
-          style="flex: 5"
+          style="flex: 1"
           :cards="cards"
           :selected-spot="selectedSpot"
           :selected-chance="selectedChance"
@@ -137,15 +166,8 @@
           :is-compare-mode="true"
         />
 
-        <ResultCompare
-          style="flex: 2"
-          :selected-spot="selectedSpot"
-          :selected-chance="selectedChance"
-          :results="results"
-        />
-
         <ResultBasics
-          style="flex: 5"
+          style="flex: 1"
           :cards="cards"
           :selected-spot="selectedSpot"
           :selected-chance="selectedChance"
@@ -155,6 +177,13 @@
           :display-options="displayOptions"
           display-player="ip"
           :is-compare-mode="true"
+        />
+
+        <ResultCompare
+          class="w-[280px] shrink-0"
+          :selected-spot="selectedSpot"
+          :selected-chance="selectedChance"
+          :results="results"
         />
       </template>
 
@@ -190,7 +219,12 @@ import {
 
 import ResultNav from "./ResultNav.vue";
 import RiverPicker from "./RiverPicker.vue";
-import ResultMiddle from "./ResultMiddle.vue";
+import ResultsToolbar from "./results/ResultsToolbar.vue";
+import NodeStrategyBar from "./results/NodeStrategyBar.vue";
+import UiButton from "./ui/UiButton.vue";
+import UiTooltip from "./ui/UiTooltip.vue";
+import { nodeStrategy } from "../node-strategy";
+import { useLockResolve } from "../lock-resolve";
 import ResultBasics from "./ResultBasics.vue";
 import ResultTable from "./ResultTable.vue";
 import ResultCompare from "./ResultCompare.vue";
@@ -199,6 +233,7 @@ import ResultChance from "./ResultChance.vue";
 import NodeLockEditor from "./NodeLockEditor.vue";
 
 const store = useStore();
+const lockResolve = useLockResolve();
 
 /* Navigation */
 
@@ -230,6 +265,26 @@ const line = ref<{ history: number[]; label: string }>({
 const isLockEditorOpen = ref(false);
 
 /** Why the displayed node cannot be locked, or "" if it can. */
+/** Overall strategy of the acting player at the selected node (null at a card or without hands). */
+const strategyItems = computed(() => {
+  const spot = selectedSpot.value;
+  if (
+    !spot ||
+    spot.type !== "player" ||
+    selectedChance.value ||
+    !results.value
+  ) {
+    return null;
+  }
+  const player = spot.player === "oop" ? 0 : 1;
+  if (results.value.isEmpty & (1 << player)) return null;
+  return nodeStrategy(
+    results.value.strategy,
+    results.value.normalizer[player],
+    spot.actions
+  );
+});
+
 const unlockableReason = computed(() => {
   const spot = selectedSpot.value;
   if (store.isBunchingEnabled && store.bunchingFlop.length > 0) {
@@ -283,6 +338,7 @@ const onUpdateSpot = (
   newLine: { history: number[]; label: string }
 ) => {
   line.value = newLine;
+  store.currentLine = newLine;
   dealtCard.value = -1;
   selectedSpot.value = newSelectedSpot;
   selectedChance.value = newSelectedChance;
@@ -311,26 +367,12 @@ const displayOptions = ref<DisplayOptions>({
   chartChance: "strategy-combos",
 });
 
-const copySuccess = ref(0);
-
 const updateDisplayMode = (mode: DisplayMode) => {
   displayMode.value = mode;
 };
 
 const updateDisplayOptions = (options: DisplayOptions) => {
   displayOptions.value = options;
-};
-
-const copyRangeTextToClipboard = async () => {
-  const text = "Hello World";
-  navigator.clipboard
-    .writeText(text)
-    .then(() => (copySuccess.value = 1))
-    .catch(() => (copySuccess.value = -1));
-};
-
-const resetCopySuccess = () => {
-  copySuccess.value = 0;
 };
 
 /* Computed */

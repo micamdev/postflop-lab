@@ -31,15 +31,18 @@ export const solutionStatus = (
   return { label: "Not solved", tone: "neutral" };
 };
 
-export type PrimaryAction = "solve" | "save" | "progress";
+export type PrimaryAction = "solve" | "save" | "progress" | "resolve-locks";
 
 export const primaryAction = (
   f: SolveFlags,
-  canSave: boolean
+  canSave: boolean,
+  pendingLocks = false
 ): PrimaryAction => {
   if (f.isSolverRunning || f.isSolverPaused || f.isFinalizing) {
     return "progress";
   }
+  // Its flow offers to save first.
+  if (f.isSolverFinished && pendingLocks) return "resolve-locks";
   if (f.isSolverFinished && !f.isSolutionSaved && canSave) return "save";
   return "solve";
 };
@@ -85,3 +88,7 @@ export const choosePrecision = (
     message: `Needs ${formatBytes(need16)}, ${formatBytes(available)} available`,
   };
 };
+
+/** Save stays offered beside "Re-solve with locks" while the solution is unsaved. */
+export const savesBeside = (f: SolveFlags, canSave: boolean): boolean =>
+  f.isSolverFinished && !f.isSolutionSaved && canSave;

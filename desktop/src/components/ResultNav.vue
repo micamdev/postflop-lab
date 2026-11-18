@@ -1,28 +1,28 @@
 <template>
   <div
     ref="navDiv"
-    class="flex shrink-0 h-[10.5rem] gap-1 p-1 overflow-x-auto whitespace-nowrap snug"
+    class="flex shrink-0 h-[8.5rem] gap-2 px-3 py-2 overflow-x-auto whitespace-nowrap snug bg-bg border-b border-line"
   >
     <div
       v-for="spot in spots"
       :key="spot.index"
       :class="
-        'flex flex-col relative h-full px-1 py-0.5 justify-start ' +
-        'rounded-lg shadow-md border-[3px] transition group ' +
+        'flex flex-col relative h-full min-w-[7.5rem] px-1.5 py-1 justify-start ' +
+        'rounded-lg border bg-panel transition-colors group ' +
         (spot.type === 'chance'
           ? isSelectedChanceSkipped && spot.index > selectedChanceIndex
             ? ''
-            : 'hover:border-red-600 '
-          : 'hover:border-blue-600 ') +
+            : 'hover:border-ip '
+          : 'hover:border-accent ') +
         (spot.index === selectedChanceIndex
-          ? 'border-red-600 cursor-default'
+          ? 'border-ip ring-1 ring-ip cursor-default'
           : spot.index === selectedSpotIndex
-            ? 'border-blue-600 cursor-default'
+            ? 'border-accent ring-1 ring-accent cursor-default'
             : spot.type === 'chance' &&
                 isSelectedChanceSkipped &&
                 spot.index > selectedChanceIndex
-              ? 'border-gray-400 cursor-default'
-              : 'border-gray-400 cursor-pointer')
+              ? 'border-line cursor-default'
+              : 'border-line cursor-pointer')
       "
       @click="selectSpot(spot.index, false)"
     >
@@ -30,7 +30,7 @@
       <template v-if="spot.type === 'root' || spot.type === 'chance'">
         <div
           :class="
-            'px-1.5 pt-1 pb-0.5 font-semibold ' +
+            'px-1 pt-0.5 pb-1 text-[11px] font-bold tracking-wider text-muted ' +
             (spot.index === selectedChanceIndex
               ? ''
               : isSelectedChanceSkipped && spot.index > selectedChanceIndex
@@ -48,16 +48,15 @@
               v-for="card of spotCards(spot)"
               :key="card.rank + card.suit"
               :class="
-                (spot.type === 'root'
-                  ? 'mx-px '
-                  : 'inline-block w-8 text-center ') + card.colorClass
+                'inline-flex items-center justify-center w-6 h-8 mx-px rounded text-sm font-bold ' +
+                card.chipClass
               "
             >
-              {{ card.rank + card.suit }}
+              {{ card.rank }}
             </span>
             <div
               v-if="spot.type === 'chance' && spot.isBeyondDepth"
-              class="text-xs font-normal text-center text-gray-500 whitespace-normal"
+              class="text-xs font-normal text-center text-muted whitespace-normal"
             >
               {{
                 spot.cards.some((c) => !c.isDead) ? "Pick a river" : "Not saved"
@@ -65,7 +64,7 @@
             </div>
             <div
               v-if="spot.type === 'chance' && spot.isResolved"
-              class="text-xs font-normal text-center text-gray-500"
+              class="text-xs font-normal text-center text-muted"
               title="Re-solved on demand from the ranges at this node: close to, not exactly, the full solution"
             >
               re-solved ≈
@@ -81,8 +80,8 @@
                 :class="
                   'absolute -top-[1.375rem] left-1/2 -ml-3 w-6 h-6 ' +
                   (isCardAvailable(spot, 0, 1)
-                    ? 'opacity-70 hover:opacity-100 text-gray-700'
-                    : 'text-red-300')
+                    ? 'text-muted hover:text-ink'
+                    : 'text-muted/25')
                 "
                 @click.stop="
                   isCardAvailable(spot, 0, 1) && dealArrow(spot, 0, 1)
@@ -94,8 +93,8 @@
                 :class="
                   'absolute -left-[1.375rem] top-1/2 -mt-3 w-6 h-6 ' +
                   (isCardAvailable(spot, 1, 0)
-                    ? 'opacity-70 hover:opacity-100 text-gray-700'
-                    : 'text-red-300')
+                    ? 'text-muted hover:text-ink'
+                    : 'text-muted/25')
                 "
                 @click.stop="
                   isCardAvailable(spot, 1, 0) && dealArrow(spot, 1, 0)
@@ -107,8 +106,8 @@
                 :class="
                   'absolute -right-[1.375rem] top-1/2 -mt-3 w-6 h-6 ' +
                   (isCardAvailable(spot, -1, 0)
-                    ? 'opacity-70 hover:opacity-100 text-gray-700'
-                    : 'text-red-300')
+                    ? 'text-muted hover:text-ink'
+                    : 'text-muted/25')
                 "
                 @click.stop="
                   isCardAvailable(spot, -1, 0) && dealArrow(spot, -1, 0)
@@ -120,8 +119,8 @@
                 :class="
                   'absolute -bottom-[1.375rem] left-1/2 -ml-3 w-6 h-6 ' +
                   (isCardAvailable(spot, 0, -1)
-                    ? 'opacity-70 hover:opacity-100 text-gray-700'
-                    : 'text-red-300')
+                    ? 'text-muted hover:text-ink'
+                    : 'text-muted/25')
                 "
                 @click.stop="
                   isCardAvailable(spot, 0, -1) && dealArrow(spot, 0, -1)
@@ -140,8 +139,9 @@
                   : 'group-hover:opacity-100 opacity-70'
             "
           >
-            <div>Pot {{ spot.pot }}</div>
-            <div>Stack {{ spot.stack }}</div>
+            <div class="text-xs text-muted tabular-nums">
+              Pot {{ spot.pot }} · {{ spot.stack }}
+            </div>
           </div>
         </div>
 
@@ -151,10 +151,10 @@
             spot.selectedIndex !== -1 &&
             !isDealing
           "
-          class="absolute top-1.5 right-1.5 opacity-70 hover:opacity-100 text-gray-700"
+          class="absolute top-1 right-1 text-muted hover:text-ink"
           @click="deal(spot.selectedIndex)"
         >
-          <XMarkIcon class="w-6 h-6" />
+          <XMarkIcon class="w-5 h-5" />
         </button>
       </template>
 
@@ -162,7 +162,7 @@
       <template v-if="spot.type === 'player'">
         <div
           :class="
-            'px-1.5 py-1 font-semibold group-hover:opacity-100 ' +
+            'px-1 pt-0.5 pb-1 text-[11px] font-bold tracking-wider text-muted group-hover:opacity-100 ' +
             (spot.index === selectedSpotIndex ? '' : 'opacity-70')
           "
         >
@@ -173,27 +173,18 @@
             v-for="action of spot.actions"
             :key="action.index"
             :class="
-              'flex w-full px-1.5 rounded-md transition-colors hover:bg-blue-100 ' +
-              (action.isSelected ? 'bg-blue-100 ' : '')
+              'flex items-center w-full gap-1.5 px-1.5 py-px rounded-md text-sm transition-colors hover:bg-panel2 ' +
+              (action.isSelected ? 'bg-panel2 ' : '')
             "
             @click.stop="play(spot.index, action.index)"
           >
-            <span class="inline-block relative w-4 mr-0.5">
-              <span
-                v-if="
-                  spot.index === selectedSpotIndex &&
-                  !(selectedChanceIndex !== -1 && !canChanceReports)
-                "
-                class="absolute top-[0.3125rem] left-0 w-3 h-3 rounded-sm"
-                :style="{ backgroundColor: action.color }"
-              ></span>
-              <span v-if="action.isSelected">
-                <CheckIcon class="absolute top-[0.1875rem] -left-0.5 w-4 h-4" />
-              </span>
-            </span>
+            <span
+              class="shrink-0 w-2 h-2 rounded-full"
+              :style="{ backgroundColor: action.color }"
+            ></span>
             <span
               :class="
-                'pr-0.5 font-semibold group-hover:opacity-100 ' +
+                'pr-0.5 font-medium group-hover:opacity-100 ' +
                 (action.isSelected || spot.index === selectedSpotIndex
                   ? ''
                   : 'opacity-70')
@@ -205,13 +196,13 @@
             <span
               v-if="spot.index === selectedSpotIndex && rates != null"
               :class="
-                'ml-auto pl-1.5 group-hover:opacity-100 ' +
+                'ml-auto pl-2 text-xs text-muted tabular-nums group-hover:opacity-100 ' +
                 (action.isSelected || spot.index === selectedSpotIndex
                   ? ''
                   : 'opacity-70')
               "
             >
-              [{{ (rates[action.index] * 100).toFixed(1) }}%]
+              {{ (rates[action.index] * 100).toFixed(1) }}%
             </span>
           </button>
         </div>
@@ -221,7 +212,7 @@
       <template v-else-if="spot.type === 'terminal'">
         <div
           :class="
-            'px-1.5 pt-1 pb-0.5 font-semibold group-hover:opacity-100 ' +
+            'px-1 pt-0.5 pb-1 text-[11px] font-bold tracking-wider text-muted group-hover:opacity-100 ' +
             (spot.index === selectedSpotIndex ? '' : 'opacity-70')
           "
         >
@@ -229,7 +220,7 @@
         </div>
         <div
           :class="
-            'flex flex-col flex-grow items-center justify-evenly font-semibold group-hover:opacity-100 ' +
+            'flex flex-col flex-grow items-center justify-evenly text-sm group-hover:opacity-100 ' +
             (spot.index === selectedSpotIndex ? '' : 'opacity-70')
           "
         >
@@ -265,7 +256,7 @@
     </div>
     <div
       v-if="navError"
-      class="self-center px-3 text-sm text-red-500 whitespace-normal"
+      class="self-center px-3 text-sm text-red-400 whitespace-normal"
     >
       {{ navError }}
     </div>
@@ -276,7 +267,9 @@
 import { computed, nextTick, toRefs, ref, watch } from "vue";
 import { listen } from "@tauri-apps/api/event";
 import { useSavedConfigStore, useStore } from "../store";
-import { cardText, average, colorString } from "../utils";
+import { cardText, average, suitBgClasses } from "../utils";
+import { actionColor } from "../action-colors";
+import { nodeStrategy } from "../node-strategy";
 import * as invokes from "../invokes";
 
 import {
@@ -289,7 +282,6 @@ import {
 } from "../result-types";
 
 import {
-  CheckIcon,
   XMarkIcon,
   ChevronDownIcon,
   ChevronLeftIcon,
@@ -297,53 +289,12 @@ import {
   ChevronUpIcon,
 } from "@heroicons/vue/20/solid";
 
-const foldColor = { red: 0x3b, green: 0x82, blue: 0xf6 }; // blue-500
-const checkColor = { red: 0x22, green: 0xc5, blue: 0x5e }; // green-500
-const callColor = { red: 0x22, green: 0xc5, blue: 0x5e }; // green-500
-const betColorGradient = [
-  { red: 0xf5, green: 0x9e, blue: 0x0b }, // amber-500
-  { red: 0xf9, green: 0x73, blue: 0x16 }, // orange-500
-  { red: 0xef, green: 0x44, blue: 0x44 }, // red-500
-  { red: 0xec, green: 0x48, blue: 0x99 }, // pink-500
-  { red: 0xd9, green: 0x46, blue: 0xef }, // fuchsia-500
-  { red: 0xa8, green: 0x55, blue: 0xf7 }, // purple-500
-  { red: 0x8b, green: 0x5c, blue: 0xf6 }, // violet-500
-];
-
-const actionColor = (
-  name: string,
-  index: number,
-  numActions: number,
-  numBetActions: number
-) => {
-  if (name === "Fold") return colorString(foldColor);
-  if (name === "Check") return colorString(checkColor);
-  if (name === "Call") return colorString(callColor);
-
-  if (numBetActions === 1) return colorString(betColorGradient[0]);
-  if (index === numActions - 1) {
-    const denom = numBetActions === 2 ? 2 : 1;
-    return colorString(betColorGradient[(betColorGradient.length - 1) / denom]);
-  }
-
-  const betIndex = index - (numActions - numBetActions);
-  const colorRate = betIndex / (numBetActions - 1);
-
-  const gradientRate = colorRate * (betColorGradient.length - 1);
-  const gradientIndex = Math.floor(gradientRate);
-  const r = gradientRate - gradientIndex;
-
-  const color1 = betColorGradient[gradientIndex];
-  const color2 = betColorGradient[gradientIndex + 1];
-
-  const retColor = { red: 0, green: 0, blue: 0 };
-  for (const primary of ["red", "green", "blue"] as const) {
-    const primary1 = color1[primary];
-    const primary2 = color2[primary];
-    retColor[primary] = Math.round(primary1 * (1 - r) + primary2 * r);
-  }
-
-  return colorString(retColor);
+/** Colour of action `i` of `actions` ("Name:amount"), bets ranked by amount. */
+const colorOf = (actions: string[], i: number, numBetActions: number) => {
+  const name = actions[i].split(":")[0];
+  const hasAllIn = actions[actions.length - 1].split(":")[0] === "AllIn";
+  const numBets = numBetActions - (hasAllIn ? 1 : 0);
+  return actionColor(name, i - (actions.length - numBetActions), numBets);
 };
 
 const props = defineProps<{
@@ -808,12 +759,12 @@ const selectSpotUnsafe = async (
     if (results.isEmpty & (1 << playerIndex)) {
       rates.value = null;
     } else {
-      const n = props.cards[playerIndex].length;
-      rates.value = Array.from({ length: spot.actions.length }, (_, i) => {
-        if (!results) throw new Error("null results");
-        const rates = results.strategy.slice(i * n, (i + 1) * n);
-        return average(rates, results.normalizer[playerIndex]);
-      });
+      rates.value =
+        nodeStrategy(
+          results.strategy,
+          results.normalizer[playerIndex],
+          spot.actions
+        )?.map((item) => item.frequency) ?? null;
     }
   } else {
     rates.value = null;
@@ -991,7 +942,7 @@ const spliceSpotsChance = async (spotIndex: number) => {
           amount,
           rate: -1,
           isSelected: false,
-          color: actionColor(name, i, nextActions.length, numBetActions),
+          color: colorOf(nextActions, i, numBetActions),
         };
       }),
     }
@@ -1024,7 +975,7 @@ const spliceSpotsPlayer = (spotIndex: number, actions: string[]) => {
         name,
         amount,
         isSelected: false,
-        color: actionColor(name, i, actions.length, numBetActions),
+        color: colorOf(actions, i, numBetActions),
       };
     }),
   });
@@ -1120,13 +1071,25 @@ watch(dealtCard, async (card) => {
   await deal(card);
 });
 
+const chip = (card: number) => ({
+  rank: cardText(card).rank,
+  suit: cardText(card).suit,
+  chipClass: "text-white " + suitBgClasses[card & 3],
+});
+
 const spotCards = (spot: SpotRoot | SpotChance) => {
   if (spot.type === "root") {
-    return spot.board.map((card) => cardText(card));
+    return spot.board.map(chip);
   } else if (spot.selectedIndex === -1) {
-    return [{ rank: "?", suit: "", colorClass: "text-black" }];
+    return [
+      {
+        rank: "?",
+        suit: "",
+        chipClass: "border border-dashed border-line text-muted",
+      },
+    ];
   } else {
-    return [cardText(spot.selectedIndex)];
+    return [chip(spot.selectedIndex)];
   }
 };
 </script>

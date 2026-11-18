@@ -4,15 +4,15 @@
     <div class="flex-grow min-w-0">
       <div class="flex items-center gap-3">
         <div class="text-lg font-semibold">Node lock</div>
-        <button class="button-base button-blue" @click="emit('close')">
+        <UiButton variant="ghost" size="sm" @click="emit('close')">
           Back to results
-        </button>
+        </UiButton>
       </div>
 
-      <div v-if="unlockableReason" class="mt-3 text-gray-600">
+      <div v-if="unlockableReason" class="mt-3 text-muted">
         {{ unlockableReason }}
       </div>
-      <div v-else-if="captureError" class="mt-3 text-red-500">
+      <div v-else-if="captureError" class="mt-3 text-red-400">
         {{ captureError }}
       </div>
 
@@ -20,11 +20,11 @@
         <div class="mt-2">
           <span class="font-semibold">{{ baseLock.player.toUpperCase() }}</span>
           at {{ line.label }}
-          <span v-if="mirrorText" class="ml-2 text-sm text-gray-600">
+          <span v-if="mirrorText" class="ml-2 text-sm text-muted">
             ({{ mirrorText }})
           </span>
         </div>
-        <div class="mt-1 text-sm text-gray-600">
+        <div class="mt-1 text-sm text-muted">
           The whole node is locked: edited hands at the frequencies you set, the
           others at their current strategy.
         </div>
@@ -40,10 +40,10 @@
                   'relative w-10 h-8 p-0 border text-xs ' +
                   (cells[row - 1][col - 1].combos.length > 0
                     ? 'cursor-pointer '
-                    : 'bg-gray-100 text-gray-400 ') +
+                    : 'bg-cell text-muted/50 ') +
                   (isCellSelected(row - 1, col - 1)
-                    ? 'border-2 border-black '
-                    : 'border-gray-300 ')
+                    ? 'border-2 border-accent '
+                    : 'border-line ')
                 "
                 @click="toggleCell(row - 1, col - 1)"
               >
@@ -85,13 +85,14 @@
               >
                 <input
                   type="checkbox"
+                  class="rounded border-line bg-panel2 text-accent"
                   :checked="selected.has(combo)"
                   @change="toggleCombo(combo)"
                 />
                 <span :class="'w-12 ' + (edits[combo] ? 'font-bold' : '')">
                   {{ comboLabel(combo) }}
                 </span>
-                <span class="text-gray-600">
+                <span class="text-muted">
                   {{
                     strategyOf(combo)
                       .map((f) => (f * 100).toFixed(0) + "%")
@@ -100,7 +101,7 @@
                 </span>
               </label>
             </div>
-            <div v-else class="text-sm text-gray-600">
+            <div v-else class="text-sm text-muted">
               Click a hand class to select its combos.
             </div>
 
@@ -126,7 +127,7 @@
               </span>
               <input
                 type="number"
-                class="w-20 px-2 py-0.5 rounded-lg text-sm text-center"
+                class="ui-input w-20 text-center"
                 min="0"
                 max="100"
                 step="1"
@@ -140,35 +141,38 @@
             </div>
             <div
               v-if="selected.size > 0 && !isSumValid"
-              class="mt-1 text-sm text-red-500"
+              class="mt-1 text-sm text-red-400"
             >
               The frequencies must add up to 100% (now
               {{ freqSum.toFixed(1) }}%).
             </div>
             <div class="flex gap-2 mt-3">
-              <button
-                class="button-base button-blue"
-                :disabled="selected.size === 0 || !isSumValid || isBusy"
+              <UiButton
+                variant="ghost"
+                size="sm"
+                :disabled="selected.size === 0 || !isSumValid || busy"
                 @click="applyToSelected"
               >
                 Apply to selected hands
-              </button>
-              <button
-                class="button-base button-red"
-                :disabled="!hasEditedSelected || isBusy"
+              </UiButton>
+              <UiButton
+                variant="danger"
+                size="sm"
+                :disabled="!hasEditedSelected || busy"
                 @click="resetSelected"
               >
                 Reset
-              </button>
+              </UiButton>
             </div>
             <div class="flex gap-2 mt-2">
-              <button
-                class="button-base button-blue"
+              <UiButton
+                variant="ghost"
+                size="sm"
                 :disabled="selected.size === 0"
                 @click="clearSelection"
               >
                 Clear selection
-              </button>
+              </UiButton>
             </div>
           </div>
         </div>
@@ -178,7 +182,7 @@
     <!-- Lock list -->
     <div class="w-[22rem] shrink-0">
       <div class="text-lg font-semibold">Locks</div>
-      <div v-if="store.locks.length === 0" class="mt-2 text-sm text-gray-600">
+      <div v-if="store.locks.length === 0" class="mt-2 text-sm text-muted">
         No lock.
       </div>
       <div
@@ -191,61 +195,60 @@
             <span class="font-semibold">{{ lock.player.toUpperCase() }}</span>
             at {{ lock.label || lock.history.join("-") }}
           </div>
-          <div class="text-gray-600">
+          <div class="text-muted">
             {{ editedSummary(lock) }}
             · {{ isInSolution(lock) ? "in this solution" : "pending" }}
           </div>
         </div>
-        <button
-          class="button-base button-red !px-2 !py-0.5"
-          :disabled="isBusy"
+        <UiButton
+          variant="danger"
+          size="sm"
+          :disabled="busy"
           @click="removeLock(lock)"
         >
           Delete
-        </button>
+        </UiButton>
       </div>
-      <div v-if="removedCount > 0" class="mt-2 text-sm text-gray-600">
+      <div v-if="removedCount > 0" class="mt-2 text-sm text-muted">
         {{ removedCount }} lock{{ removedCount === 1 ? "" : "s" }} of this
         solution removed (pending).
       </div>
 
-      <button
-        class="mt-4 button-base button-green"
-        :disabled="!hasPendingChanges || isBusy || !!resolveDisabledReason"
+      <UiButton
+        class="mt-4"
+        variant="primary"
+        size="sm"
+        :disabled="!hasPendingChanges || busy || !!resolveDisabledReason"
         @click="resolveWithLocks"
       >
         Re-solve with locks
-      </button>
-      <div v-if="resolveDisabledReason" class="mt-1 text-sm text-gray-600">
+      </UiButton>
+      <div v-if="resolveDisabledReason" class="mt-1 text-sm text-muted">
         {{ resolveDisabledReason }}
       </div>
-      <div v-else-if="isBusy" class="mt-1 text-sm text-gray-600">
+      <div v-else-if="busy" class="mt-1 text-sm text-muted">
         Preparing the tree...
       </div>
-      <div v-if="resolveError" class="mt-1 text-sm text-red-500">
-        {{ resolveError }}
+      <div v-if="lockResolve.error" class="mt-1 text-sm text-red-400">
+        {{ lockResolve.error }}
       </div>
-      <div class="mt-2 text-xs text-gray-600">
+      <div class="mt-2 text-xs text-muted">
         The tree is rebuilt from this solution's configuration and solved with
-        the Run Solver settings (threads, target, iterations).
+        the solve settings (⚙: threads, target, iterations).
       </div>
     </div>
-
-    <SaveSolutionDialog v-if="isSaveDialogOpen" @close="onSaveDialogClose" />
   </div>
 </template>
 
 <script setup lang="ts">
 import { computed, onMounted, ref } from "vue";
 import { useStore } from "../store";
-import { useSolverSession } from "../solver-session";
-import { validateSolveSettings } from "../solve-settings";
 import * as invokes from "../invokes";
 import { NodeLock } from "../invokes";
 import { Results, SpotPlayer } from "../result-types";
 import { cardText, cardPairCellIndex, ranks, suitLetters } from "../utils";
-import { choose } from "../library";
-import SaveSolutionDialog from "./SaveSolutionDialog.vue";
+import { useLockResolve } from "../lock-resolve";
+import UiButton from "./ui/UiButton.vue";
 import { mirrorEdits } from "../lock-utils";
 
 const props = defineProps<{
@@ -260,7 +263,6 @@ const props = defineProps<{
 const emit = defineEmits<{ (e: "close"): void }>();
 
 const store = useStore();
-const session = useSolverSession();
 
 // The template only reads `spot` when the node is lockable (spot non-null).
 const spot = computed(() => props.spot as SpotPlayer);
@@ -338,6 +340,9 @@ const edits = ref<Record<string, number[]>>({});
 const baseLock = ref<NodeLock | null>(null);
 const captureError = ref("");
 const isBusy = ref(false);
+const lockResolve = useLockResolve();
+/** Capturing a lock or preparing the re-solve. */
+const busy = computed(() => isBusy.value || lockResolve.isBusy);
 
 const existingLock = (key: number[]) =>
   store.locks.find((lock) => lock.key.join(",") === key.join(","));
@@ -571,72 +576,12 @@ const removeLock = (lock: NodeLock) => {
 
 /* Re-solve */
 
-const resolveError = ref("");
-const isSaveDialogOpen = ref(false);
-
-const canSaveSolution = computed(
-  () =>
-    store.solutionDepth === "river" &&
-    !(store.isBunchingEnabled && store.bunchingFlop.length > 0)
-);
-
-const resolveDisabledReason = computed(() => {
-  if (store.isLibraryBusy && !isBusy.value) return "The library is busy.";
-  if (store.isBunchingEnabled && store.bunchingFlop.length > 0) {
-    return "Locks are not available with the bunching effect.";
-  }
-  if (store.isSolveStarting) return "A solve is starting.";
-  const settingsError = validateSolveSettings(session.settings);
-  if (settingsError) return `Solve settings: ${settingsError}`;
-  return "";
-});
+/** Why a re-solve with locks cannot start (shared with the top bar), or "". */
+const resolveDisabledReason = computed(() => lockResolve.disabledReason);
 
 const resolveWithLocks = async () => {
-  resolveError.value = "";
-  if (!store.isSolutionSaved && canSaveSolution.value) {
-    const choice = await choose(
-      "The current solution is not saved and re-solving replaces it. Save it first?",
-      { yes: "Save first", no: "Re-solve without saving", cancel: "Cancel" }
-    );
-    if (choice === "Cancel") return;
-    if (choice === "Save first") {
-      isSaveDialogOpen.value = true;
-      return;
-    }
-  }
-  await startResolve();
-};
-
-const onSaveDialogClose = async () => {
-  isSaveDialogOpen.value = false;
-  // Cancelled: stay here (clicking again offers to continue without saving).
-  if (store.isSolutionSaved) await startResolve();
-};
-
-const startResolve = async () => {
-  const locks = store.locks.map((lock) => ({ ...lock }));
-  isBusy.value = true;
-  store.isLibraryBusy = true;
-  let compression: boolean;
-  try {
-    compression = await invokes.gamePrepareLockSolve(locks);
-  } catch (e) {
-    // The reference solution is untouched.
-    store.isLibraryBusy = false;
-    resolveError.value = String(e);
-    return;
-  } finally {
-    isBusy.value = false;
-  }
-  // The game is now unsolved: mark the solver as running before releasing the library lock,
-  // so no other action (Run Solver, Build Tree, Load) can start in between.
-  store.isSolverFinished = false;
-  store.isSolverRunning = true;
-  store.isLibraryBusy = false;
-  store.solutionLocks = locks;
-  store.locks = [...locks];
-  store.returnLine = [...props.line.history];
-  emit("close");
-  void session.runLockedSolve(compression);
+  await lockResolve.start(props.line);
+  // Started (not cancelled, nor waiting for the save dialog): the results are being replaced.
+  if (store.isSolverRunning) emit("close");
 };
 </script>

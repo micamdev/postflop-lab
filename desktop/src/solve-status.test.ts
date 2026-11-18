@@ -3,6 +3,7 @@ import {
   SolveFlags,
   choosePrecision,
   primaryAction,
+  savesBeside,
   progressFraction,
   solutionStatus,
 } from "./solve-status";
@@ -141,5 +142,39 @@ describe("choosePrecision", () => {
       compression: false,
       fellBack: false,
     });
+  });
+});
+
+describe("primaryAction with pending locks", () => {
+  test("re-solve with locks on a finished solution, saved or not", () => {
+    expect(
+      primaryAction(
+        flags({ isSolverFinished: true, isSolutionSaved: true }),
+        true,
+        true
+      )
+    ).toBe("resolve-locks");
+    expect(primaryAction(flags({ isSolverFinished: true }), true, true)).toBe(
+      "resolve-locks"
+    );
+  });
+
+  test("never while solving", () => {
+    expect(primaryAction(flags({ isSolverRunning: true }), true, true)).toBe(
+      "progress"
+    );
+  });
+});
+
+describe("savesBeside", () => {
+  test("Save stays reachable next to Re-solve with locks", () => {
+    expect(savesBeside(flags({ isSolverFinished: true }), true)).toBe(true);
+    expect(
+      savesBeside(
+        flags({ isSolverFinished: true, isSolutionSaved: true }),
+        true
+      )
+    ).toBe(false);
+    expect(savesBeside(flags({ isSolverFinished: true }), false)).toBe(false);
   });
 });
