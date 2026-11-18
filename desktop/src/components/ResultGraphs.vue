@@ -51,6 +51,7 @@
 </template>
 
 <script setup lang="ts">
+import { stackedGradient } from "../action-colors";
 import { computed, ref } from "vue";
 import { cardText, cardPairOrder, toFixed1, toFixedAdaptive } from "../utils";
 import {
@@ -367,15 +368,16 @@ const strategyItems = computed(() => {
   );
 
   return tupleData.value[playerIndex.value].map((tuple) => {
-    let bgImage = "linear-gradient(to top";
-    let pos = 0;
-    for (let i = numActions - 1; i >= 0; --i) {
-      const width = tuple[i + 3] * 100;
-      const color = actionColors[i];
-      bgImage += `, ${color} ${pos}% ${pos + width}%`;
-      pos += width;
-    }
-    bgImage += ")";
+    // Last action at the bottom, as in the grid and the table.
+    const frequencies = Array.from(
+      { length: numActions },
+      (_, i) => tuple[numActions - i + 2]
+    );
+    const bgImage = stackedGradient(
+      frequencies,
+      [...actionColors].reverse(),
+      "top"
+    );
     return { cards: tuple[0], weight: tuple[1], bgImage };
   });
 });

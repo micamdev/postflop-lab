@@ -141,16 +141,9 @@ watch(chanceMode, (newValue, oldValue) => {
   }
 });
 
-const displayOptions = reactive<Types.DisplayOptions>({
-  playerBasics: "auto",
-  playerChance: "auto",
-  barHeight: "normalized",
-  suit: "grouped",
-  strategy: "show",
-  contentBasics: "default",
-  contentGraphs: "eq",
-  chartChance: "strategy-combos",
-});
+const displayOptions = reactive<Types.DisplayOptions>(
+  Types.defaultDisplayOptions()
+);
 
 const strategyContentPair = ref("show,default");
 

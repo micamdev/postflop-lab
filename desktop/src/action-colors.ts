@@ -10,6 +10,9 @@ export const ACTION_COLORS = {
   allIn: "#7a1f1c",
 };
 
+/** The engine's name for an all-in action (solver.rs `actions`). */
+export const ALL_IN = "Allin";
+
 const BET_RAMP = [
   ACTION_COLORS.betSmall,
   ACTION_COLORS.betMid,
@@ -31,7 +34,7 @@ const betRamp = (t: number) => {
 };
 
 /**
- * Colour of an action of the engine ("Fold", "Check", "Call", "Bet", "Raise", "AllIn");
+ * Colour of an action of the engine ("Fold", "Check", "Call", "Bet", "Raise", "Allin");
  * `betRank` is the 0-based position of a bet or raise among the node's bets and raises by
  * amount, `numBets` their count (all-in excluded).
  */
@@ -42,7 +45,22 @@ export const actionColor = (
 ): string => {
   if (name === "Fold") return ACTION_COLORS.fold;
   if (name === "Check" || name === "Call") return ACTION_COLORS.check;
-  if (name === "AllIn") return ACTION_COLORS.allIn;
+  if (name === ALL_IN) return ACTION_COLORS.allIn;
   if (numBets <= 1) return ACTION_COLORS.betSmall;
   return betRamp(betRank / (numBets - 1));
+};
+
+/** CSS gradient stacking `frequencies` (0–1) in `colors`, from the start toward `direction`. */
+export const stackedGradient = (
+  frequencies: number[],
+  colors: string[],
+  direction: "right" | "top"
+): string => {
+  let pos = 0;
+  const stops = frequencies.map((f, i) => {
+    const stop = `${colors[i]} ${pos * 100}% ${(pos + f) * 100}%`;
+    pos += f;
+    return stop;
+  });
+  return `linear-gradient(to ${direction}, ${stops.join(", ")})`;
 };

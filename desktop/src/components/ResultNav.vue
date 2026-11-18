@@ -10,7 +10,7 @@
         'flex flex-col relative h-full min-w-[7.5rem] px-1.5 py-1 justify-start ' +
         'rounded-lg border bg-panel transition-colors group ' +
         (spot.type === 'chance'
-          ? isSelectedChanceSkipped && spot.index > selectedChanceIndex
+          ? isBeyondSkippedChance(spot.index)
             ? ''
             : 'hover:border-ip '
           : 'hover:border-accent ') +
@@ -18,9 +18,7 @@
           ? 'border-ip ring-1 ring-ip cursor-default'
           : spot.index === selectedSpotIndex
             ? 'border-accent ring-1 ring-accent cursor-default'
-            : spot.type === 'chance' &&
-                isSelectedChanceSkipped &&
-                spot.index > selectedChanceIndex
+            : spot.type === 'chance' && isBeyondSkippedChance(spot.index)
               ? 'border-line cursor-default'
               : 'border-line cursor-pointer')
       "
@@ -33,7 +31,7 @@
             'px-1 pt-0.5 pb-1 text-[11px] font-bold tracking-wider text-muted ' +
             (spot.index === selectedChanceIndex
               ? ''
-              : isSelectedChanceSkipped && spot.index > selectedChanceIndex
+              : isBeyondSkippedChance(spot.index)
                 ? 'opacity-70'
                 : 'group-hover:opacity-100 opacity-70')
           "
@@ -96,7 +94,7 @@
             :class="
               spot.index === selectedChanceIndex
                 ? ''
-                : isSelectedChanceSkipped && spot.index > selectedChanceIndex
+                : isBeyondSkippedChance(spot.index)
                   ? 'opacity-70'
                   : 'group-hover:opacity-100 opacity-70'
             "
@@ -230,7 +228,7 @@ import { computed, nextTick, onBeforeUnmount, toRefs, ref, watch } from "vue";
 import { listen } from "@tauri-apps/api/event";
 import { useSavedConfigStore, useStore } from "../store";
 import { cardText, average, suitBgClasses } from "../utils";
-import { actionColor } from "../action-colors";
+import { ALL_IN, actionColor } from "../action-colors";
 import { nodeStrategy } from "../node-strategy";
 import * as invokes from "../invokes";
 
@@ -254,9 +252,25 @@ import {
 /** Colour of action `i` of `actions` ("Name:amount"), bets ranked by amount. */
 const colorOf = (actions: string[], i: number, numBetActions: number) => {
   const name = actions[i].split(":")[0];
-  const hasAllIn = actions[actions.length - 1].split(":")[0] === "AllIn";
+  const hasAllIn = actions[actions.length - 1].split(":")[0] === ALL_IN;
   const numBets = numBetActions - (hasAllIn ? 1 : 0);
   return actionColor(name, i - (actions.length - numBetActions), numBets);
+};
+
+/** The actions of a spot ("Name:amount") with their colours. Fold, check and call (amount 0)
+ * come first; the others are bets and raises, ranked by amount for their colour. */
+const toSpotActions = (actions: string[]) => {
+  const numBetActions = actions.filter((a) => a.split(":")[1] !== "0").length;
+  return actions.map((action, i) => {
+    const [name, amount] = action.split(":");
+    return {
+      index: i,
+      name,
+      amount,
+      isSelected: false,
+      color: colorOf(actions, i, numBetActions),
+    };
+  });
 };
 
 const props = defineProps<{
@@ -316,6 +330,10 @@ const selectedChance = computed(() =>
 const isSelectedChanceSkipped = computed(() => {
   return selectedChance.value?.selectedIndex === -1;
 });
+
+/** A spot after the selected card while that card is skipped (shown, not clickable). */
+const isBeyondSkippedChance = (index: number) =>
+  isSelectedChanceSkipped.value && index > selectedChanceIndex.value;
 
 const currentBoard = computed(() => {
   const board = [...config.board];
@@ -560,8 +578,7 @@ const selectSpotUnsafe = async (
       ((spotIndex === selectedSpotIndex.value && !fromDeal) ||
         spotIndex === selectedChanceIndex.value ||
         (spots.value[spotIndex].type === "chance" &&
-          isSelectedChanceSkipped.value &&
-          spotIndex > selectedChanceIndex.value)))
+          isBeyondSkippedChance(spotIndex))))
   ) {
     return;
   }
@@ -888,14 +905,6 @@ const spliceSpotsChance = async (spotIndex: number) => {
   append.push(-1);
   const nextActions = await invokes.gameActionsAfter(append);
 
-  let numBetActions = nextActions.length;
-  while (
-    numBetActions > 0 &&
-    nextActions[nextActions.length - numBetActions].split(":")[1] === "0"
-  ) {
-    --numBetActions;
-  }
-
   if (selectedChanceIndexTmp === -1) {
     canChanceReports.value = true;
     const numActions = nextActions.length;
@@ -928,17 +937,7 @@ const spliceSpotsChance = async (spotIndex: number) => {
       index: spotIndex + 1,
       player: "oop",
       selectedIndex: -1,
-      actions: nextActions.map((action, i) => {
-        const [name, amount] = action.split(":");
-        return {
-          index: i,
-          name,
-          amount,
-          rate: -1,
-          isSelected: false,
-          color: colorOf(nextActions, i, numBetActions),
-        };
-      }),
+      actions: toSpotActions(nextActions),
     }
   );
 
@@ -953,25 +952,12 @@ const spliceSpotsPlayer = (spotIndex: number, actions: string[]) => {
   const prevSpot = spots.value[spotIndex - 1];
   const player = prevSpot.player === "oop" ? "ip" : "oop";
 
-  let numBetActions = actions.length;
-  if (actions[0].split(":")[1] === "0") --numBetActions;
-  if (actions[1]?.split(":")[1] === "0") --numBetActions;
-
   spots.value.splice(spotIndex, spots.value.length, {
     type: "player",
     index: spotIndex,
     player,
     selectedIndex: -1,
-    actions: actions.map((action, i) => {
-      const [name, amount] = action.split(":");
-      return {
-        index: i,
-        name,
-        amount,
-        isSelected: false,
-        color: colorOf(actions, i, numBetActions),
-      };
-    }),
+    actions: toSpotActions(actions),
   });
 };
 

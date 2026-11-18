@@ -70,6 +70,7 @@
 </template>
 
 <script setup lang="ts">
+import { stackedGradient } from "../action-colors";
 import { computed, ref, toRefs, onUnmounted, watch } from "vue";
 import { useSavedConfigStore } from "../store";
 import {
@@ -363,16 +364,13 @@ const cellContent = computed(() => {
       const spot = props.selectedSpot as SpotPlayer;
       const colors = spot.actions.map((action) => action.color);
 
-      let bgImage = `linear-gradient(to ${isSuitIndividual ? "top" : "right"}`;
       const bgSize = `100% ${height * 100}%`;
-
-      let prevPos = 0;
-      for (let i = suit.strategy.length - 1; i >= 0; --i) {
-        const pos = prevPos + suit.strategy[i] / normalizer;
-        bgImage += `, ${colors[i]} ${prevPos * 100}% ${pos * 100}%`;
-        prevPos = pos;
-      }
-      bgImage += ")";
+      // Last action first, as in the table.
+      const bgImage = stackedGradient(
+        [...suit.strategy].reverse().map((s) => s / normalizer),
+        [...colors].reverse(),
+        isSuitIndividual ? "top" : "right"
+      );
 
       return { bgImage, bgSize };
     });

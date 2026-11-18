@@ -312,14 +312,6 @@ export const useSolverSession = defineStore("solverSession", () => {
    * `gamePrepareLockSolve`), with the current settings.
    */
   const runLockedSolve = async (lockCompression: boolean) => {
-    try {
-      await startLockedSolve(lockCompression);
-    } catch (e) {
-      fail(e);
-    }
-  };
-
-  const startLockedSolve = async (lockCompression: boolean) => {
     // Before any await: the game is unsolved (also set by the lock editor).
     store.isSolverFinished = false;
     const settingsError = validateSolveSettings(settings.value);
@@ -327,26 +319,29 @@ export const useSolverSession = defineStore("solverSession", () => {
       fail(settingsError);
       return;
     }
-    store.isSolverRunning = true;
-    compression.value = lockCompression;
-    [memoryNeed32.value, memoryNeed16.value] = await invokes.gameMemoryUsage();
-    memoryBunching.value = 0;
-    isTreeBuilt.value = true;
+    try {
+      store.isSolverRunning = true;
+      store.isSolverPaused = false;
+      store.isSolverError = false;
+      resetSolutionInfo();
+      compression.value = lockCompression;
+      [memoryNeed32.value, memoryNeed16.value] =
+        await invokes.gameMemoryUsage();
+      memoryBunching.value = 0;
+      isTreeBuilt.value = true;
+      terminateFlag = false;
+      pauseFlag = false;
+      elapsedMs.value = 0;
+      segmentStart.value = 0;
 
-    resetSolutionInfo();
-    store.isSolverFinished = false;
-    store.isSolverPaused = false;
-    store.isSolverError = false;
-    terminateFlag = false;
-    pauseFlag = false;
-    elapsedMs.value = 0;
-    segmentStart.value = 0;
-
-    iteration.value = 0;
-    exploitability.value = Math.max(await invokes.gameExploitability(), 0);
-    initialExploitability.value = exploitability.value;
-    exploitabilityUpdated = true;
-    await resume();
+      iteration.value = 0;
+      exploitability.value = Math.max(await invokes.gameExploitability(), 0);
+      initialExploitability.value = exploitability.value;
+      exploitabilityUpdated = true;
+      await resume();
+    } catch (e) {
+      fail(e);
+    }
   };
 
   const pause = () => {
