@@ -92,6 +92,8 @@ pub fn resolve_into_cache(
     if cache.generation != generation {
         return Err(ERR_STALE.to_string());
     }
+    // Only solved subgames are cached (an empty one keeps an uninitialized game).
+    debug_assert!(sub.kind == SubgameKind::Solve);
     let kind = sub.kind;
     cache.entries.insert(key, sub);
     Ok(kind)

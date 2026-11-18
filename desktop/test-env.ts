@@ -3,7 +3,6 @@
 export default {
   name: "web-no-dom",
   viteEnvironment: "client",
-  transformMode: "web",
   setup() {
     return { teardown() {} };
   },

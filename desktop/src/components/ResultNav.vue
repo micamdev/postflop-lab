@@ -470,8 +470,13 @@ const resolveAndDeal = async (card: number) => {
   ) {
     return;
   }
+  // A navigation is running: the selected spot is about to change.
+  if (isBusy || props.isLocked) return;
   // Busy with something else (a library load): its busy flag must not be cleared here.
-  if (store.isLibraryBusy && !resolveStatus.value) return;
+  if (store.isLibraryBusy && !resolveStatus.value) {
+    navError.value = "The library is busy.";
+    return;
+  }
   const id = ++resolveId;
   const history = spots.value.slice(1, spot.index).map((s) => s.selectedIndex);
   const label = cardText(card).rank + cardText(card).suit;
@@ -521,6 +526,13 @@ const resolveAndDeal = async (card: number) => {
   // Dealing is a navigation like the others: not while another one runs (the river stays
   // in the cache, so picking it again is instant).
   await exclusive(async () => {
+    // The user moved elsewhere meanwhile: the river stays cached for a later pick.
+    if (
+      spots.value[spot.index] !== spot ||
+      selectedSpotIndex.value !== spot.index
+    ) {
+      return;
+    }
     spot.isBeyondDepth = false;
     spot.isResolved = true;
     spot.selectedIndex = card;
@@ -966,7 +978,7 @@ const spliceSpotsPlayer = (spotIndex: number, actions: string[]) => {
 // The results disappear (load, new solve) while a navigation runs: its final emit would be
 // dropped once unmounted, leaving the parent locked. Unlock while still mounted.
 onBeforeUnmount(() => {
-  if (props.isLocked) emit("update:is-locked", false);
+  emit("update:is-locked", false);
 });
 
 // Set synchronously by a click, before any await: a second click while a navigation runs is
@@ -1015,8 +1027,11 @@ const dealUnsafe = async (card: number) => {
   spot.cards[card].isSelected = true;
   spot.selectedIndex = card;
 
-  await selectSpot(selectedSpotIndex.value, false, true);
-  isSameCardDeal = false;
+  try {
+    await selectSpot(selectedSpotIndex.value, false, true);
+  } finally {
+    isSameCardDeal = false;
+  }
 };
 
 const dealArrow = (spot: SpotChance, rankDir: number, suitDir: number) =>
