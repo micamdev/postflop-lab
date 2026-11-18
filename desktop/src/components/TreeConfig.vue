@@ -734,12 +734,8 @@
 <script setup lang="ts">
 import { computed, ref } from "vue";
 import { useStore, useConfigStore } from "../store";
-import {
-  MAX_AMOUNT,
-  ROOT_LINE_STRING,
-  INVALID_LINE_STRING,
-  readableLineString,
-} from "../utils";
+import { MAX_AMOUNT, readableLineString } from "../utils";
+import { setupErrors } from "../setup-validation";
 
 import TreeEditor from "./TreeEditor.vue";
 import { Tippy } from "vue-tippy";
@@ -766,92 +762,12 @@ const removedLinesArray = computed(() =>
     : config.removedLines.split(",").map(readableLineString)
 );
 
-const errorBasics = computed(() => {
-  const errors: string[] = [];
-  if (config.startingPot <= 0) {
-    errors.push("Starting pot must be positive");
-  }
-  if (config.startingPot > MAX_AMOUNT) {
-    errors.push(`Starting pot must not exceed ${MAX_AMOUNT}`);
-  }
-  if (config.startingPot % 1 !== 0) {
-    errors.push("Starting pot must be an integer");
-  }
-  if (config.effectiveStack <= 0) {
-    errors.push("Effective stack must be positive");
-  }
-  if (config.effectiveStack > MAX_AMOUNT) {
-    errors.push(`Effective stack must not exceed ${MAX_AMOUNT}`);
-  }
-  if (config.effectiveStack % 1 !== 0) {
-    errors.push("Effective stack must be an integer");
-  }
-  if (config.rakePercent < 0) {
-    errors.push("Rake must be non-negative");
-  }
-  if (config.rakePercent > 100) {
-    errors.push("Rake must not exceed 100%");
-  }
-  if (config.rakeCap < 0) {
-    errors.push("Rake cap must be non-negative");
-  }
-  if (config.rakeCap > 3 * MAX_AMOUNT) {
-    errors.push(`Rake cap must not exceed ${3 * MAX_AMOUNT}`);
-  }
-  return errors;
-});
-
-const errorOop = computed(() => {
-  const errors: string[] = [];
-  const betConfig = [
-    { name: "OOP flop bet", res: config.oopFlopBetSanitized },
-    { name: "OOP flop raise", res: config.oopFlopRaiseSanitized },
-    { name: "OOP turn bet", res: config.oopTurnBetSanitized },
-    { name: "OOP turn raise", res: config.oopTurnRaiseSanitized },
-    { name: "OOP turn donk", res: config.oopTurnDonkSanitized, isDonk: true },
-    { name: "OOP river bet", res: config.oopRiverBetSanitized },
-    { name: "OOP river raise", res: config.oopRiverRaiseSanitized },
-    { name: "OOP river donk", res: config.oopRiverDonkSanitized, isDonk: true },
-  ];
-  for (const { name, res, isDonk } of betConfig) {
-    if (!res.valid && (!isDonk || config.donkOption)) {
-      errors.push(`${name}: ${res.s}`);
-    }
-  }
-  return errors;
-});
-
-const errorIp = computed(() => {
-  const errors: string[] = [];
-  const betConfig = [
-    { name: "IP flop bet", res: config.ipFlopBetSanitized },
-    { name: "IP flop raise", res: config.ipFlopRaiseSanitized },
-    { name: "IP turn bet", res: config.ipTurnBetSanitized },
-    { name: "IP turn raise", res: config.ipTurnRaiseSanitized },
-    { name: "IP river bet", res: config.ipRiverBetSanitized },
-    { name: "IP river raise", res: config.ipRiverRaiseSanitized },
-  ];
-  for (const { name, res } of betConfig) {
-    if (!res.valid) {
-      errors.push(`${name}: ${res.s}`);
-    }
-  }
-  return errors;
-});
-
-const errorMisc = computed(() => {
-  const errors: string[] = [];
-  if (config.addAllInThreshold < 0) {
-    errors.push("Add all-in threshold must be non-negative");
-  }
-  if (config.forceAllInThreshold < 0) {
-    errors.push("Force all-in threshold must be non-negative");
-  }
-  if (config.mergingThreshold < 0) {
-    errors.push("Merging threshold must be non-negative");
-  }
-  return errors;
-});
+// The same checks as Solve (setup-validation), listed by section.
+const errors = computed(() => setupErrors(config));
+const errorBasics = computed(() => errors.value.basics);
+const errorOop = computed(() => errors.value.oop);
+const errorIp = computed(() => errors.value.ip);
+const errorMisc = computed(() => errors.value.misc);
 
 const warningMisc = computed(() => {
   const warnings: string[] = [];
@@ -863,29 +779,7 @@ const warningMisc = computed(() => {
   return warnings;
 });
 
-const errorLines = computed(() => {
-  const errors: string[] = [];
-  if (
-    addedLinesArray.value.includes(ROOT_LINE_STRING) ||
-    addedLinesArray.value.includes(INVALID_LINE_STRING) ||
-    removedLinesArray.value.includes(ROOT_LINE_STRING) ||
-    removedLinesArray.value.includes(INVALID_LINE_STRING)
-  ) {
-    errors.push("Invalid line found (loaded broken configurations?)");
-  }
-  if (
-    ![0, 3, 4, 5].includes(config.expectedBoardLength) ||
-    (config.expectedBoardLength === 0 &&
-      (addedLinesArray.value.length > 0 ||
-        removedLinesArray.value.length > 0)) ||
-    (config.expectedBoardLength > 0 &&
-      addedLinesArray.value.length === 0 &&
-      removedLinesArray.value.length === 0)
-  ) {
-    errors.push("Invalid configurations (loaded broken configurations?)");
-  }
-  return errors;
-});
+const errorLines = computed(() => errors.value.lines);
 
 const isInputValid = computed(
   () =>
