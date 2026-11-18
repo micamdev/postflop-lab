@@ -65,29 +65,39 @@ export const loadSolution = async (name: string): Promise<string | null> => {
   ) {
     return "Stop the solver before loading a solution.";
   }
-  if (store.isLibraryBusy) return null;
-
-  // Refused loads (unreadable file, not enough memory) leave everything as it is.
+  // One load at a time, from the very first await (a double click on a Library row).
+  if (store.isLibraryBusy || isLoading) return null;
+  isLoading = true;
   try {
-    await invokes.libraryCheckLoad(name);
-  } catch (e) {
-    return String(e);
-  }
-  if (
-    store.isSolverFinished &&
-    !store.isSolutionSaved &&
-    !(await ask("The current solution is not saved. Load another one anyway?"))
-  ) {
-    return null;
-  }
+    // Refused loads (unreadable file, not enough memory) leave everything as it is.
+    try {
+      await invokes.libraryCheckLoad(name);
+    } catch (e) {
+      return String(e);
+    }
+    if (
+      store.isSolverFinished &&
+      !store.isSolutionSaved &&
+      !(await ask(
+        "The current solution is not saved. Load another one anyway?"
+      ))
+    ) {
+      return null;
+    }
 
-  store.isLibraryBusy = true;
-  try {
-    return await replaceWithSolution(name);
+    store.isLibraryBusy = true;
+    try {
+      return await replaceWithSolution(name);
+    } finally {
+      store.isLibraryBusy = false;
+    }
   } finally {
-    store.isLibraryBusy = false;
+    isLoading = false;
   }
 };
+
+/** A load is in progress (set before its first await, unlike `isLibraryBusy`). */
+let isLoading = false;
 
 const replaceWithSolution = async (name: string): Promise<string | null> => {
   const store = useStore();

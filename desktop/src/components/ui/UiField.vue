@@ -15,12 +15,3 @@
 <script setup lang="ts">
 defineProps<{ label: string; error?: string; suffix?: string }>();
 </script>
-
-<style>
-/* Fields placed in a UiField (inputs and selects). */
-.ui-input {
-  @apply h-8 rounded-md border border-line bg-panel2 px-2 text-sm text-ink;
-  @apply focus:border-accent focus:ring-1 focus:ring-accent;
-  @apply disabled:opacity-50;
-}
-</style>

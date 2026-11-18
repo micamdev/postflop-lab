@@ -6,7 +6,7 @@
           <td
             v-for="col in 13"
             :key="col"
-            class="relative w-[2.625rem] border border-black"
+            class="relative w-[2.625rem] border border-line"
             @mousedown="dragStart(row, col)"
             @mouseup="dragEnd"
             @mouseenter="mouseEnter(row, col)"
@@ -14,7 +14,7 @@
             <div
               :class="
                 'absolute w-full h-full left-0 top-0 ' +
-                (row === col ? 'bg-neutral-700' : 'bg-neutral-800')
+                (row === col ? 'bg-panel2' : 'bg-cell')
               "
             >
               <div
@@ -28,7 +28,7 @@
             <div
               :class="
                 'absolute -top-px left-[0.1875rem] z-10 text-shadow ' +
-                (cellValue(row, col) > 0 ? 'text-white' : 'text-neutral-500')
+                (cellValue(row, col) > 0 ? 'text-white' : 'text-muted')
               "
             >
               {{ cellText(row, col) }}
@@ -61,18 +61,18 @@
 
           <button
             v-if="player >= 2"
-            class="mr-4 button-base button-blue"
+            class="mr-4 button-base button-green"
             @click="invertRange"
           >
             Invert
           </button>
 
-          <button class="button-base button-blue" @click="clearRange">
+          <button class="button-base button-green" @click="clearRange">
             Clear
           </button>
         </div>
 
-        <div v-if="rangeTextError" class="mt-1 text-red-500">
+        <div v-if="rangeTextError" class="mt-1 text-red-400">
           Error: {{ rangeTextError }}
         </div>
       </div>
@@ -123,7 +123,7 @@
       />
 
       <div v-if="player >= 2" class="flex mt-12 justify-center gap-4">
-        <button class="button-base button-blue !px-5" @click="emit('save')">
+        <button class="button-base button-green !px-5" @click="emit('save')">
           Save Edit
         </button>
         <button class="button-base button-red !px-5" @click="emit('cancel')">

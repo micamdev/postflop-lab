@@ -216,7 +216,7 @@
 
       <UiButton
         class="mt-4"
-        variant="primary"
+        variant="ghost"
         size="sm"
         :disabled="!hasPendingChanges || busy || !!resolveDisabledReason"
         @click="resolveWithLocks"
@@ -249,7 +249,7 @@ import { Results, SpotPlayer } from "../result-types";
 import { cardText, cardPairCellIndex, ranks, suitLetters } from "../utils";
 import { useLockResolve } from "../lock-resolve";
 import UiButton from "./ui/UiButton.vue";
-import { mirrorEdits } from "../lock-utils";
+import { hasPendingLocks, mirrorEdits } from "../lock-utils";
 
 const props = defineProps<{
   spot: SpotPlayer | null;
@@ -542,11 +542,9 @@ const resetSelected = async () => {
 
 /* Lock list */
 
-const sameLock = (a: NodeLock, b: NodeLock) =>
-  JSON.stringify(a) === JSON.stringify(b);
-
+/** Same rule as the top bar: a lock is in the solution when nothing of it changed. */
 const isInSolution = (lock: NodeLock) =>
-  store.solutionLocks.some((l) => sameLock(l, lock));
+  store.solutionLocks.some((l) => !hasPendingLocks([lock], [l]));
 
 const removedCount = computed(
   () =>
@@ -555,10 +553,8 @@ const removedCount = computed(
     ).length
 );
 
-const hasPendingChanges = computed(
-  () =>
-    store.locks.length !== store.solutionLocks.length ||
-    store.locks.some((lock) => !isInSolution(lock))
+const hasPendingChanges = computed(() =>
+  hasPendingLocks(store.locks, store.solutionLocks)
 );
 
 const editedSummary = (lock: NodeLock) => {

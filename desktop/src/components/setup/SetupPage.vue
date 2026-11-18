@@ -18,7 +18,7 @@
 
     <div
       v-show="store.sideView !== 'main'"
-      class="legacy flex-1 min-w-0 overflow-y-auto px-6 py-4"
+      class="flex-1 min-w-0 overflow-y-auto px-6 py-4"
     >
       <div class="flex items-center gap-3 mb-4">
         <UiButton size="sm" @click="store.sideView = 'main'">

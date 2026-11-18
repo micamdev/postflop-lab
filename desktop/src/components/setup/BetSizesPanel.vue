@@ -69,7 +69,7 @@
 </template>
 
 <script setup lang="ts">
-import { computed, reactive } from "vue";
+import { computed, reactive, watch } from "vue";
 import { useConfigStore, useStore } from "../../store";
 import { sanitizeBetString } from "../../utils";
 import { hasManualEdits } from "../../tree-config-value";
@@ -98,6 +98,18 @@ const config = useConfigStore();
 const store = useStore();
 const locked = computed(() => hasManualEdits(config));
 const errors = reactive<Partial<Record<BetField, string>>>({});
+
+// A field outlined as invalid is checked again when its value changes from elsewhere.
+watch(
+  () => (Object.keys(errors) as BetField[]).map((field) => config[field]),
+  () => {
+    for (const field of Object.keys(errors) as BetField[]) {
+      const result = sanitizeBetString(config[field], field.endsWith("Raise"));
+      if (result.valid) delete errors[field];
+      else errors[field] = result.s;
+    }
+  }
+);
 
 const rows = computed(() => {
   const list: { label: string; fields: (BetField | null)[] }[] = [

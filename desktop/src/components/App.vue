@@ -26,10 +26,7 @@
         <ResultViewer />
       </div>
 
-      <div
-        v-show="store.navView === 'library'"
-        class="legacy h-full overflow-y-auto px-6 py-4"
-      >
+      <div v-show="store.navView === 'library'" class="h-full px-6 py-4">
         <LibraryPage />
       </div>
     </main>

@@ -1,6 +1,6 @@
 <template>
   <div
-    class="flex shrink-0 items-center gap-3 h-12 px-3 bg-bg border-b border-line"
+    class="flex shrink-0 items-center gap-3 h-12 px-3 bg-bg border-b border-line overflow-x-auto whitespace-nowrap [&>*]:shrink-0"
   >
     <UiSegmented
       :model-value="displayMode"

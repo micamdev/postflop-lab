@@ -1,132 +1,152 @@
 <template>
-  <div>
-    <div class="flex gap-3">
-      <button
-        class="button-base button-blue"
-        :disabled="store.isLibraryBusy"
-        @click="importFile"
-      >
-        Import...
-      </button>
-      <button class="button-base button-blue" @click="openFolder">
-        Open Folder
-      </button>
-      <button class="button-base button-blue" @click="refresh">Refresh</button>
+  <div class="flex flex-col h-full">
+    <div class="flex items-center gap-2 mb-4">
+      <input
+        v-model="query"
+        type="search"
+        placeholder="Search by name or board (e.g. Jh9d4c)…"
+        class="ui-input w-80"
+      />
+      <div class="flex-1" />
+      <UiButton :disabled="store.isLibraryBusy" @click="importFile">
+        Import…
+      </UiButton>
+      <UiButton @click="openFolder">Open folder</UiButton>
+      <UiButton @click="refresh">Refresh</UiButton>
     </div>
 
-    <div v-if="errorText" class="mt-4 text-red-500">{{ errorText }}</div>
-    <div v-if="busyText" class="flex items-center mt-4">
-      <span class="spinner inline-block mr-3"></span>
+    <div v-if="errorText" class="mb-3 text-sm text-red-400">
+      {{ errorText }}
+    </div>
+    <div
+      v-if="busyText"
+      class="flex items-center gap-3 mb-3 text-sm text-muted"
+    >
+      <span class="spinner inline-block"></span>
       {{ busyText }}
     </div>
 
-    <div v-if="entries.length === 0" class="mt-6 text-gray-500">
-      No saved solutions yet. Solve a spot, then use "Save" in the top bar.
-    </div>
+    <p v-if="entries.length === 0" class="mt-6 text-muted">
+      No saved solutions yet — solve a spot, then Save in the top bar.
+    </p>
+    <p v-else-if="shown.length === 0" class="mt-6 text-muted">No match</p>
 
-    <table v-else class="mt-6 w-full text-sm">
-      <thead>
-        <tr class="text-left border-b-2">
-          <th class="py-1 pr-3">Name</th>
-          <th class="py-1 pr-3">Board</th>
-          <th class="py-1 pr-3">Date</th>
-          <th class="py-1 pr-3">Depth</th>
-          <th class="py-1 pr-3">Exploitability</th>
-          <th class="py-1 pr-3">Precision</th>
-          <th class="py-1 pr-3">Size</th>
-          <th class="py-1"></th>
-        </tr>
-      </thead>
-      <tbody>
-        <tr
-          v-for="entry of entries"
-          :key="entry.name"
-          :class="'border-b ' + (entry.meta ? '' : 'text-gray-400')"
-        >
-          <td class="py-1.5 pr-3 font-semibold">
-            <input
-              v-if="renaming === entry.name"
-              v-model="newName"
-              type="text"
-              class="px-1 py-0.5 rounded"
-              @keydown.enter="rename(entry.name)"
-              @keydown.esc="renaming = null"
-            />
-            <span v-else>{{ entry.name }}</span>
-          </td>
-          <template v-if="entry.meta">
-            <td class="py-1.5 pr-3 whitespace-nowrap">
+    <div
+      v-else
+      class="flex-1 min-h-0 overflow-y-auto rounded-lg border border-line bg-panel"
+    >
+      <table class="w-full text-sm tabular-nums">
+        <thead class="sticky top-0 z-10 bg-panel2">
+          <tr class="text-left text-xs text-muted">
+            <th
+              v-for="column in COLUMNS"
+              :key="column.key"
+              class="px-3 py-2 font-semibold cursor-pointer select-none hover:text-ink"
+              @click="sortBy(column.key)"
+            >
+              {{ column.label }}
+              <span v-if="sortKey === column.key">{{
+                descending ? "▼" : "▲"
+              }}</span>
+            </th>
+            <th class="px-3 py-2 font-semibold">Precision</th>
+            <th class="w-10"></th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr
+            v-for="entry of shown"
+            :key="entry.name"
+            :class="[
+              'border-t border-line',
+              entry.meta
+                ? store.isLibraryBusy
+                  ? 'cursor-default'
+                  : 'cursor-pointer hover:bg-panel2'
+                : 'text-muted',
+              entry.name === store.solutionInfo?.name ? 'bg-accent/10' : '',
+            ]"
+            @click="onRowClick(entry)"
+          >
+            <td class="px-3 py-2 font-semibold">
               <span
-                v-for="card of entry.meta.board"
-                :key="card"
-                :class="'mr-0.5 ' + cardText(card).colorClass"
+                v-if="renaming === entry.name"
+                class="flex items-center gap-1.5"
+                @click.stop
               >
-                {{ cardText(card).rank + cardText(card).suit }}
+                <input
+                  v-model="newName"
+                  v-focus
+                  type="text"
+                  class="ui-input h-7 w-56"
+                  @click.stop
+                  @keydown.enter="rename(entry.name)"
+                  @keydown.esc="renaming = null"
+                />
+                <UiButton size="sm" @click="rename(entry.name)">OK</UiButton>
+                <UiButton size="sm" @click="renaming = null">Cancel</UiButton>
               </span>
+              <span v-else>{{ entry.name }}</span>
             </td>
-            <td class="py-1.5 pr-3 whitespace-nowrap">
-              {{ new Date(entry.meta.created_at * 1000).toLocaleString() }}
+            <template v-if="entry.meta">
+              <td class="px-3 py-2 whitespace-nowrap">
+                <span class="inline-flex gap-0.5">
+                  <span
+                    v-for="card of entry.meta.board"
+                    :key="card"
+                    :class="[
+                      'flex items-center justify-center w-5 h-6 rounded text-xs font-bold text-white',
+                      suitBgClasses[card & 3],
+                    ]"
+                  >
+                    {{ cardText(card).rank }}
+                  </span>
+                </span>
+              </td>
+              <td class="px-3 py-2 whitespace-nowrap text-muted">
+                {{ new Date(entry.meta.created_at * 1000).toLocaleString() }}
+              </td>
+              <td class="px-3 py-2">{{ depthLabel(entry.meta.depth) }}</td>
+              <td class="px-3 py-2">{{ exploitabilityText(entry.meta) }}</td>
+            </template>
+            <td v-else colspan="4" class="px-3 py-2">
+              Unreadable: {{ entry.error }}
             </td>
-            <td class="py-1.5 pr-3">{{ depthLabel(entry.meta.depth) }}</td>
-            <td class="py-1.5 pr-3">{{ exploitabilityText(entry.meta) }}</td>
-            <td class="py-1.5 pr-3">{{ entry.meta.precision }}-bit</td>
-          </template>
-          <td v-else colspan="5" class="py-1.5 pr-3">
-            Unreadable: {{ entry.error }}
-          </td>
-          <td class="py-1.5 pr-3 whitespace-nowrap">
-            {{ formatBytes(entry.file_size) }}
-          </td>
-          <td class="py-1.5 whitespace-nowrap text-right">
-            <template v-if="renaming === entry.name">
-              <button class="link mr-3" @click="rename(entry.name)">OK</button>
-              <button class="link" @click="renaming = null">Cancel</button>
-            </template>
-            <template v-else>
-              <button
-                v-if="entry.meta"
-                class="link mr-3"
-                :disabled="store.isLibraryBusy"
-                @click="load(entry.name)"
-              >
-                Load
-              </button>
-              <button
-                v-if="entry.meta"
-                class="link mr-3"
-                :disabled="store.isLibraryBusy"
-                @click="startRename(entry.name)"
-              >
-                Rename
-              </button>
-              <button
-                v-if="entry.meta"
-                class="link mr-3"
-                :disabled="store.isLibraryBusy"
-                @click="exportFile(entry.name)"
-              >
-                Export
-              </button>
-              <button
-                class="link text-red-500"
-                :disabled="store.isLibraryBusy"
-                @click="remove(entry.name)"
-              >
-                Delete
-              </button>
-            </template>
-          </td>
-        </tr>
-      </tbody>
-    </table>
+            <td class="px-3 py-2 whitespace-nowrap text-muted">
+              {{ formatBytes(entry.file_size) }}
+            </td>
+            <td class="px-3 py-2 text-muted">
+              {{ entry.meta ? entry.meta.precision + "-bit" : "" }}
+            </td>
+            <td class="px-2 py-1 text-right" @click.stop>
+              <UiMenu :items="rowMenu(entry)">
+                <template #trigger>
+                  <button
+                    type="button"
+                    class="w-7 h-7 rounded-md text-muted hover:text-ink hover:bg-panel2"
+                    aria-label="More"
+                    :disabled="store.isLibraryBusy"
+                  >
+                    ⋯
+                  </button>
+                </template>
+              </UiMenu>
+            </td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
   </div>
 </template>
 
 <script setup lang="ts">
-import { onMounted, ref, watch } from "vue";
+import { computed, onMounted, ref, watch } from "vue";
 import { open, save } from "@tauri-apps/plugin-dialog";
 import { useStore } from "../store";
-import { cardText } from "../utils";
+import { cardText, suitBgClasses } from "../utils";
+import { SortKey, filterEntries, sortEntries } from "../library-list";
+import UiButton from "./ui/UiButton.vue";
+import UiMenu from "./ui/UiMenu.vue";
 import * as invokes from "../invokes";
 import { ask, depthLabel, formatBytes, loadSolution } from "../library";
 
@@ -137,6 +157,59 @@ const errorText = ref("");
 const busyText = ref("");
 const renaming = ref<string | null>(null);
 const newName = ref("");
+
+/** Focuses an input as soon as it appears. */
+// After a menu closes (it gives the focus back to its button first).
+const vFocus = {
+  mounted: (el: HTMLElement) => void setTimeout(() => el.focus(), 50),
+};
+
+const COLUMNS: { key: SortKey; label: string }[] = [
+  { key: "name", label: "Name" },
+  { key: "board", label: "Board" },
+  { key: "date", label: "Date" },
+  { key: "depth", label: "Depth" },
+  { key: "exploitability", label: "Exploitability" },
+  { key: "size", label: "Size" },
+];
+
+const query = ref("");
+const sortKey = ref<SortKey>("date");
+const descending = ref(true);
+const shown = computed(() =>
+  sortEntries(
+    filterEntries(entries.value, query.value),
+    sortKey.value,
+    descending.value
+  )
+);
+
+/** Same column: reverse; new column: dates newest first, the rest ascending. */
+const sortBy = (key: SortKey) => {
+  if (sortKey.value === key) {
+    descending.value = !descending.value;
+  } else {
+    sortKey.value = key;
+    descending.value = key === "date";
+  }
+};
+
+const onRowClick = (entry: invokes.LibraryEntry) => {
+  if (!entry.meta || store.isLibraryBusy || renaming.value === entry.name)
+    return;
+  void load(entry.name);
+};
+
+const rowMenu = (entry: invokes.LibraryEntry) => [
+  ...(entry.meta
+    ? [
+        { label: "Open", onSelect: () => void load(entry.name) },
+        { label: "Rename", onSelect: () => startRename(entry.name) },
+        { label: "Export…", onSelect: () => void exportFile(entry.name) },
+      ]
+    : []),
+  { label: "Delete", danger: true, onSelect: () => void remove(entry.name) },
+];
 
 const FILTERS = [{ name: "Postflop Lab solution", extensions: ["plab"] }];
 
@@ -229,9 +302,3 @@ const exportFile = async (name: string) => {
 
 const openFolder = () => run(invokes.libraryOpenFolder);
 </script>
-
-<style scoped>
-.link {
-  @apply text-blue-600 hover:underline disabled:opacity-40;
-}
-</style>

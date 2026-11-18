@@ -222,7 +222,10 @@ import UiSegmented from "../ui/UiSegmented.vue";
 import UiTooltip from "../ui/UiTooltip.vue";
 
 /** Focuses an input as soon as it appears. */
-const vFocus = { mounted: (el: HTMLElement) => el.focus() };
+// After a menu closes (it gives the focus back to its button first).
+const vFocus = {
+  mounted: (el: HTMLElement) => void setTimeout(() => el.focus(), 50),
+};
 
 const store = useStore();
 const config = useConfigStore();

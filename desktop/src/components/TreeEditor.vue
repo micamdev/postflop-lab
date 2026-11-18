@@ -19,11 +19,11 @@
         'flex flex-col h-full px-1 py-0.5 justify-start ' +
         'rounded-lg shadow-md border-[3px] transition group ' +
         (spot.type === 'chance'
-          ? 'hover:border-red-600 '
-          : 'hover:border-blue-600 ') +
+          ? 'hover:border-red-500 '
+          : 'hover:border-accent ') +
         (spot.index === selectedSpotIndex
-          ? 'border-blue-600 cursor-default'
-          : 'border-gray-400 cursor-pointer')
+          ? 'border-accent cursor-default'
+          : 'border-line cursor-pointer')
       "
       @click="selectSpot(spot.index, false, false, true)"
     >
@@ -59,8 +59,8 @@
             v-for="action of spot.actions"
             :key="action.index"
             :class="
-              'flex w-full px-1.5 rounded-md transition-colors hover:bg-blue-100 ' +
-              (action.isSelected ? 'bg-blue-100 ' : '')
+              'flex w-full px-1.5 rounded-md transition-colors hover:bg-panel2 ' +
+              (action.isSelected ? 'bg-panel2 ' : '')
             "
             @click.stop="play(spot.index, action.index)"
           >
@@ -122,7 +122,7 @@
 
   <div
     v-if="!isTreeError && invalidLinesArray.length > 0"
-    class="flex mt-4 font-semibold text-red-500"
+    class="flex mt-4 font-semibold text-red-400"
   >
     <div class="underline">
       Invalid Terminal{{ invalidLinesArray.length > 1 ? "s" : "" }}:
@@ -135,14 +135,14 @@
   </div>
 
   <div v-if="!isTreeError" class="flex mx-6 my-6 justify-center">
-    <hr class="border-gray-400 w-full" />
+    <hr class="border-line w-full" />
   </div>
 
   <!-- Edit -->
 
   <div v-if="!isTreeError" class="flex gap-3">
     <button
-      class="button-base button-blue"
+      class="button-base button-green"
       :disabled="
         isSelectedTerminal ||
         isAfterAllin ||
@@ -186,14 +186,14 @@
   </div>
 
   <div class="flex mx-6 my-6 justify-center">
-    <hr class="border-gray-400 w-full" />
+    <hr class="border-line w-full" />
   </div>
 
   <!-- Save/Cancel -->
 
   <div class="flex my-6 gap-3">
     <button
-      class="button-base button-blue"
+      class="button-base button-green"
       :disabled="isTreeError || invalidLinesArray.length > 0"
       @click="saveEdit"
     >
@@ -224,7 +224,7 @@
           class="flex items-center"
         >
           <button class="mr-2" @click="deleteAddedLine(index)">
-            <TrashIcon class="w-5 h-5 text-gray-600" />
+            <TrashIcon class="w-5 h-5 text-muted" />
           </button>
           <span>{{ addedLine }}</span>
         </div>
@@ -242,7 +242,7 @@
           class="flex items-center"
         >
           <button class="mr-2" @click="deleteRemovedLine(index)">
-            <TrashIcon class="w-5 h-5 text-gray-600" />
+            <TrashIcon class="w-5 h-5 text-muted" />
           </button>
           <span>{{ removedLine }}</span>
         </div>

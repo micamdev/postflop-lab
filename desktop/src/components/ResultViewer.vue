@@ -98,6 +98,12 @@
       v-if="!isLockEditorOpen && displayMode !== 'chance'"
       :items="strategyItems"
     />
+    <p
+      v-if="!isLockEditorOpen && displayMode !== 'chance' && noHandsAtNode"
+      class="shrink-0 mx-3 my-2 text-xs text-muted"
+    >
+      No hands for this player at this node.
+    </p>
 
     <NodeLockEditor
       v-if="isLockEditorOpen && selectedSpot && results"
@@ -264,7 +270,6 @@ const line = ref<{ history: number[]; label: string }>({
 
 const isLockEditorOpen = ref(false);
 
-/** Why the displayed node cannot be locked, or "" if it can. */
 /** Overall strategy of the acting player at the selected node (null at a card or without hands). */
 const strategyItems = computed(() => {
   const spot = selectedSpot.value;
@@ -285,6 +290,23 @@ const strategyItems = computed(() => {
   );
 });
 
+/** The acting player has no hand left at the selected node. */
+const noHandsAtNode = computed(() => {
+  const spot = selectedSpot.value;
+  if (
+    !spot ||
+    spot.type !== "player" ||
+    selectedChance.value ||
+    !results.value
+  ) {
+    return false;
+  }
+  return Boolean(
+    results.value.isEmpty & (1 << (spot.player === "oop" ? 0 : 1))
+  );
+});
+
+/** Why the displayed node cannot be locked, or "" if it can. */
 const unlockableReason = computed(() => {
   const spot = selectedSpot.value;
   if (store.isBunchingEnabled && store.bunchingFlop.length > 0) {
@@ -321,6 +343,7 @@ const init = async () => {
 
 const clear = () => {
   isLockEditorOpen.value = false;
+  store.currentLine = null;
   cards.value = [[], []];
   selectedSpot.value = null;
   selectedChance.value = null;

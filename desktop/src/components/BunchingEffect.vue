@@ -2,7 +2,7 @@
   <div v-if="editingPlayer === -1">
     <div class="flex">
       <div
-        class="flex pl-2.5 pr-3 py-1 text-cyan-600 bg-cyan-50 border-2 border-cyan-600 rounded-md font-semibold"
+        class="flex pl-2.5 pr-3 py-1 text-accent bg-panel2 border-2 border-accent rounded-md font-semibold"
       >
         <InformationCircleIcon class="inline w-5 h-5 mt-[0.1875rem] mr-1.5" />
         <div>
@@ -25,7 +25,7 @@
 
       <div class="flex">
         <Tippy
-          class="inline-block cursor-help text-gray-600"
+          class="inline-block cursor-help text-muted"
           max-width="500px"
           trigger="mouseenter click"
           placement="bottom"
@@ -89,10 +89,13 @@
             }}%)
           </div>
           <div class="flex mt-3 w-full justify-center gap-3">
-            <button class="button-base button-blue" @click="invertRange(i - 1)">
+            <button
+              class="button-base button-green"
+              @click="invertRange(i - 1)"
+            >
               Invert
             </button>
-            <button class="button-base button-blue" @click="clearRange(i - 1)">
+            <button class="button-base button-green" @click="clearRange(i - 1)">
               Clear
             </button>
           </div>
@@ -101,7 +104,7 @@
 
       <div class="flex mt-8 gap-3 items-center">
         <button
-          class="button-base button-blue"
+          class="button-base button-green"
           :disabled="
             numCombos.every((x) => x === 0) ||
             store.isBunchingRunning ||
@@ -180,11 +183,10 @@
         <span v-if="store.bunchingFlop.length > 0">
           [Flop:
           <span
-            v-for="item in store.bunchingFlop.map(cardText)"
-            :key="item.rank + item.suit"
-            :class="'inline-block mx-px ' + item.colorClass"
-            >{{ item.rank + item.suit }}</span
-          >]
+            v-for="card in store.bunchingFlop"
+            :key="card"
+            :class="'inline-block mx-px ' + suitTextClasses[card & 3]"
+            >{{ cardText(card).rank + cardText(card).suit }}</span>]
         </span>
       </div>
     </div>
@@ -202,7 +204,7 @@
 <script setup lang="ts">
 import { ref } from "vue";
 import { useStore, useConfigStore } from "../store";
-import { trimRegex, rangeRegex, cardText } from "../utils";
+import { trimRegex, rangeRegex, cardText, suitTextClasses } from "../utils";
 import * as invokes from "../invokes";
 
 import RangeEditor from "./RangeEditor.vue";

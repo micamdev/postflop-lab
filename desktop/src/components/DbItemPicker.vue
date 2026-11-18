@@ -1,6 +1,6 @@
 <template>
   <div
-    class="w-full h-[22.5rem] px-1 border border-gray-500 rounded-md shadow text-sm overflow-x-auto overflow-y-scroll select-none"
+    class="w-full h-[22.5rem] px-1 border border-line rounded-md shadow text-sm overflow-x-auto overflow-y-scroll select-none"
     @click="unselect"
     @keydown.f2="renameItem()"
     @keydown.delete="deleteItem(true)"
@@ -54,7 +54,7 @@
             :value="item0.pathStr"
           />
           <span
-            class="inline-block px-1 rounded-sm whitespace-nowrap peer-checked:bg-blue-600 peer-checked:text-white"
+            class="inline-block px-1 rounded-sm whitespace-nowrap peer-checked:bg-accent peer-checked:text-white"
           >
             {{ item0.path[0] }}
           </span>
@@ -117,7 +117,7 @@
                   :value="item1.pathStr"
                 />
                 <span
-                  class="inline-block px-1 rounded-sm whitespace-nowrap peer-checked:bg-blue-600 peer-checked:text-white"
+                  class="inline-block px-1 rounded-sm whitespace-nowrap peer-checked:bg-accent peer-checked:text-white"
                 >
                   {{ item1.path[1] }}
                 </span>
@@ -183,7 +183,7 @@
                         :value="item2.pathStr"
                       />
                       <span
-                        class="inline-block px-1 rounded-sm whitespace-nowrap peer-checked:bg-blue-600 peer-checked:text-white"
+                        class="inline-block px-1 rounded-sm whitespace-nowrap peer-checked:bg-accent peer-checked:text-white"
                       >
                         {{ item2.path[2] }}
                       </span>
@@ -239,7 +239,7 @@
                             :value="item3.pathStr"
                           />
                           <span
-                            class="inline-block px-1 rounded-sm whitespace-nowrap peer-checked:bg-blue-600 peer-checked:text-white"
+                            class="inline-block px-1 rounded-sm whitespace-nowrap peer-checked:bg-accent peer-checked:text-white"
                           >
                             {{ item3.path[3] }}
                           </span>
@@ -280,7 +280,7 @@
                         :value="item2.pathStr"
                       />
                       <span
-                        class="inline-block px-1 rounded-sm whitespace-nowrap peer-checked:bg-blue-600 peer-checked:text-white"
+                        class="inline-block px-1 rounded-sm whitespace-nowrap peer-checked:bg-accent peer-checked:text-white"
                       >
                         {{ item2.path[2] }}
                       </span>
@@ -322,7 +322,7 @@
                   :value="item1.pathStr"
                 />
                 <span
-                  class="inline-block px-1 rounded-sm whitespace-nowrap peer-checked:bg-blue-600 peer-checked:text-white"
+                  class="inline-block px-1 rounded-sm whitespace-nowrap peer-checked:bg-accent peer-checked:text-white"
                 >
                   {{ item1.path[1] }}
                 </span>
@@ -363,7 +363,7 @@
             :value="item0.pathStr"
           />
           <span
-            class="inline-block px-1 rounded-sm whitespace-nowrap peer-checked:bg-blue-600 peer-checked:text-white"
+            class="inline-block px-1 rounded-sm whitespace-nowrap peer-checked:bg-accent peer-checked:text-white"
           >
             {{ item0.path[0] }}
           </span>
@@ -372,14 +372,14 @@
     </div>
   </div>
 
-  <div v-if="errorOccured" class="mt-3 text-red-500 font-semibold">
+  <div v-if="errorOccured" class="mt-3 text-red-400 font-semibold">
     Something went wrong. Please relaunch the app.
   </div>
 
   <div class="flex flex-col mt-4 gap-3">
     <div class="grid grid-cols-3 w-full gap-3">
       <button
-        class="button-base button-blue button-overrides"
+        class="button-base button-green button-overrides"
         :disabled="selectedItem?.item?.isGroup ?? true"
         @click="loadItem()"
       >
@@ -387,7 +387,7 @@
       </button>
 
       <button
-        class="button-base button-blue button-overrides"
+        class="button-base button-green button-overrides"
         :disabled="errorOccured || !allowSave || isEditing"
         @click="addOrOverwriteItem()"
       >
@@ -395,7 +395,7 @@
       </button>
 
       <button
-        class="button-base button-blue button-overrides"
+        class="button-base button-green button-overrides"
         :disabled="errorOccured || selectedValue === false"
         @click="renameItem()"
       >
@@ -405,7 +405,7 @@
 
     <div class="grid grid-cols-2 w-full gap-3">
       <button
-        class="button-base button-blue button-overrides"
+        class="button-base button-green button-overrides"
         :disabled="
           errorOccured ||
           (selectedItem !== null &&
@@ -448,12 +448,12 @@
 
   <div
     v-if="importError !== ''"
-    class="flex flex-col mt-4 px-2 py-1 text-red-500 bg-red-50 border-2 border-red-600 rounded-md font-semibold"
+    class="flex flex-col mt-4 px-2 py-1 text-red-400 bg-red-500/10 border-2 border-red-500 rounded-md font-semibold"
   >
     <div class="flex">
       Error: Import failed.
       <button
-        class="w-6 h-6 ml-auto text-gray-700 opacity-70 hover:opacity-100"
+        class="w-6 h-6 ml-auto text-ink opacity-70 hover:opacity-100"
         @click="importError = ''"
       >
         <XMarkIcon class="w-full h-full" />
@@ -1200,7 +1200,7 @@ const exportJson = async () => {
 .group::before {
   content: "";
   height: calc(100% - 1.4rem * var(--guide-decrease) - 0.825rem);
-  @apply absolute top-0.5 left-2.5 border-l border-dotted border-gray-500;
+  @apply absolute top-0.5 left-2.5 border-l border-dotted border-line;
 }
 
 .group-inside {
@@ -1209,7 +1209,7 @@ const exportJson = async () => {
 
 .group-inside::before {
   content: "";
-  @apply absolute top-[0.7rem] -left-[0.5625rem] w-2.5 border-t border-dotted border-gray-500;
+  @apply absolute top-[0.7rem] -left-[0.5625rem] w-2.5 border-t border-dotted border-line;
 }
 
 .item-toplevel {
@@ -1218,7 +1218,7 @@ const exportJson = async () => {
 
 .item-toplevel::before {
   content: "";
-  @apply absolute top-1/2 left-[0.0625rem] w-2.5 border-t border-dotted border-gray-500;
+  @apply absolute top-1/2 left-[0.0625rem] w-2.5 border-t border-dotted border-line;
 }
 
 .item-inside {
@@ -1227,7 +1227,7 @@ const exportJson = async () => {
 
 .item-inside::before {
   content: "";
-  @apply absolute top-1/2 -left-[0.5625rem] w-5 border-t border-dotted border-gray-500;
+  @apply absolute top-1/2 -left-[0.5625rem] w-5 border-t border-dotted border-line;
 }
 
 .right-arrow,
@@ -1237,12 +1237,12 @@ const exportJson = async () => {
 
 .right-arrow::before {
   content: "";
-  @apply absolute w-1.5 h-1.5 -mt-0.5 top-1/2 left-1.5 border-t-2 border-r-2 border-gray-500 rotate-45;
+  @apply absolute w-1.5 h-1.5 -mt-0.5 top-1/2 left-1.5 border-t-2 border-r-2 border-line rotate-45;
 }
 
 .bottom-arrow::before {
   content: "";
-  @apply absolute w-1.5 h-1.5 -mt-[0.1875rem] top-1/2 left-[0.4375rem] border-r-2 border-b-2 border-gray-500 rotate-45;
+  @apply absolute w-1.5 h-1.5 -mt-[0.1875rem] top-1/2 left-[0.4375rem] border-r-2 border-b-2 border-line rotate-45;
 }
 
 .button-overrides {
