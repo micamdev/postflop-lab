@@ -37,19 +37,17 @@ describe("nutAdvantageText", () => {
     );
   });
 
-  test("falls back to 75%+ when the 90%+ shares are too close", () => {
+  test("nobody has it when the 90%+ shares are within 1 point", () => {
+    // 75-90% hands are strong, not nuts: they do not decide the nut advantage.
     expect(
       nutAdvantageText([0, 0.189, 0.811, 0], [0, 0.153, 0.025, 0.822])
-    ).toBe("OOP (18.9% vs 15.3% at 75%+)");
+    ).toBe("None (OOP 0.0% vs IP 0.0% at 90%+)");
     expect(nutAdvantageText([0.005, 0.1, 0.4, 0.495], [0, 0.3, 0.2, 0.5])).toBe(
-      "IP (30.0% vs 10.5% at 75%+)"
+      "None (OOP 0.5% vs IP 0.0% at 90%+)"
     );
   });
 
-  test("no advantage", () => {
-    expect(nutAdvantageText([0, 0.1, 0.4, 0.5], [0, 0.105, 0.4, 0.495])).toBe(
-      "—"
-    );
+  test("no data", () => {
     expect(nutAdvantageText([NaN, NaN, NaN, NaN], [0, 0, 0, 1])).toBe("—");
   });
 });

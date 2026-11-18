@@ -124,26 +124,20 @@ export const equityBuckets = (
 };
 
 /**
- * Who holds more strong hands, from the shares of each range per equity tranche
- * (`equityBuckets`): compared at 90%+, or at 75%+ when the 90%+ shares are within 1
- * point; "—" when there is still no 1-point gap.
+ * Who holds more nutted hands: the share of each range at 90%+ equity, from the shares
+ * per equity tranche (`equityBuckets`), with a 1-point margin. "None (...)" says that
+ * neither range has the edge; "—" when there is no data.
  */
 export const nutAdvantageText = (oop: number[], ip: number[]): string => {
+  const [a, b] = [oop[0], ip[0]];
+  if (isNaN(a) || isNaN(b)) return "—";
   const pct = (x: number) => (x * 100).toFixed(1) + "%";
-  for (const [n, label] of [
-    [1, "90%+"],
-    [2, "75%+"],
-  ] as const) {
-    const a = oop.slice(0, n).reduce((s, x) => s + x, 0);
-    const b = ip.slice(0, n).reduce((s, x) => s + x, 0);
-    if (isNaN(a) || isNaN(b)) return "—";
-    if (Math.abs(a - b) >= 0.01) {
-      return a > b
-        ? `OOP (${pct(a)} vs ${pct(b)} at ${label})`
-        : `IP (${pct(b)} vs ${pct(a)} at ${label})`;
-    }
+  if (Math.abs(a - b) < 0.01) {
+    return `None (OOP ${pct(a)} vs IP ${pct(b)} at 90%+)`;
   }
-  return "—";
+  return a > b
+    ? `OOP (${pct(a)} vs ${pct(b)} at 90%+)`
+    : `IP (${pct(b)} vs ${pct(a)} at 90%+)`;
 };
 
 export const toFixed1 = (value: number) => {

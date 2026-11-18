@@ -292,7 +292,7 @@ const buckets = computed(() => {
   ];
 });
 
-// Who holds more strong hands (90%+, or 75%+ when the 90%+ shares are too close).
+// Who holds more nutted hands (90%+ equity), or "None".
 const nutAdvantageText = computed(() =>
   nutAdvantage(buckets.value[0], buckets.value[1])
 );
