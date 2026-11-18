@@ -23,6 +23,7 @@ module.exports = {
         cell: v("cell"),
         oop: v("oop"),
         ip: v("ip"),
+        "scroll-target": v("scroll-target"),
         "act-check": "#3fae6e",
         "act-bet1": "#e0704f",
         "act-bet2": "#c4473a",

@@ -20,7 +20,7 @@
               <div
                 class="absolute w-full h-full left-0 top-0 bg-bottom bg-no-repeat"
                 :style="{
-                  'background-image': `linear-gradient(${yellow500} 0% 100%)`,
+                  'background-image': `linear-gradient(${weightColor} 0% 100%)`,
                   'background-size': `100% ${cellValue(row, col)}%`,
                 }"
               ></div>
@@ -139,13 +139,14 @@
 </template>
 
 <script setup lang="ts">
+import { themeColor } from "../theme";
 import UiButton from "./ui/UiButton.vue";
 import { ref } from "vue";
 import { useStore } from "../store";
 import { ranks } from "../utils";
 import { useRangeEditing } from "../use-range-editing";
 
-const yellow500 = "#eab308";
+const weightColor = themeColor("weight");
 
 const props = withDefaults(
   defineProps<{ player: number; defaultText?: string }>(),
