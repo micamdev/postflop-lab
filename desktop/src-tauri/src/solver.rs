@@ -209,7 +209,7 @@ fn estimate_memory_capped(
     let nodes = PostFlopGame::count_tree_nodes(card_config, action_tree)?;
     if nodes > max_nodes {
         return Err(format!(
-            "Tree too large to estimate while editing ({:.1} million nodes): fewer bet sizes              would be needed to solve it on most computers",
+            "Tree too large to estimate while editing ({:.1} million nodes): fewer bet sizes would be needed to solve it on most computers",
             nodes as f64 / 1e6
         ));
     }
@@ -320,8 +320,11 @@ pub fn game_finalize(
     game_state: tauri::State<Mutex<PostFlopGame>>,
     pool_state: tauri::State<Mutex<std::sync::Arc<ThreadPool>>>,
 ) {
-    let pool = pool_state.lock().unwrap();
-    pool.install(|| finalize(&mut *game_state.lock().unwrap()));
+    // Same lock order as the other game commands: game, then pool.
+    let mut game = game_state.lock().unwrap();
+    let pool = pool_state.lock().unwrap().clone();
+    let game: &mut PostFlopGame = &mut game;
+    pool.install(|| finalize(game));
 }
 
 /// Error returned when a position needs a card that a truncated save does not store.

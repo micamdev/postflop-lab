@@ -15,7 +15,7 @@ export const SETTINGS_KEY = "postflop-lab.solve-settings.v1";
 const isInt = (n: unknown): n is number =>
   typeof n === "number" && Number.isInteger(n);
 
-const threadsError = (n: unknown) =>
+export const threadsError = (n: unknown) =>
   isInt(n) && n >= 1 && n <= 64
     ? null
     : "Threads must be a whole number from 1 to 64.";

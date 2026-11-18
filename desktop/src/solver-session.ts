@@ -6,145 +6,35 @@ import { computed, ref, watch } from "vue";
 import {
   useStore,
   useConfigStore,
-  useTmpConfigStore,
   useSavedConfigStore,
-  saveConfigTmp,
-  saveConfig,
+  snapshotSetup,
+  setSavedSetup,
   setSolutionLocks,
 } from "./store";
-import {
-  MAX_AMOUNT,
-  ROOT_LINE_STRING,
-  INVALID_LINE_STRING,
-  readableLineString,
-} from "./utils";
 import * as invokes from "./invokes";
 import { gameTreeArgs } from "./game-args";
 import {
   loadSolveSettings,
   saveSolveSettings,
   validateSolveSettings,
+  threadsError,
 } from "./solve-settings";
 import { SolveFlags, choosePrecision } from "./solve-status";
 
-/** Why the tree cannot be built from `config`, or null. */
-export const checkConfig = (
-  config: ReturnType<typeof useConfigStore>
-): string | null => {
-  if (config.board.length < 3) {
-    return "Board must consist of at least three cards";
-  }
+export { checkConfig } from "./setup-validation";
+import { checkConfig } from "./setup-validation";
 
-  if (config.startingPot <= 0) {
-    return "Starting pot must be positive";
-  }
-
-  if (config.startingPot > MAX_AMOUNT) {
-    return "Starting pot is too large";
-  }
-
-  if (config.startingPot % 1 !== 0) {
-    return "Starting pot must be an integer";
-  }
-
-  if (config.effectiveStack <= 0) {
-    return "Effective stack must be positive";
-  }
-
-  if (config.effectiveStack > MAX_AMOUNT) {
-    return "Effective stack is too large";
-  }
-
-  if (config.effectiveStack % 1 !== 0) {
-    return "Effective stack is be an integer";
-  }
-
-  const betConfig = [
-    { s: config.oopFlopBetSanitized, kind: "OOP flop bet" },
-    { s: config.oopFlopRaiseSanitized, kind: "OOP flop raise" },
-    { s: config.oopTurnBetSanitized, kind: "OOP turn bet" },
-    { s: config.oopTurnRaiseSanitized, kind: "OOP turn raise" },
-    { s: config.oopRiverBetSanitized, kind: "OOP river bet" },
-    { s: config.oopRiverRaiseSanitized, kind: "OOP river raise" },
-    { s: config.ipFlopBetSanitized, kind: "IP flop bet" },
-    { s: config.ipFlopRaiseSanitized, kind: "IP flop raise" },
-    { s: config.ipTurnBetSanitized, kind: "IP turn bet" },
-    { s: config.ipTurnRaiseSanitized, kind: "IP turn raise" },
-    { s: config.ipRiverBetSanitized, kind: "IP river bet" },
-    { s: config.ipRiverRaiseSanitized, kind: "IP river raise" },
-  ];
-
-  for (const { s, kind } of betConfig) {
-    if (!s.valid) {
-      return `${kind}: ${s.s}`;
-    }
-  }
-
-  if (config.donkOption) {
-    if (!config.oopTurnDonkSanitized.valid) {
-      return `OOP turn donk: ${config.oopTurnDonkSanitized.s}`;
-    }
-    if (!config.oopRiverDonkSanitized.valid) {
-      return `OOP river donk: ${config.oopRiverDonkSanitized.s}`;
-    }
-  }
-
-  if (config.addAllInThreshold < 0) {
-    return "Invalid add all-in threshold";
-  }
-
-  if (config.forceAllInThreshold < 0) {
-    return "Invalid force all-in threshold";
-  }
-
-  if (config.mergingThreshold < 0) {
-    return "Invalid merging threshold";
-  }
-
-  if (
-    config.expectedBoardLength > 0 &&
-    config.board.length !== config.expectedBoardLength
-  ) {
-    return `Invalid board (expected ${config.expectedBoardLength} cards)`;
-  }
-
-  const addedLinesArray =
-    config.addedLines === ""
-      ? []
-      : config.addedLines.split(",").map(readableLineString);
-
-  const removedLinesArray =
-    config.removedLines === ""
-      ? []
-      : config.removedLines.split(",").map(readableLineString);
-
-  if (
-    addedLinesArray.includes(ROOT_LINE_STRING) ||
-    addedLinesArray.includes(INVALID_LINE_STRING) ||
-    removedLinesArray.includes(ROOT_LINE_STRING) ||
-    removedLinesArray.includes(INVALID_LINE_STRING)
-  ) {
-    return "Invalid line found (loaded broken configurations?)";
-  }
-
-  if (
-    ![0, 3, 4, 5].includes(config.expectedBoardLength) ||
-    (config.expectedBoardLength === 0 &&
-      (addedLinesArray.length > 0 || removedLinesArray.length > 0)) ||
-    (config.expectedBoardLength > 0 &&
-      addedLinesArray.length === 0 &&
-      removedLinesArray.length === 0)
-  ) {
-    return "Invalid configurations (loaded broken configurations?)";
-  }
-
-  return null;
+/** Memory the solver may use: available memory, or 70% of the total on macOS; unlimited when
+ * the system did not report it (0). */
+export const memoryLimit = async () => {
+  const [available, total] = await invokes.memory();
+  const limit = (await invokes.osName()) === "macos" ? total * 0.7 : available;
+  return limit > 0 ? limit : Number.POSITIVE_INFINITY;
 };
 
 export const useSolverSession = defineStore("solverSession", () => {
   const store = useStore();
   const config = useConfigStore();
-  const tmpConfig = useTmpConfigStore();
   const savedConfig = useSavedConfigStore();
 
   const settings = ref(
@@ -156,6 +46,19 @@ export const useSolverSession = defineStore("solverSession", () => {
       if (validateSolveSettings(s) === null) saveSolveSettings(localStorage, s);
     },
     { deep: true }
+  );
+  // Whether the current solution was solved with the bunching effect (it cannot be saved).
+  const solvedWithBunching = ref(false);
+  // The thread setting also applies to river re-solves: send it at once, not only on Solve.
+  watch(
+    () => settings.value.threads,
+    (threads) => {
+      // A bunching precomputation uses its own count (restored when it ends).
+      if (threadsError(threads) === null && !store.isBunchingRunning) {
+        void invokes.setNumThreads(threads).catch(() => {});
+      }
+    },
+    { immediate: true }
   );
   /** Not remembered: solve even when the memory looks insufficient. */
   const ignoreMemoryLimit = ref(false);
@@ -195,7 +98,7 @@ export const useSolverSession = defineStore("solverSession", () => {
 
   /** Why the current solution cannot be saved, or "" if it can. */
   const saveDisabledReason = computed(() => {
-    if (isBunchingActive()) {
+    if (solvedWithBunching.value) {
       return "Solutions computed with the bunching effect cannot be saved.";
     }
     if (store.solutionDepth !== "river") {
@@ -216,6 +119,7 @@ export const useSolverSession = defineStore("solverSession", () => {
     () => store.treeResetCount,
     () => {
       isTreeBuilt.value = false;
+      solvedWithBunching.value = false;
       memoryNeed32.value = 0;
       memoryNeed16.value = 0;
       memoryBunching.value = 0;
@@ -228,13 +132,17 @@ export const useSolverSession = defineStore("solverSession", () => {
 
   /** Forgets the previous solution when a new tree is built or solved. */
   const resetSolutionInfo = () => {
+    solvedWithBunching.value = false;
     store.solutionInfo = null;
     store.isSolutionSaved = false;
     store.solutionDepth = "river";
   };
 
+  // Checked against the Setup board before building: a refused solve keeps the old game.
   const areFlopMatching = () => {
-    const flop = savedConfig.board.slice(0, 3);
+    // No flop yet: the setup check reports the board.
+    if (config.board.length < 3) return true;
+    const flop = config.board.slice(0, 3);
     const bunchingFlop = store.bunchingFlop;
     return (
       !store.isBunchingEnabled ||
@@ -253,7 +161,8 @@ export const useSolverSession = defineStore("solverSession", () => {
       return false;
     }
 
-    saveConfigTmp();
+    // The setup as it is now: later edits do not change the tree being built.
+    const setup = snapshotSetup();
     isBuilding.value = true;
     isTreeBuilt.value = false;
     // The game is about to be replaced: hide the old results (and close the lock editor) so
@@ -262,15 +171,19 @@ export const useSolverSession = defineStore("solverSession", () => {
     store.isSolverError = false;
     resetSolutionInfo();
 
-    const errorString = await invokes.gameInit(gameTreeArgs(tmpConfig));
-
-    isBuilding.value = false;
+    let errorString: string | null;
+    try {
+      errorString = await invokes.gameInit(gameTreeArgs(setup));
+    } finally {
+      // Also on a rejected invoke: Solve must not stay disabled.
+      isBuilding.value = false;
+    }
     if (errorString) {
       message.value = errorString;
       return false;
     }
 
-    saveConfig();
+    setSavedSetup(setup);
     setSolutionLocks([]);
     store.returnLine = null;
 
@@ -285,10 +198,13 @@ export const useSolverSession = defineStore("solverSession", () => {
     return true;
   };
 
-  /** Memory the solver may use: available memory, or 70% of the total on macOS. */
+  /** Memory the solver may use: available memory, or 70% of the total on macOS; unlimited
+   * when the system did not report it (0). */
   const memoryLimit = async () => {
     const [available, total] = await invokes.memory();
-    return (await invokes.osName()) === "macos" ? total * 0.7 : available;
+    const limit =
+      (await invokes.osName()) === "macos" ? total * 0.7 : available;
+    return limit > 0 ? limit : Number.POSITIVE_INFINITY;
   };
 
   /** Stops the solver state after an unexpected error, with the error shown. */
@@ -330,11 +246,11 @@ export const useSolverSession = defineStore("solverSession", () => {
       message.value =
         "Bunching effect is on but its data is not ready: solving without it.";
     }
-    if (!(await buildTree())) return false;
     if (!areFlopMatching()) {
       message.value = "The flop and the bunching data do not match.";
       return false;
     }
+    if (!(await buildTree())) return false;
 
     const extra = isBunchingActive() ? memoryBunching.value : 0;
     const choice = choosePrecision(
@@ -371,6 +287,7 @@ export const useSolverSession = defineStore("solverSession", () => {
     await invokes.setNumThreads(settings.value.threads);
     await invokes.gameAllocateMemory(compression.value);
 
+    solvedWithBunching.value = isBunchingActive();
     if (isBunchingActive()) {
       iteration.value = -2;
       const errorString = await invokes.gameSetBunching();
@@ -452,8 +369,9 @@ export const useSolverSession = defineStore("solverSession", () => {
         await invokes.setNumThreads(settings.value.threads);
       }
 
+      // The pot of the solved tree: the Setup one may have been edited since.
       const target =
-        (config.startingPot * settings.value.targetExploitability) / 100;
+        (savedConfig.startingPot * settings.value.targetExploitability) / 100;
 
       while (
         !terminateFlag &&

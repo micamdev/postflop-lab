@@ -28,7 +28,7 @@ vi.stubGlobal("localStorage", memoryStorage());
 
 import * as invokes from "./invokes";
 import { useConfigStore, useStore } from "./store";
-import { useSolverSession } from "./solver-session";
+import { checkConfig, memoryLimit, useSolverSession } from "./solver-session";
 
 const GB = 1024 * 1024 * 1024;
 const mocked = vi.mocked(invokes);
@@ -142,6 +142,9 @@ describe("runLockedSolve", () => {
     const store = useStore();
     const session = useSolverSession();
     session.settings.threads = "" as unknown as number;
+    // The valid setting was applied when the session started; only the solve matters here.
+    await flush();
+    mocked.setNumThreads.mockClear();
 
     await session.runLockedSolve(false);
 
@@ -163,5 +166,118 @@ describe("messages", () => {
 
     expect(session.message).toContain("Bunching effect is on");
     expect(session.message).toContain("16-bit");
+  });
+});
+
+describe("audit fixes", () => {
+  test("a rejected tree build does not leave Solve disabled", async () => {
+    mocked.gameInit.mockRejectedValue("invalid type: string, expected f64");
+    const session = useSolverSession();
+    await session.solve();
+    expect(useStore().isSolverError).toBe(true);
+    expect(session.isBuilding).toBe(false);
+  });
+
+  test("empty or out-of-range rake and thresholds are refused", () => {
+    const config = useConfigStore();
+    for (const [field, value] of [
+      ["rakeCap", ""],
+      ["rakeCap", Number.NaN],
+      ["rakePercent", 101],
+      ["rakePercent", ""],
+      ["addAllInThreshold", ""],
+      ["forceAllInThreshold", Number.NaN],
+      ["mergingThreshold", ""],
+    ] as const) {
+      const saved = (config as unknown as Record<string, unknown>)[field];
+      (config as unknown as Record<string, unknown>)[field] = value;
+      expect(checkConfig(config), `${field} = ${value}`).not.toBeNull();
+      (config as unknown as Record<string, unknown>)[field] = saved;
+    }
+    expect(checkConfig(config)).toBeNull();
+  });
+
+  test("the stop target uses the solved pot, not an edited Setup pot", async () => {
+    mocked.gameExploitability.mockResolvedValue(10); // 50% of the solved pot (20)
+    const session = useSolverSession();
+    session.settings.targetExploitability = 1;
+    session.settings.maxIterations = 1000;
+    let steps = 0;
+    mocked.gameSolveStep.mockImplementation(async () => {
+      if (++steps === 5) session.pause();
+    });
+    await session.solve();
+    expect(useStore().isSolverPaused).toBe(true);
+    useConfigStore().startingPot = 2000;
+    mocked.gameSolveStep.mockImplementation(async () => {
+      if (++steps === 20) session.pause();
+    });
+    await session.resume();
+    expect(useStore().isSolverFinished).toBe(false);
+    expect(session.iteration).toBeGreaterThan(5);
+  });
+
+  test("an unknown memory size (0) does not block the solve", async () => {
+    mocked.memory.mockResolvedValue([0, 0]);
+    const session = useSolverSession();
+    await session.solve();
+    expect(mocked.gameAllocateMemory).toHaveBeenCalled();
+  });
+
+  test("turning bunching on after a solve does not block saving it", async () => {
+    const session = useSolverSession();
+    await session.solve();
+    const store = useStore();
+    store.isBunchingEnabled = true;
+    store.bunchingFlop = [0, 5, 10];
+    expect(session.saveDisabledReason).toBe("");
+  });
+
+  test("a bunching flop mismatch is refused before the previous solution is replaced", async () => {
+    const store = useStore();
+    store.isSolverFinished = true;
+    store.isBunchingEnabled = true;
+    store.bunchingFlop = [1, 2, 3];
+    const session = useSolverSession();
+    await session.solve();
+    expect(mocked.gameInit).not.toHaveBeenCalled();
+    expect(store.isSolverFinished).toBe(true);
+  });
+
+  test("the thread setting is applied when it changes", async () => {
+    const session = useSolverSession();
+    session.settings.threads = 3;
+    await flush();
+    expect(mocked.setNumThreads).toHaveBeenCalledWith(3);
+  });
+});
+
+describe("audit review fixes", () => {
+  test("only valid thread counts reach the engine, never during a bunching run", async () => {
+    const session = useSolverSession();
+    await flush();
+    mocked.setNumThreads.mockClear();
+    session.settings.threads = 128;
+    await flush();
+    expect(mocked.setNumThreads).not.toHaveBeenCalled();
+    useStore().isBunchingRunning = true;
+    session.settings.threads = 4;
+    await flush();
+    expect(mocked.setNumThreads).not.toHaveBeenCalled();
+  });
+
+  test("a short board with bunching data reports the board", async () => {
+    const store = useStore();
+    store.isBunchingEnabled = true;
+    store.bunchingFlop = [1, 2, 3];
+    useConfigStore().board = [1];
+    const session = useSolverSession();
+    await session.solve();
+    expect(session.message).toBe("Board must consist of at least three cards");
+  });
+
+  test("an unknown memory size counts as unlimited", async () => {
+    mocked.memory.mockResolvedValue([0, 0]);
+    expect(await memoryLimit()).toBe(Number.POSITIVE_INFINITY);
   });
 });

@@ -3,8 +3,8 @@ import { confirm, message } from "@tauri-apps/plugin-dialog";
 import {
   useStore,
   useConfigStore,
-  saveConfigTmp,
-  saveConfig,
+  snapshotSetup,
+  setSavedSetup,
   SolutionDepth,
   setSolutionLocks,
 } from "./store";
@@ -137,8 +137,7 @@ const replaceWithSolution = async (name: string): Promise<string | null> => {
   }
 
   Object.assign(config, meta.tree_config);
-  saveConfigTmp();
-  saveConfig();
+  setSavedSetup(snapshotSetup());
 
   for (const player of [0, 1]) {
     const weights = await invokes.rangeGetWeights(player);
