@@ -104,6 +104,18 @@ export const chartChanceList = [
   "eqr",
 ] as const;
 
+/** Display options before the saved ones are read (results toolbar). */
+export const defaultDisplayOptions = (): DisplayOptions => ({
+  playerBasics: "auto",
+  playerChance: "auto",
+  barHeight: "normalized",
+  suit: "grouped",
+  strategy: "show",
+  contentBasics: "default",
+  contentGraphs: "eq",
+  chartChance: "strategy-combos",
+});
+
 export type DisplayOptions = {
   playerBasics: (typeof playerBasicsList)[number];
   playerChance: (typeof playerChanceList)[number];

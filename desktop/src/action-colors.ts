@@ -46,3 +46,18 @@ export const actionColor = (
   if (numBets <= 1) return ACTION_COLORS.betSmall;
   return betRamp(betRank / (numBets - 1));
 };
+
+/** CSS gradient stacking `frequencies` (0–1) in `colors`, from the start toward `direction`. */
+export const stackedGradient = (
+  frequencies: number[],
+  colors: string[],
+  direction: "right" | "top"
+): string => {
+  let pos = 0;
+  const stops = frequencies.map((f, i) => {
+    const stop = `${colors[i]} ${pos * 100}% ${(pos + f) * 100}%`;
+    pos += f;
+    return stop;
+  });
+  return `linear-gradient(to ${direction}, ${stops.join(", ")})`;
+};

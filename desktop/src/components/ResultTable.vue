@@ -343,6 +343,7 @@
 </template>
 
 <script setup lang="ts">
+import { stackedGradient } from "../action-colors";
 import { computed, reactive, ref, toRefs, watch } from "vue";
 
 import {
@@ -916,18 +917,11 @@ const strategyBarBgImage = (row: number[]) => {
     return `linear-gradient(${yellow500} 0% 100%)`;
   }
 
-  let pos = 0;
-  let ret = "linear-gradient(to right";
-
-  for (let i = 0; i < numActions.value; ++i) {
-    const width = row[INDEX_STRATEGY_BASE + i * 2] * 100;
-    const color = actionColors.value[i];
-    ret += `, ${color} ${pos}% ${pos + width}%`;
-    pos += width;
-  }
-
-  ret += ")";
-  return ret;
+  const frequencies = Array.from(
+    { length: numActions.value },
+    (_, i) => row[INDEX_STRATEGY_BASE + i * 2]
+  );
+  return stackedGradient(frequencies, actionColors.value, "right");
 };
 
 const strategyBarBgSize = (row: number[]) => {

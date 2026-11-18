@@ -123,7 +123,7 @@ describe("JSON import and export", () => {
 
   test("export then import into an empty library gives the same rows", () => {
     const exported = toJsonItems(buildFolderTree(rows));
-    const added = itemsToAdd("ranges", exported, []);
+    const added = itemsToAdd(exported, []);
     expect(Array.isArray(added)).toBe(true);
     const sortKey = (r: DbItem | DbGroup) =>
       [r.name0, r.name1, r.name2, r.name3, r.isGroup].join("/");
@@ -138,14 +138,12 @@ describe("JSON import and export", () => {
       { path: ["100bb"], isGroup: true },
       { path: ["100bb", "BB9"], isGroup: false, value: "22" },
     ];
-    expect(itemsToAdd("ranges", data, rows)).toEqual([
-      item("22", "100bb", "BB9 (2)"),
-    ]);
+    expect(itemsToAdd(data, rows)).toEqual([item("22", "100bb", "BB9 (2)")]);
   });
 
   test("itemsToAdd reports a group that collides with an item", () => {
     const data = [{ path: ["BTN open"], isGroup: true }];
-    expect(itemsToAdd("ranges", data, rows)).toBe("BTN open");
+    expect(itemsToAdd(data, rows)).toBe("BTN open");
   });
 });
 

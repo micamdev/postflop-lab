@@ -202,7 +202,6 @@ export const rowFor = (
  * " (2)", " (3)"… suffix. Returns the name of a folder that collides with an existing item.
  */
 export const itemsToAdd = (
-  _store: SavedStore,
   data: JsonItem[],
   existing: Row[]
 ): Row[] | string => {

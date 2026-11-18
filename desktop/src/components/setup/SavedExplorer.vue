@@ -641,7 +641,7 @@ const importJson = async () => {
     message.value = "Invalid data";
     return;
   }
-  const toAdd = itemsToAdd(tab.value, obj.data, await Db.getArray(tab.value));
+  const toAdd = itemsToAdd(obj.data, await Db.getArray(tab.value));
   if (typeof toAdd === "string") {
     message.value = `Cannot create group "${toAdd}" because the item already exists`;
     return;

@@ -287,6 +287,7 @@ import {
   SpotPlayer,
   DisplayMode,
   DisplayOptions,
+  defaultDisplayOptions,
   HoverContent,
 } from "../result-types";
 
@@ -538,16 +539,7 @@ const onUpdateSpot = (
 const displayMode = ref<DisplayMode>("basics");
 const chanceMode = ref("");
 
-const displayOptions = ref<DisplayOptions>({
-  playerBasics: "auto",
-  playerChance: "auto",
-  barHeight: "normalized",
-  suit: "grouped",
-  strategy: "show",
-  contentBasics: "default",
-  contentGraphs: "eq",
-  chartChance: "strategy-combos",
-});
+const displayOptions = ref<DisplayOptions>(defaultDisplayOptions());
 
 const updateDisplayMode = (mode: DisplayMode) => {
   displayMode.value = mode;
