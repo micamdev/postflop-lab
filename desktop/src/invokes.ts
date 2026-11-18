@@ -1,3 +1,4 @@
+import { withNaN } from "./invokes-numbers";
 import { invoke } from "@tauri-apps/api/core";
 import { Results, ChanceReports } from "./result-types";
 import type { GameTreeArgs } from "./game-args";
@@ -266,11 +267,11 @@ export const gameGetResults = async (): Promise<Results> => {
     eqrBase: results.eqr_base,
     weights: results.weights,
     normalizer: results.normalizer,
-    equity: results.equity,
-    ev: results.ev,
-    eqr: results.eqr,
+    equity: withNaN(results.equity),
+    ev: withNaN(results.ev),
+    eqr: withNaN(results.eqr),
     strategy: results.strategy,
-    actionEv: results.action_ev,
+    actionEv: withNaN([results.action_ev])[0],
   };
 };
 
@@ -298,9 +299,9 @@ export const gameGetChanceReports = async (
     numActions,
     status: reports.status,
     combos: reports.combos,
-    equity: reports.equity,
-    ev: reports.ev,
-    eqr: reports.eqr,
+    equity: withNaN(reports.equity),
+    ev: withNaN(reports.ev),
+    eqr: withNaN(reports.eqr),
     strategy: reports.strategy,
   };
 };

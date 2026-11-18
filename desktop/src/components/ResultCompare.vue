@@ -20,96 +20,29 @@
       </div>
     </div>
 
-    <div class="flex flex-col gap-0.5">
+    <div v-for="row in statRows" :key="row.label" class="flex flex-col gap-0.5">
       <div class="flex">
-        <Adaptive
-          :value="combos[0]"
-          :class="{
-            'w-14': true,
-            'font-semibold': combos[0] && combos[0] >= (1 - EPS) * combos[1],
-          }"
-        />
-        <div class="flex-grow text-center text-xs text-muted">Combos</div>
-        <Adaptive
-          :value="combos[1]"
-          :class="{
-            'w-14': true,
-            'text-right': true,
-            'font-semibold': combos[1] && (1 - EPS) * combos[0] <= combos[1],
-          }"
-        />
-      </div>
-      <BarChart :values="combos" />
-    </div>
-
-    <div class="flex flex-col gap-0.5">
-      <div class="flex">
-        <Percentage
-          :value="equity[0]"
-          :class="{
-            'w-14': true,
-            'font-semibold':
-              !isNaN(equity[0]) && equity[0] >= (1 - EPS) * equity[1],
-          }"
-        />
-        <div class="flex-grow text-center text-xs text-muted">Equity</div>
-        <Percentage
-          :value="equity[1]"
-          :class="{
-            'w-14': true,
-            'text-right': true,
-            'font-semibold':
-              !isNaN(equity[1]) && (1 - EPS) * equity[0] <= equity[1],
-          }"
-        />
-      </div>
-      <BarChart :values="equity" />
-    </div>
-
-    <div class="flex flex-col gap-0.5">
-      <div class="flex">
-        <Ev
-          :value="ev[0]"
+        <component
+          :is="row.cell"
+          :value="row.values[0]"
           :digits="evDigits"
-          :class="{
-            'w-14': true,
-            'font-semibold': !isNaN(ev[0]) && ev[0] >= (1 - EPS) * ev[1],
-          }"
+          :class="{ 'w-14': true, 'font-semibold': isAhead(row, 0) }"
         />
-        <div class="flex-grow text-center text-xs text-muted">EV</div>
-        <Ev
-          :value="ev[1]"
+        <div class="flex-grow text-center text-xs text-muted">
+          {{ row.label }}
+        </div>
+        <component
+          :is="row.cell"
+          :value="row.values[1]"
           :digits="evDigits"
           :class="{
             'w-14': true,
             'text-right': true,
-            'font-semibold': !isNaN(ev[1]) && (1 - EPS) * ev[0] <= ev[1],
+            'font-semibold': isAhead(row, 1),
           }"
         />
       </div>
-      <BarChart :values="ev" />
-    </div>
-
-    <div class="flex flex-col gap-0.5">
-      <div class="flex">
-        <Percentage
-          :value="eqr[0]"
-          :class="{
-            'w-14': true,
-            'font-semibold': !isNaN(eqr[0]) && eqr[0] >= (1 - EPS) * eqr[1],
-          }"
-        />
-        <div class="flex-grow text-center text-xs text-muted">EQR</div>
-        <Percentage
-          :value="eqr[1]"
-          :class="{
-            'w-14': true,
-            'text-right': true,
-            'font-semibold': !isNaN(eqr[1]) && (1 - EPS) * eqr[0] <= eqr[1],
-          }"
-        />
-      </div>
-      <BarChart :values="eqr" />
+      <BarChart :values="row.values" />
     </div>
 
     <!-- Nut advantage: share of each range in each equity tranche -->
@@ -164,7 +97,9 @@
 import { computed, h } from "vue";
 import {
   average,
+  eqrOf,
   equityBuckets,
+  evDigitsFor,
   nutAdvantageText as nutAdvantage,
   toFixed1,
   toFixed,
@@ -180,29 +115,29 @@ const oopColor = "#5b8def";
 const ipColor = "#e0a03c";
 
 const Adaptive = (props: { value: number; class: object }) => {
-  const split = computed(() => toFixedAdaptive(props.value).split("."));
   if (isNaN(props.value)) return h("div", { class: "px-1" }, "-");
+  const split = toFixedAdaptive(props.value).split(".");
   return h("div", { class: props.class }, [
-    h("span", {}, split.value[0] + "."),
-    h("span", { class: "text-sm" }, split.value[1]),
+    h("span", {}, split[0] + "."),
+    h("span", { class: "text-sm" }, split[1]),
   ]);
 };
 
 const Percentage = (props: { value: number; class: object }) => {
-  const str = computed(() => toFixed1(props.value * 100));
   if (isNaN(props.value)) return h("div", { class: "px-1" }, "-");
+  const str = toFixed1(props.value * 100);
   return h("div", { class: props.class }, [
-    h("span", {}, str.value.slice(0, -1)),
-    h("span", { class: "text-sm" }, str.value.slice(-1) + "%"),
+    h("span", {}, str.slice(0, -1)),
+    h("span", { class: "text-sm" }, str.slice(-1) + "%"),
   ]);
 };
 
 const Ev = (props: { value: number; digits: number; class: object }) => {
-  const str = computed(() => toFixed[props.digits - 1](props.value));
   if (isNaN(props.value)) return h("div", { class: "px-1" }, "-");
+  const str = toFixed[props.digits - 1](props.value);
   return h("span", { class: props.class }, [
-    h("span", {}, str.value.slice(0, -props.digits)),
-    h("span", { class: "text-xs" }, str.value.slice(-props.digits)),
+    h("span", {}, str.slice(0, -props.digits)),
+    h("span", { class: "text-xs" }, str.slice(-props.digits)),
   ]);
 };
 
@@ -270,13 +205,9 @@ const ev = computed(() => {
 const eqr = computed(() => {
   const results = props.results;
   if (results.isEmpty) return [Number.NaN, Number.NaN];
-  const ret = [
-    ev.value[0] / (results.eqrBase[0] * equity.value[0]),
-    ev.value[1] / (results.eqrBase[1] * equity.value[1]),
-  ];
-  if (!isFinite(ret[0])) ret[0] = Number.NaN;
-  if (!isFinite(ret[1])) ret[1] = Number.NaN;
-  return ret;
+  return [0, 1].map((p) =>
+    eqrOf(ev.value[p], equity.value[p], results.eqrBase[p])
+  );
 });
 
 const BUCKET_LABELS = ["Equity ≥ 90%", "75-90%", "50-75%", "< 50%"];
@@ -308,7 +239,28 @@ const bestHandsAdvantageText = computed(() =>
 const evDigits = computed(() => {
   const results = props.results;
   if (results.isEmpty) return 3;
-  const maxEv = Math.max(...ev.value.map((x) => Math.abs(x)));
-  return maxEv < 9.9995 ? 3 : maxEv < 99.995 ? 2 : 1;
+  return evDigitsFor(ev.value);
 });
+
+type StatRow = {
+  label: string;
+  values: number[];
+  cell: typeof Adaptive | typeof Percentage | typeof Ev;
+  /** Bold needs a positive value (no "ahead" with 0 combos each). */
+  positiveOnly?: boolean;
+};
+
+const statRows = computed((): StatRow[] => [
+  { label: "Combos", values: combos.value, cell: Adaptive, positiveOnly: true },
+  { label: "Equity", values: equity.value, cell: Percentage },
+  { label: "EV", values: ev.value, cell: Ev },
+  { label: "EQR", values: eqr.value, cell: Percentage },
+]);
+
+/** Bold marks the side ahead (or equal, within EPS). */
+const isAhead = (row: StatRow, side: 0 | 1) => {
+  const [mine, theirs] = [row.values[side], row.values[1 - side]];
+  if (isNaN(mine) || (row.positiveOnly && !mine)) return false;
+  return mine >= (1 - EPS) * theirs;
+};
 </script>

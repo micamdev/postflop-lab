@@ -28,6 +28,10 @@ export const nodeStrategy = (
     amount,
     color,
     frequency: average(strategy.slice(i * n, (i + 1) * n), normalizer),
-    combos: weights.reduce((sum, w, h) => sum + w * strategy[i * n + h], 0),
+    // Hands the opponent fully blocks (normalizer 0) are not counted, as in the Summary.
+    combos: weights.reduce(
+      (sum, w, h) => sum + (normalizer[h] > 0 ? w * strategy[i * n + h] : 0),
+      0
+    ),
   }));
 };

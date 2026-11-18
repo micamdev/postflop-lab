@@ -30,3 +30,16 @@ describe("nodeStrategy", () => {
     expect(nodeStrategy([0, 0, 1, 1], [0, 0], actions, [0, 0])).toBeNull();
   });
 });
+
+describe("hands the opponent's range fully blocks", () => {
+  test("are not counted in the combos", () => {
+    const items = nodeStrategy(
+      [1, 1, 0, 0, 0, 1],
+      [1, 0, 1],
+      actions,
+      [1, 1, 1]
+    )!;
+    expect(items[0].combos).toBeCloseTo(1);
+    expect(items[1].combos).toBeCloseTo(1);
+  });
+});

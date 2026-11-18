@@ -84,7 +84,7 @@
               }}
             </td>
             <td class="px-3 py-1 text-right">
-              {{ Number.isNaN(row.ev) ? "-" : row.ev.toFixed(2) }}
+              {{ toFixed2(row.ev) }}
             </td>
           </tr>
         </tbody>
@@ -101,6 +101,7 @@ import {
   BreakdownRow,
   isFilterActive,
 } from "../../breakdown";
+import { toFixed2 } from "../../utils";
 import UiButton from "../ui/UiButton.vue";
 import UiSegmented from "../ui/UiSegmented.vue";
 

@@ -150,3 +150,16 @@ describe("withoutEquityFilter", () => {
     ).toEqual({ hands: ["Set"] });
   });
 });
+
+describe("hands the opponent's range fully blocks", () => {
+  test("are left out, as in the Summary", () => {
+    // QsJs has weight but a normalizer of 0: the Summary does not show it.
+    const r = { ...results(), normalizer: [[1, 0, 1], [1]] };
+    const rows = breakdownRows(r, CARDS, BOARD, 0, true);
+    expect(row(rows, "No made hand")).toBeUndefined();
+    const total = rows
+      .filter((x) => x.group === "hands")
+      .reduce((s, x) => s + x.combos, 0);
+    expect(total).toBeCloseTo(2);
+  });
+});
