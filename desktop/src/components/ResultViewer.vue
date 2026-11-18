@@ -228,6 +228,38 @@
         </div>
       </template>
 
+      <template v-else-if="displayMode === 'breakdown'">
+        <!-- Square grid (filtered), then the strategy cards and the category table. -->
+        <ResultBasics
+          class="shrink-0"
+          :style="{ width: BASICS_SIDE, height: BASICS_SIDE }"
+          :cards="cards"
+          :selected-spot="selectedSpot"
+          :selected-chance="selectedChance"
+          :current-board="currentBoard"
+          :total-bet-amount="totalBetAmount"
+          :results="shownResults!"
+          :display-options="displayOptions"
+          :display-player="displayPlayerBasics"
+          :is-compare-mode="false"
+        />
+        <div
+          class="flex flex-col flex-1 min-w-[380px] bg-panel border-l border-line"
+        >
+          <NodeStrategyCards :items="strategyItems" :no-hands="noHandsAtNode" />
+          <BreakdownTable
+            class="flex-1 min-h-0"
+            :rows="breakdownTableRows"
+            :actions="breakdownActions"
+            :filter="breakdownFilter"
+            :advanced="breakdownAdvanced"
+            @toggle="toggleBreakdownRow"
+            @clear="breakdownFilter = {}"
+            @update:advanced="setBreakdownAdvanced"
+          />
+        </div>
+      </template>
+
       <template v-else-if="displayMode === 'chance' && selectedChance">
         <ResultChance
           :selected-spot="selectedSpot"
@@ -243,7 +275,7 @@
 </template>
 
 <script setup lang="ts">
-import { computed, ref } from "vue";
+import { computed, ref, watch } from "vue";
 import { useStore } from "../store";
 import * as invokes from "../invokes";
 
@@ -262,6 +294,16 @@ import ResultNav from "./ResultNav.vue";
 import RiverPicker from "./RiverPicker.vue";
 import ResultsToolbar from "./results/ResultsToolbar.vue";
 import NodeStrategyCards from "./results/NodeStrategyCards.vue";
+import BreakdownTable from "./results/BreakdownTable.vue";
+import {
+  BreakdownFilter,
+  BreakdownGroup,
+  breakdownRows,
+  comboMask,
+  filterResults,
+  isFilterActive,
+  withoutEquityFilter,
+} from "../breakdown";
 import UiButton from "./ui/UiButton.vue";
 import UiTooltip from "./ui/UiTooltip.vue";
 import { nodeStrategy } from "../node-strategy";
@@ -309,6 +351,81 @@ const BASICS_SIDE = "min(100cqh, 100cqw - 380px)";
 const COMPARE_SIDE = "min(100cqh - 24px, (100cqw - 240px) / 2)";
 const COMPARE_PLAYERS = ["oop", "ip"] as const;
 
+/* Breakdown */
+
+const breakdownFilter = ref<BreakdownFilter>({});
+const breakdownAdvanced = ref(false);
+const displayedPlayerIndex = computed(() =>
+  displayPlayerBasics.value === "oop" ? 0 : 1
+);
+
+/** The results, with the displayed player's combos outside the breakdown filter removed. */
+const shownResults = computed(() => {
+  const r = results.value;
+  if (
+    !r ||
+    displayMode.value !== "breakdown" ||
+    !isFilterActive(breakdownFilter.value)
+  ) {
+    return r;
+  }
+  const player = displayedPlayerIndex.value;
+  const mask = comboMask(
+    cards.value[player],
+    currentBoard.value,
+    r.equity[player],
+    breakdownFilter.value
+  );
+  return filterResults(r, player as 0 | 1, mask);
+});
+
+/** The displayed player is the one acting at the selected node. */
+const isDisplayedPlayerActing = computed(() => {
+  const spot = selectedSpot.value;
+  return (
+    !!spot &&
+    spot.type === "player" &&
+    !selectedChance.value &&
+    spot.player === displayPlayerBasics.value
+  );
+});
+
+const breakdownTableRows = computed(() => {
+  const r = results.value;
+  if (!r || displayMode.value !== "breakdown") return [];
+  const player = displayedPlayerIndex.value as 0 | 1;
+  if (r.isEmpty & (1 << player)) return [];
+  return breakdownRows(
+    r,
+    cards.value[player],
+    currentBoard.value,
+    player,
+    isDisplayedPlayerActing.value
+  );
+});
+
+const breakdownActions = computed(() =>
+  isDisplayedPlayerActing.value
+    ? (selectedSpot.value as SpotPlayer).actions
+    : null
+);
+
+/** Switching Simple / Advanced drops the equity selections of the hidden view. */
+const setBreakdownAdvanced = (value: boolean) => {
+  breakdownAdvanced.value = value;
+  breakdownFilter.value = withoutEquityFilter(breakdownFilter.value);
+};
+
+const toggleBreakdownRow = (group: BreakdownGroup, name: string) => {
+  const names = breakdownFilter.value[group] ?? [];
+  breakdownFilter.value = {
+    ...breakdownFilter.value,
+    [group]: names.includes(name)
+      ? names.filter((n) => n !== name)
+      : [...names, name],
+  };
+};
+
 const isLockEditorOpen = ref(false);
 
 /** Overall strategy of the acting player at the selected node (null at a card or without hands). */
@@ -318,17 +435,17 @@ const strategyItems = computed(() => {
     !spot ||
     spot.type !== "player" ||
     selectedChance.value ||
-    !results.value
+    !shownResults.value
   ) {
     return null;
   }
   const player = spot.player === "oop" ? 0 : 1;
-  if (results.value.isEmpty & (1 << player)) return null;
+  if (shownResults.value.isEmpty & (1 << player)) return null;
   return nodeStrategy(
-    results.value.strategy,
-    results.value.normalizer[player],
+    shownResults.value.strategy,
+    shownResults.value.normalizer[player],
     spot.actions,
-    results.value.weights[player]
+    shownResults.value.weights[player]
   );
 });
 
@@ -339,12 +456,12 @@ const noHandsAtNode = computed(() => {
     !spot ||
     spot.type !== "player" ||
     selectedChance.value ||
-    !results.value
+    !shownResults.value
   ) {
     return false;
   }
   return Boolean(
-    results.value.isEmpty & (1 << (spot.player === "oop" ? 0 : 1))
+    shownResults.value.isEmpty & (1 << (spot.player === "oop" ? 0 : 1))
   );
 });
 
@@ -495,4 +612,10 @@ const onUpdateHoverContent = (content: HoverContent | null) => {
 const onDealCard = (card: number) => {
   dealtCard.value = card;
 };
+
+// A breakdown filter only makes sense for the hands it was chosen on.
+watch(
+  [selectedSpot, selectedChance, displayPlayerBasics, currentBoard],
+  () => (breakdownFilter.value = {})
+);
 </script>

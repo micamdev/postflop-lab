@@ -13,7 +13,7 @@
 
     <div class="flex-1" />
 
-    <template v-if="['basics', 'graphs'].includes(displayMode)">
+    <template v-if="['basics', 'graphs', 'breakdown'].includes(displayMode)">
       <span class="text-xs text-muted">Player</span>
       <UiSegmented
         v-model="displayOptions.playerBasics"
@@ -30,7 +30,7 @@
       />
     </template>
 
-    <template v-if="['basics', 'compare'].includes(displayMode)">
+    <template v-if="['basics', 'compare', 'breakdown'].includes(displayMode)">
       <span class="text-xs text-muted">Bars</span>
       <UiSegmented
         v-model="displayOptions.barHeight"
@@ -111,11 +111,12 @@ const emit = defineEmits<{
   (event: "update:display-options", displayOptions: Types.DisplayOptions): void;
 }>();
 
-/** Strategy, Equity and Compare, plus Turn / River while a card is being dealt. */
+/** Strategy, Equity, Compare and Breakdown, plus Turn / River while a card is being dealt. */
 const tabs = computed(() => [
   { value: "basics", label: "Strategy" },
   { value: "graphs", label: "Equity" },
   { value: "compare", label: "Compare" },
+  { value: "breakdown", label: "Breakdown" },
   ...(props.chanceMode === ""
     ? []
     : [{ value: "chance", label: capitalize(props.chanceMode) }]),
