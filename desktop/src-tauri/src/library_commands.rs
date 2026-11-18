@@ -45,7 +45,7 @@ pub fn library_list(app: AppHandle) -> Result<Vec<LibraryEntry>, String> {
 pub fn library_save_estimate(
     game_state: tauri::State<Mutex<PostFlopGame>>,
 ) -> Result<Vec<(String, u64)>, String> {
-    let mut game = game_state.lock().unwrap();
+    let mut game = crate::guard::lock_or_reset(&game_state);
     let initial = game.tree_config().initial_state;
     let mut estimates = Vec::new();
     for mode in [BoardState::River, BoardState::Turn, BoardState::Flop] {
@@ -68,57 +68,59 @@ pub fn library_save(
     overwrite: bool,
     front_meta: FrontMeta,
 ) -> Result<String, String> {
-    let dir = library_dir(&app)?;
-    let mut game = game_state.lock().unwrap();
-    if !game.is_solved() {
-        return Err("The solver has not finished".to_string());
-    }
-    if game.is_bunching_enabled() {
-        return Err("Solutions computed with the bunching effect cannot be saved".to_string());
-    }
-
-    let card_config = game.card_config().clone();
-    let mut board = card_config.flop.to_vec();
-    board.extend(
-        [card_config.turn, card_config.river]
-            .into_iter()
-            .filter(|&c| c != NOT_DEALT),
-    );
-    let meta = SolutionMeta {
-        schema: META_SCHEMA,
-        app_version: env!("CARGO_PKG_VERSION").to_string(),
-        created_at: SystemTime::now()
-            .duration_since(UNIX_EPOCH)
-            .map_or(0, |d| d.as_secs()),
-        board,
-        ranges: [
-            card_config.range[0].to_string(),
-            card_config.range[1].to_string(),
-        ],
-        tree_config: front_meta.tree_config,
-        depth: depth.clone(),
-        exploitability: front_meta.exploitability,
-        iterations: front_meta.iterations,
-        precision: if game.is_compression_enabled() {
-            "16"
-        } else {
-            "32"
+    crate::guard::guard(move || {
+        let dir = library_dir(&app)?;
+        let mut game = crate::guard::lock_or_reset(&game_state);
+        if !game.is_solved() {
+            return Err("The solver has not finished".to_string());
         }
-        .to_string(),
-        summary: compute_summary(&mut game),
-        locks: locks_state.0.lock().unwrap().clone(),
-    };
-
-    game.set_target_storage_mode(depth_from_name(&depth)?)?;
-    let mut last_emit = Instant::now();
-    let result = library::save_with_progress(&dir, &name, &game, &meta, overwrite, |written| {
-        if last_emit.elapsed() >= Duration::from_millis(100) {
-            last_emit = Instant::now();
-            let _ = app.emit("library-save-progress", SaveProgress { written });
+        if game.is_bunching_enabled() {
+            return Err("Solutions computed with the bunching effect cannot be saved".to_string());
         }
-    });
-    game.set_target_storage_mode(BoardState::River)?;
-    result
+
+        let card_config = game.card_config().clone();
+        let mut board = card_config.flop.to_vec();
+        board.extend(
+            [card_config.turn, card_config.river]
+                .into_iter()
+                .filter(|&c| c != NOT_DEALT),
+        );
+        let meta = SolutionMeta {
+            schema: META_SCHEMA,
+            app_version: env!("CARGO_PKG_VERSION").to_string(),
+            created_at: SystemTime::now()
+                .duration_since(UNIX_EPOCH)
+                .map_or(0, |d| d.as_secs()),
+            board,
+            ranges: [
+                card_config.range[0].to_string(),
+                card_config.range[1].to_string(),
+            ],
+            tree_config: front_meta.tree_config,
+            depth: depth.clone(),
+            exploitability: front_meta.exploitability,
+            iterations: front_meta.iterations,
+            precision: if game.is_compression_enabled() {
+                "16"
+            } else {
+                "32"
+            }
+            .to_string(),
+            summary: compute_summary(&mut game),
+            locks: crate::guard::lock(&locks_state.0).clone(),
+        };
+
+        game.set_target_storage_mode(depth_from_name(&depth)?)?;
+        let mut last_emit = Instant::now();
+        let result = library::save_with_progress(&dir, &name, &game, &meta, overwrite, |written| {
+            if last_emit.elapsed() >= Duration::from_millis(100) {
+                last_emit = Instant::now();
+                let _ = app.emit("library-save-progress", SaveProgress { written });
+            }
+        });
+        game.set_target_storage_mode(BoardState::River)?;
+        result
+    })
 }
 
 /// Error prefix of `library_load` when the current game was freed before the load failed: the
@@ -173,11 +175,11 @@ pub fn library_check_load(
     name: String,
 ) -> Result<(), String> {
     let dir = library_dir(&app)?;
-    let game = game_state.lock().unwrap();
+    let game = crate::guard::lock_or_reset(&game_state);
     check_load(
         &dir,
         &name,
-        max_load_memory(&game, &cache_state.lock().unwrap()),
+        max_load_memory(&game, &crate::guard::lock(&cache_state)),
     )
 }
 
@@ -190,29 +192,31 @@ pub fn library_load(
     locks_state: tauri::State<CurrentLocks>,
     name: String,
 ) -> Result<SolutionMeta, String> {
-    let dir = library_dir(&app)?;
-    let mut game = game_state.lock().unwrap();
-    let max_memory = max_load_memory(&game, &cache_state.lock().unwrap());
+    crate::guard::guard(move || {
+        let dir = library_dir(&app)?;
+        let mut game = crate::guard::lock_or_reset(&game_state);
+        let max_memory = max_load_memory(&game, &crate::guard::lock(&cache_state));
 
-    // Refuse before touching the current game if the solution cannot fit.
-    check_load(&dir, &name, max_memory)?;
+        // Refuse before touching the current game if the solution cannot fit.
+        check_load(&dir, &name, max_memory)?;
 
-    // Free the current game (and its subgames) first so both never coexist in memory.
-    cache_state.lock().unwrap().clear();
-    *game = PostFlopGame::new();
-    locks_state.0.lock().unwrap().clear();
-    let (loaded, meta) =
-        library::load(&dir, &name, max_memory).map_err(|e| format!("{ERR_GAME_FREED}: {e}"))?;
-    let ranges = loaded.card_config().range;
-    *game = loaded;
-    // The same key for the same node whatever version saved the locks.
-    let mut meta = meta;
-    crate::locks::refresh_lock_keys(&mut game, &mut meta.locks);
-    *locks_state.0.lock().unwrap() = meta.locks.clone();
-    let mut range_manager = range_state.lock().unwrap();
-    range_manager.0[0] = ranges[0];
-    range_manager.0[1] = ranges[1];
-    Ok(meta)
+        // Free the current game (and its subgames) first so both never coexist in memory.
+        crate::guard::lock(&cache_state).clear();
+        *game = PostFlopGame::new();
+        crate::guard::lock(&locks_state.0).clear();
+        let (loaded, meta) =
+            library::load(&dir, &name, max_memory).map_err(|e| format!("{ERR_GAME_FREED}: {e}"))?;
+        let ranges = loaded.card_config().range;
+        *game = loaded;
+        // The same key for the same node whatever version saved the locks.
+        let mut meta = meta;
+        crate::locks::refresh_lock_keys(&mut game, &mut meta.locks);
+        *crate::guard::lock(&locks_state.0) = meta.locks.clone();
+        let mut range_manager = crate::guard::lock(&range_state);
+        range_manager.0[0] = ranges[0];
+        range_manager.0[1] = ranges[1];
+        Ok(meta)
+    })
 }
 
 #[tauri::command]
@@ -227,12 +231,12 @@ pub fn library_delete(app: AppHandle, name: String) -> Result<(), String> {
 
 #[tauri::command(async)]
 pub fn library_import(app: AppHandle, path: PathBuf, overwrite: bool) -> Result<String, String> {
-    library::import(&library_dir(&app)?, &path, overwrite)
+    crate::guard::guard(move || library::import(&library_dir(&app)?, &path, overwrite))
 }
 
 #[tauri::command(async)]
 pub fn library_export(app: AppHandle, name: String, path: PathBuf) -> Result<(), String> {
-    library::export(&library_dir(&app)?, &name, &path)
+    crate::guard::guard(move || library::export(&library_dir(&app)?, &name, &path))
 }
 
 #[tauri::command]

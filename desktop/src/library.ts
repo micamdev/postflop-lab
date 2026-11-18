@@ -121,6 +121,8 @@ const replaceWithSolution = async (name: string): Promise<string | null> => {
     meta = await invokes.libraryLoad(name);
   } catch (e) {
     const message = String(e);
+    // A panic in Rust (handled by internal-error.ts): the game was reset, nothing to restore.
+    if (message.startsWith(invokes.ERR_INTERNAL)) return message;
     if (message.startsWith(invokes.ERR_GAME_FREED)) {
       // The previous game is gone: the tree built in Run Solver is no longer valid.
       store.treeResetCount++;

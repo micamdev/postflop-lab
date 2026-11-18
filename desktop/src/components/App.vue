@@ -17,6 +17,22 @@
       </button>
     </div>
 
+    <div
+      v-if="store.appError"
+      class="flex shrink-0 items-center gap-3 px-4 py-1.5 text-sm bg-red-500/10 text-red-400 border-b border-line"
+      role="alert"
+    >
+      <span class="flex-1">{{ store.appError }}</span>
+      <button
+        type="button"
+        class="text-muted hover:text-ink"
+        aria-label="Dismiss"
+        @click="store.appError = ''"
+      >
+        ✕
+      </button>
+    </div>
+
     <main class="flex-1 min-h-0">
       <div v-show="store.navView === 'setup'" class="h-full">
         <SetupPage />
@@ -35,6 +51,8 @@
 
 <script setup lang="ts">
 import { trackTreeModified } from "../tree-source";
+import { setInternalErrorHandler } from "../invokes";
+import { handleInternalError } from "../internal-error";
 import { useStore } from "../store";
 import { useSolverSession } from "../solver-session";
 
@@ -47,4 +65,6 @@ const store = useStore();
 const session = useSolverSession();
 // Marks the saved tree "modified" on any setup edit, whichever page made it.
 trackTreeModified();
+// An internal error in the engine: drop the results and show it, instead of a closed app.
+setInternalErrorHandler(handleInternalError);
 </script>

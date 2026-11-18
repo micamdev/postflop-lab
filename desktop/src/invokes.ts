@@ -1,7 +1,28 @@
 import { withNaN } from "./invokes-numbers";
-import { invoke } from "@tauri-apps/api/core";
+import { invoke as tauriInvoke, type InvokeArgs } from "@tauri-apps/api/core";
 import { Results, ChanceReports } from "./result-types";
 import type { GameTreeArgs } from "./game-args";
+
+/** Prefix of the error a Rust command returns after an internal error (a panic): the game may
+ * have been reset (see guard.rs). */
+export const ERR_INTERNAL = "Internal error";
+
+let onInternalError: (message: string) => void = () => {};
+
+/** Sets what the app does after an internal error (drop the results, show the message). */
+export const setInternalErrorHandler = (handler: (message: string) => void) => {
+  onInternalError = handler;
+};
+
+// Every command goes through here: internal errors are reported, then rejected as usual.
+const invoke = async <T>(cmd: string, args?: InvokeArgs): Promise<T> => {
+  try {
+    return await tauriInvoke<T>(cmd, args);
+  } catch (e) {
+    if (String(e).startsWith(ERR_INTERNAL)) onInternalError(String(e));
+    throw e;
+  }
+};
 
 export const osName = async (): Promise<"windows" | "macos" | "linux"> => {
   return await invoke("os_name");

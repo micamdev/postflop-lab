@@ -232,18 +232,22 @@ pub fn game_init(
     cache_state: tauri::State<Mutex<SubgameCache>>,
     locks_state: tauri::State<crate::lock_commands::CurrentLocks>,
     args: GameTreeArgs,
-) -> Option<String> {
-    let ranges: [Range; 2] = range_state.lock().unwrap().0[..2].try_into().unwrap();
-    let (card_config, action_tree) = match build_game_inputs(&ranges, &args) {
-        Ok(inputs) => inputs,
-        Err(e) => return Some(e),
-    };
+) -> Result<Option<String>, String> {
+    crate::guard::guard(move || {
+        Ok({
+            let ranges: [Range; 2] = crate::guard::lock(&range_state).0[..2].try_into().unwrap();
+            let (card_config, action_tree) = match build_game_inputs(&ranges, &args) {
+                Ok(inputs) => inputs,
+                Err(e) => return Ok(Some(e)),
+            };
 
-    let mut game = game_state.lock().unwrap();
-    // A new tree: subgames of the previous game no longer apply.
-    cache_state.lock().unwrap().clear();
-    locks_state.0.lock().unwrap().clear();
-    game.update_config(card_config, action_tree).err()
+            let mut game = crate::guard::lock_or_reset(&game_state);
+            // A new tree: subgames of the previous game no longer apply.
+            crate::guard::lock(&cache_state).clear();
+            crate::guard::lock(&locks_state.0).clear();
+            game.update_config(card_config, action_tree).err()
+        })
+    })
 }
 
 /// Memory needed to solve the setup, without touching the game held by the app.
@@ -252,13 +256,15 @@ pub fn game_memory_estimate(
     range_state: tauri::State<Mutex<RangeManager>>,
     args: GameTreeArgs,
 ) -> Result<(u64, u64), String> {
-    let ranges: [Range; 2] = range_state.lock().unwrap().0[..2].try_into().unwrap();
-    estimate_memory(&ranges, &args)
+    crate::guard::guard(move || {
+        let ranges: [Range; 2] = crate::guard::lock(&range_state).0[..2].try_into().unwrap();
+        estimate_memory(&ranges, &args)
+    })
 }
 
 #[tauri::command]
 pub fn game_private_cards(game_state: tauri::State<Mutex<PostFlopGame>>) -> [Vec<u16>; 2] {
-    let game = game_state.lock().unwrap();
+    let game = crate::guard::lock_or_reset(&game_state);
     let convert = |player: usize| {
         game.private_cards(player)
             .iter()
@@ -270,13 +276,13 @@ pub fn game_private_cards(game_state: tauri::State<Mutex<PostFlopGame>>) -> [Vec
 
 #[tauri::command]
 pub fn game_memory_usage(game_state: tauri::State<Mutex<PostFlopGame>>) -> (u64, u64) {
-    let game = game_state.lock().unwrap();
+    let game = crate::guard::lock_or_reset(&game_state);
     game.memory_usage()
 }
 
 #[tauri::command]
 pub fn game_memory_usage_bunching(game_state: tauri::State<Mutex<PostFlopGame>>) -> u64 {
-    let game = game_state.lock().unwrap();
+    let game = crate::guard::lock_or_reset(&game_state);
     game.memory_usage_bunching()
 }
 
@@ -284,20 +290,29 @@ pub fn game_memory_usage_bunching(game_state: tauri::State<Mutex<PostFlopGame>>)
 pub fn game_allocate_memory(
     game_state: tauri::State<Mutex<PostFlopGame>>,
     enable_compression: bool,
-) {
-    let mut game = game_state.lock().unwrap();
-    game.allocate_memory(enable_compression);
+) -> Result<(), String> {
+    crate::guard::guard(move || {
+        let mut game = crate::guard::lock_or_reset(&game_state);
+        game.allocate_memory(enable_compression);
+        Ok(())
+    })
 }
 
 #[tauri::command(async)]
 pub fn game_set_bunching(
     bunching_state: tauri::State<Mutex<Option<BunchingData>>>,
     game_state: tauri::State<Mutex<PostFlopGame>>,
-) -> Option<String> {
-    let bunching_data = bunching_state.lock().unwrap();
-    let bunching_data = bunching_data.as_ref().unwrap();
-    let mut game = game_state.lock().unwrap();
-    game.set_bunching_effect(bunching_data).err()
+) -> Result<Option<String>, String> {
+    crate::guard::guard(move || {
+        Ok({
+            let bunching_data = crate::guard::lock_or_reset(&bunching_state);
+            let Some(bunching_data) = bunching_data.as_ref() else {
+                return Err(ERR_BUNCHING_NOT_READY.to_string());
+            };
+            let mut game = crate::guard::lock_or_reset(&game_state);
+            game.set_bunching_effect(bunching_data).err()
+        })
+    })
 }
 
 #[tauri::command(async)]
@@ -305,35 +320,49 @@ pub fn game_solve_step(
     game_state: tauri::State<Mutex<PostFlopGame>>,
     pool_state: tauri::State<Mutex<std::sync::Arc<ThreadPool>>>,
     current_iteration: u32,
-) {
-    let game = game_state.lock().unwrap();
-    let pool = pool_state.lock().unwrap();
-    pool.install(|| solve_step(&*game, current_iteration));
+) -> Result<(), String> {
+    crate::guard::guard(move || {
+        let game = crate::guard::lock_or_reset(&game_state);
+        let pool = crate::guard::lock(&pool_state);
+        pool.install(|| solve_step(&*game, current_iteration));
+        Ok(())
+    })
 }
 
 #[tauri::command(async)]
 pub fn game_exploitability(
     game_state: tauri::State<Mutex<PostFlopGame>>,
     pool_state: tauri::State<Mutex<std::sync::Arc<ThreadPool>>>,
-) -> f32 {
-    let game = game_state.lock().unwrap();
-    let pool = pool_state.lock().unwrap();
-    pool.install(|| compute_exploitability(&*game))
+) -> Result<f32, String> {
+    crate::guard::guard(move || {
+        Ok({
+            let game = crate::guard::lock_or_reset(&game_state);
+            let pool = crate::guard::lock(&pool_state);
+            pool.install(|| compute_exploitability(&*game))
+        })
+    })
 }
 
 #[tauri::command(async)]
 pub fn game_finalize(
     game_state: tauri::State<Mutex<PostFlopGame>>,
     pool_state: tauri::State<Mutex<std::sync::Arc<ThreadPool>>>,
-) {
-    // Same lock order as the other game commands: game, then pool.
-    let mut game = game_state.lock().unwrap();
-    let pool = pool_state.lock().unwrap().clone();
-    let game: &mut PostFlopGame = &mut game;
-    pool.install(|| finalize(game));
+) -> Result<(), String> {
+    crate::guard::guard(move || {
+        // Same lock order as the other game commands: game, then pool.
+        let mut game = crate::guard::lock_or_reset(&game_state);
+        let pool = crate::guard::lock(&pool_state).clone();
+        let game: &mut PostFlopGame = &mut game;
+        pool.install(|| finalize(game));
+        Ok(())
+    })
 }
 
 /// Error returned when a position needs a card that a truncated save does not store.
+/// Error when the bunching data is missing (cleared, or reset after an internal error).
+pub const ERR_BUNCHING_NOT_READY: &str =
+    "The bunching data is not ready: run the precomputation again";
+
 pub const ERR_BEYOND_DEPTH: &str = "beyond saved depth";
 
 /// Plays `action`, refusing to deal a card past the saved depth (where `play` would panic and
@@ -421,8 +450,8 @@ pub fn game_apply_history(
     cache_state: tauri::State<Mutex<SubgameCache>>,
     history: Vec<usize>,
 ) -> Result<(), String> {
-    let mut game = game_state.lock().unwrap();
-    let mut cache = cache_state.lock().unwrap();
+    let mut game = crate::guard::lock_or_reset(&game_state);
+    let mut cache = crate::guard::lock(&cache_state);
     session::apply(&mut game, &mut cache, &history)
 }
 
@@ -432,8 +461,8 @@ pub fn game_total_bet_amount(
     cache_state: tauri::State<Mutex<SubgameCache>>,
     append: Vec<isize>,
 ) -> Result<[i32; 2], String> {
-    let mut game = game_state.lock().unwrap();
-    let mut cache = cache_state.lock().unwrap();
+    let mut game = crate::guard::lock_or_reset(&game_state);
+    let mut cache = crate::guard::lock(&cache_state);
     let append: Vec<usize> = append.iter().map(|&a| action_usize(a)).collect();
     session::total_bet_amount(&mut game, &mut cache, &append)
 }
@@ -465,8 +494,8 @@ pub fn game_actions_after(
     cache_state: tauri::State<Mutex<SubgameCache>>,
     append: Vec<isize>,
 ) -> Result<Vec<String>, String> {
-    let mut game = game_state.lock().unwrap();
-    let mut cache = cache_state.lock().unwrap();
+    let mut game = crate::guard::lock_or_reset(&game_state);
+    let mut cache = crate::guard::lock(&cache_state);
     let append: Vec<usize> = append.iter().map(|&a| action_usize(a)).collect();
     session::actions_after(&mut game, &mut cache, &append)
 }
@@ -474,7 +503,7 @@ pub fn game_actions_after(
 /// Saved depth of the current game: "river" (complete), "turn" or "flop".
 #[tauri::command]
 pub fn game_storage_mode(game_state: tauri::State<Mutex<PostFlopGame>>) -> String {
-    let game = game_state.lock().unwrap();
+    let game = crate::guard::lock_or_reset(&game_state);
     depth_name(game.storage_mode()).to_string()
 }
 
@@ -500,8 +529,8 @@ pub fn game_possible_cards(
     game_state: tauri::State<Mutex<PostFlopGame>>,
     cache_state: tauri::State<Mutex<SubgameCache>>,
 ) -> u64 {
-    let game = game_state.lock().unwrap();
-    let cache = cache_state.lock().unwrap();
+    let game = crate::guard::lock_or_reset(&game_state);
+    let cache = crate::guard::lock(&cache_state);
     // Cards are dealt only at chance nodes of the main game; subgames start on the river.
     if cache.active.is_some() || !game.is_chance_node() {
         return 0;
@@ -549,8 +578,8 @@ pub fn game_get_results(
     game_state: tauri::State<Mutex<PostFlopGame>>,
     cache_state: tauri::State<Mutex<SubgameCache>>,
 ) -> GameResultsResponse {
-    let mut game = game_state.lock().unwrap();
-    let mut cache = cache_state.lock().unwrap();
+    let mut game = crate::guard::lock_or_reset(&game_state);
+    let mut cache = crate::guard::lock(&cache_state);
     session::results(&mut game, &mut cache)
 }
 
@@ -651,9 +680,9 @@ pub fn game_get_chance_reports(
     append: Vec<isize>,
     num_actions: usize,
 ) -> Result<GameChanceReportsResponse, String> {
-    let mut game = game_state.lock().unwrap();
+    let mut game = crate::guard::lock_or_reset(&game_state);
     // Inside a river subgame there is no chance node left to report on.
-    if cache_state.lock().unwrap().active.is_some() {
+    if crate::guard::lock(&cache_state).active.is_some() {
         return Err(ERR_BEYOND_DEPTH.to_string());
     }
     if append.is_empty() {

@@ -339,45 +339,57 @@ const resumePrecomputation = async () => {
   store.isBunchingRunning = true;
   isBunchingPaused.value = false;
   startTime = performance.now();
-  await invokes.setNumThreads(numThreads.value);
+  // Whatever happens (an error, an internal error in Rust), the run ends: Solve and the
+  // precomputation buttons come back.
+  try {
+    await invokes.setNumThreads(numThreads.value);
 
-  while (true) {
-    if (terminateFlag.value) {
-      await invokes.bunchingClear();
-      store.bunchingFlop = [];
-      statusText.value = "No bunching data";
-      hasBunchingRun.value = false;
-      break;
+    while (true) {
+      if (terminateFlag.value) {
+        await invokes.bunchingClear();
+        store.bunchingFlop = [];
+        statusText.value = "No bunching data";
+        hasBunchingRun.value = false;
+        break;
+      }
+
+      if (pauseFlag.value) {
+        isBunchingPaused.value = true;
+        break;
+      }
+
+      const [phase, percent] = await invokes.bunchingProgress();
+
+      if (phase === 3 && percent === 100) {
+        store.bunchingFlop = flopCopy.value;
+        statusText.value = "Bunching data ready!";
+        break;
+      }
+
+      statusText.value = `Phase ${phase}/3 - ${percent}% completed...`;
     }
 
-    if (pauseFlag.value) {
-      isBunchingPaused.value = true;
-      break;
+    elapsedTimeMs.value += performance.now() - startTime;
+
+    if (!terminateFlag.value && !pauseFlag.value) {
+      statusText.value += ` (Time: ${(elapsedTimeMs.value / 1000).toFixed(2)}s)`;
     }
-
-    const [phase, percent] = await invokes.bunchingProgress();
-
-    if (phase === 3 && percent === 100) {
-      store.bunchingFlop = flopCopy.value;
-      statusText.value = "Bunching data ready!";
-      break;
+  } catch (e) {
+    // The data may be gone (cleared by Rust after an internal error): start over.
+    store.bunchingFlop = [];
+    hasBunchingRun.value = false;
+    isBunchingPaused.value = false;
+    statusText.value = `Error: ${String(e)}`;
+  } finally {
+    store.isBunchingRunning = false;
+    terminateFlag.value = false;
+    pauseFlag.value = false;
+    // Back to the solve thread setting (river re-solves use the same thread pool).
+    const threads = useSolverSession().settings.threads;
+    if (threadsError(threads) === null) {
+      await invokes.setNumThreads(threads).catch(() => {});
     }
-
-    statusText.value = `Phase ${phase}/3 - ${percent}% completed...`;
   }
-
-  elapsedTimeMs.value += performance.now() - startTime;
-
-  if (!terminateFlag.value && !pauseFlag.value) {
-    statusText.value += ` (Time: ${(elapsedTimeMs.value / 1000).toFixed(2)}s)`;
-  }
-
-  store.isBunchingRunning = false;
-  terminateFlag.value = false;
-  pauseFlag.value = false;
-  // Back to the solve thread setting (river re-solves use the same thread pool).
-  const threads = useSolverSession().settings.threads;
-  if (threadsError(threads) === null) await invokes.setNumThreads(threads);
 };
 
 const saveEdit = async () => {

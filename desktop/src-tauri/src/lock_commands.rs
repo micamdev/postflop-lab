@@ -67,8 +67,8 @@ pub fn game_capture_lock(
     history: Vec<usize>,
     edits: BTreeMap<String, Vec<f32>>,
 ) -> Result<NodeLock, String> {
-    let mut game = game_state.lock().unwrap();
-    if cache_state.lock().unwrap().active.is_some() {
+    let mut game = crate::guard::lock_or_reset(&game_state);
+    if crate::guard::lock(&cache_state).active.is_some() {
         return Err("Locks are not available in a re-solved river".to_string());
     }
     if game.is_bunching_enabled() {
@@ -87,24 +87,26 @@ pub fn game_prepare_lock_solve(
     locks_state: tauri::State<CurrentLocks>,
     locks: Vec<NodeLock>,
 ) -> Result<bool, String> {
-    // One lock per engine node: a later lock on the same node replaces the earlier one.
-    let locks = locks.into_iter().fold(Vec::new(), |mut all, lock| {
-        merge_lock(&mut all, lock);
-        all
-    });
-    let mut game = game_state.lock().unwrap();
-    // Same precision as the reference solution.
-    let compression = game.is_compression_enabled();
-    prepare_lock_solve(&mut game, &locks, compression, max_prepare_memory())?;
-    cache_state.lock().unwrap().clear();
-    *locks_state.0.lock().unwrap() = locks;
-    Ok(compression)
+    crate::guard::guard(move || {
+        // One lock per engine node: a later lock on the same node replaces the earlier one.
+        let locks = locks.into_iter().fold(Vec::new(), |mut all, lock| {
+            merge_lock(&mut all, lock);
+            all
+        });
+        let mut game = crate::guard::lock_or_reset(&game_state);
+        // Same precision as the reference solution.
+        let compression = game.is_compression_enabled();
+        prepare_lock_solve(&mut game, &locks, compression, max_prepare_memory())?;
+        crate::guard::lock(&cache_state).clear();
+        *crate::guard::lock(&locks_state.0) = locks;
+        Ok(compression)
+    })
 }
 
 /// Locks of the current solution.
 #[tauri::command]
 pub fn game_locks(locks_state: tauri::State<CurrentLocks>) -> Vec<NodeLock> {
-    locks_state.0.lock().unwrap().clone()
+    crate::guard::lock(&locks_state.0).clone()
 }
 
 #[cfg(test)]

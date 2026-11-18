@@ -97,7 +97,7 @@ pub fn tree_new(
     };
     match crate::solver::build_action_tree(&args, state) {
         Ok(tree) => {
-            *tree_state.lock().unwrap() = tree;
+            *crate::guard::lock(&tree_state) = tree;
             true
         }
         Err(_) => false,
@@ -106,7 +106,7 @@ pub fn tree_new(
 
 #[tauri::command]
 pub fn tree_added_lines(tree_state: tauri::State<Mutex<ActionTree>>) -> String {
-    let tree = tree_state.lock().unwrap();
+    let tree = crate::guard::lock(&tree_state);
     tree.added_lines()
         .iter()
         .map(|l| encode_line(l))
@@ -116,7 +116,7 @@ pub fn tree_added_lines(tree_state: tauri::State<Mutex<ActionTree>>) -> String {
 
 #[tauri::command]
 pub fn tree_removed_lines(tree_state: tauri::State<Mutex<ActionTree>>) -> String {
-    let tree = tree_state.lock().unwrap();
+    let tree = crate::guard::lock(&tree_state);
     tree.removed_lines()
         .iter()
         .map(|l| encode_line(l))
@@ -126,7 +126,7 @@ pub fn tree_removed_lines(tree_state: tauri::State<Mutex<ActionTree>>) -> String
 
 #[tauri::command]
 pub fn tree_invalid_terminals(tree_state: tauri::State<Mutex<ActionTree>>) -> String {
-    let tree = tree_state.lock().unwrap();
+    let tree = crate::guard::lock(&tree_state);
     tree.invalid_terminals()
         .iter()
         .map(|l| encode_line(l))
@@ -136,7 +136,7 @@ pub fn tree_invalid_terminals(tree_state: tauri::State<Mutex<ActionTree>>) -> St
 
 #[tauri::command]
 pub fn tree_actions(tree_state: tauri::State<Mutex<ActionTree>>) -> Vec<String> {
-    let tree = tree_state.lock().unwrap();
+    let tree = crate::guard::lock(&tree_state);
     tree.available_actions()
         .iter()
         .cloned()
@@ -146,25 +146,25 @@ pub fn tree_actions(tree_state: tauri::State<Mutex<ActionTree>>) -> Vec<String> 
 
 #[tauri::command]
 pub fn tree_is_terminal_node(tree_state: tauri::State<Mutex<ActionTree>>) -> bool {
-    let tree = tree_state.lock().unwrap();
+    let tree = crate::guard::lock(&tree_state);
     tree.is_terminal_node()
 }
 
 #[tauri::command]
 pub fn tree_is_chance_node(tree_state: tauri::State<Mutex<ActionTree>>) -> bool {
-    let tree = tree_state.lock().unwrap();
+    let tree = crate::guard::lock(&tree_state);
     tree.is_chance_node()
 }
 
 #[tauri::command]
 pub fn tree_back_to_root(tree_state: tauri::State<Mutex<ActionTree>>) {
-    let mut tree = tree_state.lock().unwrap();
+    let mut tree = crate::guard::lock(&tree_state);
     tree.back_to_root();
 }
 
 #[tauri::command]
 pub fn tree_apply_history(tree_state: tauri::State<Mutex<ActionTree>>, line: Vec<String>) {
-    let mut tree = tree_state.lock().unwrap();
+    let mut tree = crate::guard::lock(&tree_state);
     let line = line
         .iter()
         .map(|l| decode_action(l.as_str()))
@@ -174,7 +174,7 @@ pub fn tree_apply_history(tree_state: tauri::State<Mutex<ActionTree>>, line: Vec
 
 #[tauri::command]
 pub fn tree_play(tree_state: tauri::State<Mutex<ActionTree>>, action: String) -> i32 {
-    let mut tree = tree_state.lock().unwrap();
+    let mut tree = crate::guard::lock(&tree_state);
     let action = decode_action(&action);
     let available_actions = tree.available_actions();
     if let Some(index) = available_actions.iter().position(|&a| a == action) {
@@ -187,7 +187,7 @@ pub fn tree_play(tree_state: tauri::State<Mutex<ActionTree>>, action: String) ->
 
 #[tauri::command]
 pub fn tree_total_bet_amount(tree_state: tauri::State<Mutex<ActionTree>>) -> [i32; 2] {
-    let tree = tree_state.lock().unwrap();
+    let tree = crate::guard::lock(&tree_state);
     tree.total_bet_amount()
 }
 
@@ -197,7 +197,7 @@ pub fn tree_add_bet_action(
     amount: i32,
     is_raise: bool,
 ) {
-    let mut tree = tree_state.lock().unwrap();
+    let mut tree = crate::guard::lock(&tree_state);
     let action = match is_raise {
         false => Action::Bet(amount),
         true => Action::Raise(amount),
@@ -207,13 +207,13 @@ pub fn tree_add_bet_action(
 
 #[tauri::command]
 pub fn tree_remove_current_node(tree_state: tauri::State<Mutex<ActionTree>>) {
-    let mut tree = tree_state.lock().unwrap();
+    let mut tree = crate::guard::lock(&tree_state);
     tree.remove_current_node().unwrap();
 }
 
 #[tauri::command]
 pub fn tree_delete_added_line(tree_state: tauri::State<Mutex<ActionTree>>, line: String) {
-    let mut tree = tree_state.lock().unwrap();
+    let mut tree = crate::guard::lock(&tree_state);
     let line = line
         .split(&['-', '|'][..])
         .map(decode_action)
@@ -223,7 +223,7 @@ pub fn tree_delete_added_line(tree_state: tauri::State<Mutex<ActionTree>>, line:
 
 #[tauri::command]
 pub fn tree_delete_removed_line(tree_state: tauri::State<Mutex<ActionTree>>, line: String) {
-    let mut tree = tree_state.lock().unwrap();
+    let mut tree = crate::guard::lock(&tree_state);
     let line = line
         .split(&['-', '|'][..])
         .map(decode_action)

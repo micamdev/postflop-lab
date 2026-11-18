@@ -4,6 +4,7 @@
 )]
 
 mod bunching;
+mod guard;
 mod library;
 mod library_commands;
 mod lock_commands;
@@ -41,6 +42,8 @@ fn main() {
             ThreadPoolBuilder::new().build().unwrap(),
         )))
         .setup(|app| {
+            // Panics in commands become errors (issue #38); they report where they happened.
+            guard::install(app.handle());
             // Temporary files of saves interrupted by a crash (a running save keeps its file
             // fresh, and no save runs this early).
             if let Ok(dir) = library_commands::library_dir(app.handle()) {
@@ -50,7 +53,7 @@ fn main() {
             }
             Ok(())
         })
-        .invoke_handler(tauri::generate_handler![
+        .invoke_handler(guarded(tauri::generate_handler![
             os_name,
             memory,
             set_num_threads,
@@ -112,7 +115,7 @@ fn main() {
             library_import,
             library_export,
             library_open_folder
-        ])
+        ]))
         .run(tauri::generate_context!())
         .expect("error while running tauri application");
 }
@@ -155,10 +158,26 @@ fn set_num_threads(
     pool_state: tauri::State<Mutex<std::sync::Arc<ThreadPool>>>,
     num_threads: usize,
 ) {
-    *pool_state.lock().unwrap() = std::sync::Arc::new(
+    *crate::guard::lock(&pool_state) = std::sync::Arc::new(
         ThreadPoolBuilder::new()
             .num_threads(num_threads)
             .build()
             .unwrap(),
     );
+}
+
+/// Wraps the command handler: a panic in a synchronous command is answered with an error
+/// instead of closing the app (asynchronous commands guard their own body; see guard.rs).
+fn guarded<R: tauri::Runtime>(
+    handler: impl Fn(tauri::ipc::Invoke<R>) -> bool + Send + Sync + 'static,
+) -> impl Fn(tauri::ipc::Invoke<R>) -> bool + Send + Sync + 'static {
+    move |invoke| {
+        let resolver = invoke.resolver.clone();
+        std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| handler(invoke))).unwrap_or_else(
+            |payload| {
+                resolver.reject(guard::internal_error(&*payload));
+                true
+            },
+        )
+    }
 }
