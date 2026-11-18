@@ -139,6 +139,12 @@ fn build_game_inputs(
         river,
     };
 
+    Ok((card_config, build_action_tree(args, state)?))
+}
+
+/// The action tree of a setup (bet sizes, thresholds, added and removed lines), starting at
+/// `state`; shared by the solve and the tree editor.
+pub fn build_action_tree(args: &GameTreeArgs, state: BoardState) -> Result<ActionTree, String> {
     let donk = |sizes: &str| match args.donk_option {
         false => None,
         true => DonkSizeOptions::try_from(sizes).ok(),
@@ -187,7 +193,7 @@ fn build_game_inputs(
         }
     }
 
-    Ok((card_config, action_tree))
+    Ok(action_tree)
 }
 
 /// Most nodes a tree may have to be estimated while the setup is edited: building it allocates
@@ -856,6 +862,15 @@ mod tests {
 
     fn setup_ranges(oop: &str, ip: &str) -> [Range; 2] {
         [oop.parse().unwrap(), ip.parse().unwrap()]
+    }
+
+    #[test]
+    fn action_tree_errors_are_returned_not_panicked() {
+        assert!(build_action_tree(&setup_args("Td9d6h", "50%"), BoardState::Flop).is_ok());
+        assert!(build_action_tree(&setup_args("Td9d6h", "fifty"), BoardState::Flop).is_err());
+        let mut broken = setup_args("Td9d6h", "50%");
+        broken.added_lines = "X-Z".to_string();
+        assert!(build_action_tree(&broken, BoardState::Flop).is_err());
     }
 
     #[test]

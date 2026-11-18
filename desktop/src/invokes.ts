@@ -59,56 +59,12 @@ export const rangeRawData = async (player: number): Promise<number[]> => {
 
 /* Action Tree */
 
+/** Builds the tree to edit from the setup, starting on the street of `boardLen` (3 to 5). */
 export const treeNew = async (
-  boardLen: number,
-  startingPot: number,
-  effectiveStack: number,
-  donkOption: boolean,
-  oopFlopBet: string,
-  oopFlopRaise: string,
-  oopTurnBet: string,
-  oopTurnRaise: string,
-  oopTurnDonk: string,
-  oopRiverBet: string,
-  oopRiverRaise: string,
-  oopRiverDonk: string,
-  ipFlopBet: string,
-  ipFlopRaise: string,
-  ipTurnBet: string,
-  ipTurnRaise: string,
-  ipRiverBet: string,
-  ipRiverRaise: string,
-  addAllinThreshold: number,
-  forceAllinThreshold: number,
-  mergingThreshold: number,
-  addedLines: string,
-  removedLines: string
+  args: GameTreeArgs,
+  boardLen: number
 ): Promise<boolean> => {
-  return await invoke("tree_new", {
-    boardLen,
-    startingPot,
-    effectiveStack,
-    donkOption,
-    oopFlopBet,
-    oopFlopRaise,
-    oopTurnBet,
-    oopTurnRaise,
-    oopTurnDonk,
-    oopRiverBet,
-    oopRiverRaise,
-    oopRiverDonk,
-    ipFlopBet,
-    ipFlopRaise,
-    ipTurnBet,
-    ipTurnRaise,
-    ipRiverBet,
-    ipRiverRaise,
-    addAllinThreshold,
-    forceAllinThreshold,
-    mergingThreshold,
-    addedLines,
-    removedLines,
-  });
+  return await invoke("tree_new", { args, boardLen });
 };
 
 export const treeAddedLines = async (): Promise<string> => {
