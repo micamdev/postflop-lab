@@ -349,8 +349,13 @@ export const useSolverSession = defineStore("solverSession", () => {
       return false;
     }
     if (choice.fellBack) {
-      message.value =
-        "Not enough memory for 32-bit precision: solving in 16-bit.";
+      // Added to an earlier warning (bunching data not ready), not replacing it.
+      message.value = [
+        message.value,
+        "Not enough memory for 32-bit precision: solving in 16-bit.",
+      ]
+        .filter(Boolean)
+        .join(" ");
     }
     compression.value = choice.compression;
 

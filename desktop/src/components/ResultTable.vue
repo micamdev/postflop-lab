@@ -211,7 +211,7 @@
             :key="item[0]"
             :class="
               'relative ' +
-              (item[0] === scrollTarget ? 'bg-accent/20' : 'bg-panel')
+              (item[0] === scrollTarget ? 'bg-[#1e3532]' : 'bg-panel')
             "
             style="height: calc(1.9rem + 1px)"
           >
@@ -222,7 +222,7 @@
                 'row-divider ' +
                 (column.type === 'card'
                   ? 'sticky left-0 z-10 ' +
-                    (item[0] === scrollTarget ? 'bg-accent/20 ' : 'bg-panel ')
+                    (item[0] === scrollTarget ? 'bg-[#1e3532] ' : 'bg-panel ')
                   : 'relative ') +
                 (column.type === 'bar' ? 'pt-[0.3125rem] pb-1 px-1' : 'pt-0.5')
               "
@@ -346,7 +346,8 @@ import { computed, reactive, ref, toRefs, watch } from "vue";
 import {
   ranks,
   suitLetters,
-  cardText, suitTextClasses,
+  cardText,
+  suitTextClasses,
   cardPairOrder,
   toFixed1,
   toFixed,

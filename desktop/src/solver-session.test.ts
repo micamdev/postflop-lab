@@ -151,3 +151,17 @@ describe("runLockedSolve", () => {
     expect(session.message).not.toBe("");
   });
 });
+
+describe("messages", () => {
+  test("the fallback message keeps the bunching warning", async () => {
+    const store = useStore();
+    store.isBunchingEnabled = true; // data not ready: solving without it
+    mocked.gameMemoryUsage.mockResolvedValue([10 * GB, 2 * GB]);
+    const session = useSolverSession();
+
+    await session.solve();
+
+    expect(session.message).toContain("Bunching effect is on");
+    expect(session.message).toContain("16-bit");
+  });
+});
