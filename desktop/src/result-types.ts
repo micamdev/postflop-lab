@@ -83,6 +83,7 @@ export const displayModeList = [
   "graphs",
   // "scatter",
   "compare",
+  "breakdown",
   "chance",
 ] as const;
 
