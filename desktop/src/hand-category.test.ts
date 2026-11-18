@@ -46,12 +46,17 @@ const hands: [string, string, string][] = [
   ["AsKd", "9h8d7c6s5h", "Ace high"],
   ["QsJd", "9h8d7c6s5h", "No made hand"],
   ["Ts2d", "9h8d7c6s5h", "Straight"],
-  ["3s3d", "AhKh7h4h2h", "Third pair"],
+  ["3s3d", "AhKh7h4h2h", "No made hand"],
   ["QhJd", "AhKh7h4h2h", "Flush"],
   ["QsJs", "AhKh7h4h2h", "No made hand"],
   // Wheel and straight flush.
   ["2s5d", "Ah4d3c", "Straight"],
   ["ThJh", "9h8h7h", "Straight flush"],
+  // River boards that make a straight, flush or full house: playing the board is no pair.
+  ["9s9d", "5c6d7h8s9c", "No made hand"],
+  ["AhQd", "5c6d7h8s9c", "Ace high"],
+  ["QsQd", "2h5h7h9hJh", "No made hand"],
+  ["As4d", "KhKdKc4h4s", "Ace high"],
 ];
 
 describe("handCategory", () => {

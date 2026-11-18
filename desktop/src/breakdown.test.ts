@@ -1,5 +1,10 @@
 import { describe, expect, test } from "vitest";
-import { breakdownRows, comboMask, filterResults } from "./breakdown";
+import {
+  breakdownRows,
+  comboMask,
+  filterResults,
+  withoutEquityFilter,
+} from "./breakdown";
 import type { Results } from "./result-types";
 
 const RANKS = "23456789TJQKA";
@@ -108,5 +113,40 @@ describe("filterResults", () => {
   test("nothing left: the player is marked empty", () => {
     const filtered = filterResults(results(), 0, [false, false, false]);
     expect(filtered.isEmpty & 1).toBe(1);
+  });
+});
+
+describe("players without hands", () => {
+  // The engine sends no equity at all when either player has no hands left.
+  const noEquity = (): Results => ({
+    ...results(),
+    isEmpty: 2,
+    equity: [[], []],
+    ev: [[], []],
+  });
+
+  test("no equity groups without equities", () => {
+    const rows = breakdownRows(noEquity(), CARDS, BOARD, 0, true);
+    expect(
+      rows.some((r) => r.group === "buckets" || r.group === "ranges")
+    ).toBe(false);
+    expect(row(rows, "Top pair")).toBeDefined();
+  });
+
+  test("equity filters are ignored without equities", () => {
+    const mask = comboMask(CARDS, BOARD, [], { buckets: ["Best hands"] });
+    expect(mask).toEqual([true, true, true]);
+  });
+});
+
+describe("withoutEquityFilter", () => {
+  test("drops the bucket and range selections, keeps the others", () => {
+    expect(
+      withoutEquityFilter({
+        hands: ["Set"],
+        buckets: ["Best hands"],
+        ranges: ["Equity 0-25"],
+      })
+    ).toEqual({ hands: ["Set"] });
   });
 });

@@ -255,7 +255,7 @@
             :advanced="breakdownAdvanced"
             @toggle="toggleBreakdownRow"
             @clear="breakdownFilter = {}"
-            @update:advanced="(value) => (breakdownAdvanced = value)"
+            @update:advanced="setBreakdownAdvanced"
           />
         </div>
       </template>
@@ -302,6 +302,7 @@ import {
   comboMask,
   filterResults,
   isFilterActive,
+  withoutEquityFilter,
 } from "../breakdown";
 import UiButton from "./ui/UiButton.vue";
 import UiTooltip from "./ui/UiTooltip.vue";
@@ -408,6 +409,12 @@ const breakdownActions = computed(() =>
     ? (selectedSpot.value as SpotPlayer).actions
     : null
 );
+
+/** Switching Simple / Advanced drops the equity selections of the hidden view. */
+const setBreakdownAdvanced = (value: boolean) => {
+  breakdownAdvanced.value = value;
+  breakdownFilter.value = withoutEquityFilter(breakdownFilter.value);
+};
 
 const toggleBreakdownRow = (group: BreakdownGroup, name: string) => {
   const names = breakdownFilter.value[group] ?? [];

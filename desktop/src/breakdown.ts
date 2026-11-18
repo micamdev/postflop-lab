@@ -95,10 +95,16 @@ export const breakdownRows = (
   const n = cards.length;
   const numActions = results.numActions;
   const totalWeight = weights.reduce((sum, w) => sum + w, 0);
-  const groups: BreakdownGroup[] =
-    board.length >= 5
-      ? ["hands", "buckets", "ranges"]
-      : ["hands", "draws", "buckets", "ranges"];
+  // No draws on the river; no equity groups when the engine sent no equities (it sends
+  // none when either player has no hands left).
+  const hasEquity = equity.length === n;
+  const groups = (
+    ["hands", "draws", "buckets", "ranges"] as BreakdownGroup[]
+  ).filter(
+    (group) =>
+      (group !== "draws" || board.length < 5) &&
+      (hasEquity || (group !== "buckets" && group !== "ranges"))
+  );
 
   const rows: BreakdownRow[] = [];
   for (const group of groups) {
@@ -149,13 +155,26 @@ export const comboMask = (
 ): boolean[] => {
   const cats = categories(cards, board);
   const active = (Object.keys(filter) as BreakdownGroup[]).filter(
-    (group) => (filter[group]?.length ?? 0) > 0
+    (group) =>
+      (filter[group]?.length ?? 0) > 0 &&
+      (equity.length === cards.length ||
+        (group !== "buckets" && group !== "ranges"))
   );
   return cards.map((_, h) =>
     active.every((group) =>
       filter[group]!.includes(categoryOf(cats, equity, group, h))
     )
   );
+};
+
+/** The filter without its equity selections (they belong to the Simple or Advanced view). */
+export const withoutEquityFilter = (
+  filter: BreakdownFilter
+): BreakdownFilter => {
+  const rest = { ...filter };
+  delete rest.buckets;
+  delete rest.ranges;
+  return rest;
 };
 
 /** Whether the filter selects anything. */

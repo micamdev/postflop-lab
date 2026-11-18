@@ -168,8 +168,13 @@ export const handCategory = (
   // Straight or better, only if the hole cards improve on the board.
   const quadsFromBoard =
     cls === Class.Quads && boardCounts.some((count) => count === 4);
-  if (cls >= Class.Straight && value > handValue(board) && !quadsFromBoard) {
+  const boardValue = handValue(board);
+  if (cls >= Class.Straight && value > boardValue && !quadsFromBoard) {
     return MADE[cls]!;
+  }
+  // The board makes a straight or better by itself and the hand does not beat it.
+  if (classOf(boardValue) >= Class.Straight) {
+    return h1 === ACE || h2 === ACE ? "Ace high" : "No made hand";
   }
 
   // Pair categories ignore the board's own pairs (distinct board ranks, high first).
