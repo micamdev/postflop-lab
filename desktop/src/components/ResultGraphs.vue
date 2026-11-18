@@ -44,7 +44,9 @@
       :results="results"
       :display-player="displayPlayer"
       :scroll-target="tableScrollTarget"
-    />
+    >
+      <template #top><slot name="table-top" /></template>
+    </ResultTable>
   </div>
 </template>
 

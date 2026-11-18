@@ -2,6 +2,7 @@
   <div
     class="flex flex-col w-full bg-panel border-l border-line overflow-x-auto"
   >
+    <slot name="top" />
     <div class="flex shrink-0 h-11 border-b border-line">
       <div
         class="flex h-full px-3 items-center text-[11px] font-bold tracking-wider text-muted"

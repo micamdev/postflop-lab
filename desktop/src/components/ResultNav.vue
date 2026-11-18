@@ -763,7 +763,8 @@ const selectSpotUnsafe = async (
         nodeStrategy(
           results.strategy,
           results.normalizer[playerIndex],
-          spot.actions
+          spot.actions,
+          results.weights[playerIndex]
         )?.map((item) => item.frequency) ?? null;
     }
   } else {

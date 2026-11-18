@@ -94,17 +94,6 @@
       </template>
     </ResultsToolbar>
 
-    <NodeStrategyBar
-      v-if="!isLockEditorOpen && displayMode !== 'chance'"
-      :items="strategyItems"
-    />
-    <p
-      v-if="!isLockEditorOpen && displayMode !== 'chance' && noHandsAtNode"
-      class="shrink-0 mx-3 my-2 text-xs text-muted"
-    >
-      No hands for this player at this node.
-    </p>
-
     <NodeLockEditor
       v-if="isLockEditorOpen && selectedSpot && results"
       :key="line.history.join(',') + '/' + selectedSpot.index"
@@ -143,7 +132,14 @@
           :results="results"
           :display-player="displayPlayerBasics"
           :hover-content="basicsHoverContent"
-        />
+        >
+          <template #top>
+            <NodeStrategyCards
+              :items="strategyItems"
+              :no-hands="noHandsAtNode"
+            />
+          </template>
+        </ResultTable>
       </template>
 
       <template v-else-if="displayMode === 'graphs'">
@@ -155,7 +151,14 @@
           :chance-reports="chanceReports"
           :display-options="displayOptions"
           :display-player="displayPlayerBasics"
-        />
+        >
+          <template #table-top>
+            <NodeStrategyCards
+              :items="strategyItems"
+              :no-hands="noHandsAtNode"
+            />
+          </template>
+        </ResultGraphs>
       </template>
 
       <template v-else-if="displayMode === 'compare'">
@@ -226,7 +229,7 @@ import {
 import ResultNav from "./ResultNav.vue";
 import RiverPicker from "./RiverPicker.vue";
 import ResultsToolbar from "./results/ResultsToolbar.vue";
-import NodeStrategyBar from "./results/NodeStrategyBar.vue";
+import NodeStrategyCards from "./results/NodeStrategyCards.vue";
 import UiButton from "./ui/UiButton.vue";
 import UiTooltip from "./ui/UiTooltip.vue";
 import { nodeStrategy } from "../node-strategy";
@@ -286,7 +289,8 @@ const strategyItems = computed(() => {
   return nodeStrategy(
     results.value.strategy,
     results.value.normalizer[player],
-    spot.actions
+    spot.actions,
+    results.value.weights[player]
   );
 });
 

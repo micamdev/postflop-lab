@@ -7,16 +7,19 @@ export type StrategyItem = {
   amount: string;
   color: string;
   frequency: number;
+  /** Weighted number of combos taking the action. */
+  combos: number;
 };
 
 /**
  * Per action `i`, the average of `strategy[i * n .. (i + 1) * n]` weighted by `normalizer`
- * (`n` hands); null when the player has no hand left at the node.
+ * (`n` hands), and the number of combos taking it (range `weights`); null when the player has no hand left at the node.
  */
 export const nodeStrategy = (
   strategy: number[],
   normalizer: number[],
-  actions: { name: string; amount: string; color: string }[]
+  actions: { name: string; amount: string; color: string }[],
+  weights: number[]
 ): StrategyItem[] | null => {
   const n = normalizer.length;
   if (n === 0 || normalizer.reduce((sum, w) => sum + w, 0) <= 0) return null;
@@ -25,5 +28,6 @@ export const nodeStrategy = (
     amount,
     color,
     frequency: average(strategy.slice(i * n, (i + 1) * n), normalizer),
+    combos: weights.reduce((sum, w, h) => sum + w * strategy[i * n + h], 0),
   }));
 };
