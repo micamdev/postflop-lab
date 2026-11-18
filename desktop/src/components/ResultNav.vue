@@ -429,6 +429,8 @@ const selectSpot = async (
   fromDeal = false
 ) => {
   navError.value = "";
+  // Clicking the spot already selected does nothing (and keeps a re-solve running).
+  if (!needSplice && !fromDeal && spotIndex === selectedSpotIndex.value) return;
   // Navigating elsewhere abandons a river being re-solved.
   if (resolveStatus.value) {
     resolveId++;
@@ -438,7 +440,12 @@ const selectSpot = async (
   }
   // Clicking a re-solved river reopens the picker to choose another river.
   const target = spots.value[spotIndex];
-  if (!needSplice && target?.type === "chance" && target.isResolved) {
+  if (
+    !props.isLocked &&
+    !needSplice &&
+    target?.type === "chance" &&
+    target.isResolved
+  ) {
     reopenRiver(target);
   }
   try {
@@ -516,6 +523,11 @@ const resolveAndDeal = async (card: number) => {
       }
     }
   );
+  // Navigating away while the listener was set up cancelled this re-solve already.
+  if (id !== resolveId) {
+    unlisten();
+    return;
+  }
   let kind: string;
   try {
     kind = await invokes.gameResolveSubgame(

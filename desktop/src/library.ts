@@ -166,3 +166,21 @@ const replaceWithSolution = async (name: string): Promise<string | null> => {
   store.navView = "results";
   return null;
 };
+
+/** Deletes a saved solution; the loaded one, if deleted, is no longer saved. */
+export const deleteSolution = async (name: string): Promise<void> => {
+  await invokes.libraryDelete(name);
+  const store = useStore();
+  if (store.solutionInfo?.name === name) store.isSolutionSaved = false;
+};
+
+/** Renames a saved solution; returns the file name the library used (e.g. "K/T" → "K_T"). */
+export const renameSolution = async (
+  from: string,
+  to: string
+): Promise<string> => {
+  const name = await invokes.libraryRename(from, to);
+  const store = useStore();
+  if (store.solutionInfo?.name === from) store.solutionInfo.name = name;
+  return name;
+};
