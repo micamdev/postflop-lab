@@ -207,6 +207,7 @@ import { useStore, useConfigStore } from "../store";
 import { trimRegex, rangeRegex, cardText, suitTextClasses } from "../utils";
 import * as invokes from "../invokes";
 import { useSolverSession } from "../solver-session";
+import { threadsError } from "../solve-settings";
 
 import RangeEditor from "./RangeEditor.vue";
 import RangeMiniViewer from "./RangeMiniViewer.vue";
@@ -363,8 +364,7 @@ const resumePrecomputation = async () => {
   pauseFlag.value = false;
   // Back to the solve thread setting (river re-solves use the same thread pool).
   const threads = useSolverSession().settings.threads;
-  if (Number.isInteger(threads) && threads >= 1)
-    await invokes.setNumThreads(threads);
+  if (threadsError(threads) === null) await invokes.setNumThreads(threads);
 };
 
 const saveEdit = async () => {

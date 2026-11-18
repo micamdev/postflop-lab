@@ -17,11 +17,20 @@ import {
   loadSolveSettings,
   saveSolveSettings,
   validateSolveSettings,
+  threadsError,
 } from "./solve-settings";
 import { SolveFlags, choosePrecision } from "./solve-status";
 
 export { checkConfig } from "./setup-validation";
 import { checkConfig } from "./setup-validation";
+
+/** Memory the solver may use: available memory, or 70% of the total on macOS; unlimited when
+ * the system did not report it (0). */
+export const memoryLimit = async () => {
+  const [available, total] = await invokes.memory();
+  const limit = (await invokes.osName()) === "macos" ? total * 0.7 : available;
+  return limit > 0 ? limit : Number.POSITIVE_INFINITY;
+};
 
 export const useSolverSession = defineStore("solverSession", () => {
   const store = useStore();
@@ -44,7 +53,8 @@ export const useSolverSession = defineStore("solverSession", () => {
   watch(
     () => settings.value.threads,
     (threads) => {
-      if (Number.isInteger(threads) && threads >= 1) {
+      // A bunching precomputation uses its own count (restored when it ends).
+      if (threadsError(threads) === null && !store.isBunchingRunning) {
         void invokes.setNumThreads(threads).catch(() => {});
       }
     },
@@ -130,6 +140,8 @@ export const useSolverSession = defineStore("solverSession", () => {
 
   // Checked against the Setup board before building: a refused solve keeps the old game.
   const areFlopMatching = () => {
+    // No flop yet: the setup check reports the board.
+    if (config.board.length < 3) return true;
     const flop = config.board.slice(0, 3);
     const bunchingFlop = store.bunchingFlop;
     return (

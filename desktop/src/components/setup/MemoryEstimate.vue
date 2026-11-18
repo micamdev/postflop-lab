@@ -34,7 +34,12 @@
           >Not enough memory: {{ choice.message }}</template
         >
         <template v-else>
-          {{ formatBytes(state.available) }} available ·
+          {{
+            Number.isFinite(state.available)
+              ? `${formatBytes(state.available)} available`
+              : "Memory unknown"
+          }}
+          ·
           {{ choice.compression ? "16-bit" : "32-bit" }}
           <template v-if="choice.fellBack">(32-bit does not fit)</template>
         </template>
@@ -50,7 +55,11 @@
 <script setup lang="ts">
 import { computed, onUnmounted, ref, watch } from "vue";
 import { useConfigStore, useStore } from "../../store";
-import { checkConfig, useSolverSession } from "../../solver-session";
+import {
+  checkConfig,
+  memoryLimit,
+  useSolverSession,
+} from "../../solver-session";
 import { choosePrecision } from "../../solve-status";
 import { gameTreeArgs } from "../../game-args";
 import { formatBytes } from "../../utils";
@@ -70,12 +79,6 @@ const state = ref<State>({ kind: "none", reason: "Set up the spot." });
 
 let requestId = 0;
 let timer: ReturnType<typeof setTimeout> | undefined;
-
-/** Memory the solver may use: available memory, or 70% of the total on macOS. */
-const memoryLimit = async () => {
-  const [available, total] = await invokes.memory();
-  return (await invokes.osName()) === "macos" ? total * 0.7 : available;
-};
 
 // One estimate in flight (each may build a tree): edits made meanwhile run once after it.
 const estimate = latestOnly(async () => {

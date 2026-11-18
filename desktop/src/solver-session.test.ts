@@ -28,7 +28,7 @@ vi.stubGlobal("localStorage", memoryStorage());
 
 import * as invokes from "./invokes";
 import { useConfigStore, useStore } from "./store";
-import { checkConfig, useSolverSession } from "./solver-session";
+import { checkConfig, memoryLimit, useSolverSession } from "./solver-session";
 
 const GB = 1024 * 1024 * 1024;
 const mocked = vi.mocked(invokes);
@@ -249,5 +249,35 @@ describe("audit fixes", () => {
     session.settings.threads = 3;
     await flush();
     expect(mocked.setNumThreads).toHaveBeenCalledWith(3);
+  });
+});
+
+describe("audit review fixes", () => {
+  test("only valid thread counts reach the engine, never during a bunching run", async () => {
+    const session = useSolverSession();
+    await flush();
+    mocked.setNumThreads.mockClear();
+    session.settings.threads = 128;
+    await flush();
+    expect(mocked.setNumThreads).not.toHaveBeenCalled();
+    useStore().isBunchingRunning = true;
+    session.settings.threads = 4;
+    await flush();
+    expect(mocked.setNumThreads).not.toHaveBeenCalled();
+  });
+
+  test("a short board with bunching data reports the board", async () => {
+    const store = useStore();
+    store.isBunchingEnabled = true;
+    store.bunchingFlop = [1, 2, 3];
+    useConfigStore().board = [1];
+    const session = useSolverSession();
+    await session.solve();
+    expect(session.message).toBe("Board must consist of at least three cards");
+  });
+
+  test("an unknown memory size counts as unlimited", async () => {
+    mocked.memory.mockResolvedValue([0, 0]);
+    expect(await memoryLimit()).toBe(Number.POSITIVE_INFINITY);
   });
 });

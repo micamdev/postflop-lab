@@ -159,6 +159,7 @@ export const useSavedConfigStore = defineStore("savedConfig", {
   state: emptySetup,
 });
 
+/** Sets the locks of the current solution; pending lock changes are dropped. */
 export const setSolutionLocks = (locks: NodeLock[]) => {
   const store = useStore();
   store.solutionLocks = locks;
