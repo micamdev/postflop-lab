@@ -14,6 +14,10 @@ use tauri::{AppHandle, Emitter};
 /// Error when the main game changed (new tree, loaded solution) during a re-solve.
 pub const ERR_STALE: &str = "The solution changed during the re-solve";
 
+/// The re-solved rivers kept in cache hold at most 1/4 of the computer's memory; beyond, the
+/// least recently viewed are dropped (and re-solved if picked again).
+const CACHE_SHARE_OF_MEMORY: u64 = 4;
+
 /// Maximum number of iterations of a river re-solve.
 const MAX_ITERATIONS: u32 = 1000;
 
@@ -37,9 +41,10 @@ pub fn resolve_into_cache(
 ) -> Result<SubgameKind, String> {
     let key = (history.to_vec(), card);
     let generation = {
-        let cache = crate::guard::lock(cache);
-        if let Some(sub) = cache.entries.get(&key) {
-            return Ok(sub.kind);
+        let mut cache = crate::guard::lock(cache);
+        if let Some(kind) = cache.entries.get(&key).map(|sub| sub.kind) {
+            cache.touch(&key);
+            return Ok(kind);
         }
         cache.generation
     };
@@ -91,7 +96,7 @@ pub fn resolve_into_cache(
     // Only solved subgames are cached (an empty one keeps an uninitialized game).
     debug_assert!(sub.kind == SubgameKind::Solve);
     let kind = sub.kind;
-    cache.entries.insert(key, sub);
+    cache.insert(key, sub, crate::memory().1 / CACHE_SHARE_OF_MEMORY);
     Ok(kind)
 }
 

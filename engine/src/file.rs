@@ -272,8 +272,25 @@ pub fn load_data_from_std_read<T: FileData, R: Read>(
     Ok((data, memo))
 }
 
-/// Decodes with a bincode limit of at least twice `max_memory_usage` (a power of two, since
-/// bincode takes the limit as a const parameter); without `max_memory_usage`, no limit.
+/// Exponents of the bincode limits `decode_bounded` can use. Bincode takes the limit as a const
+/// parameter, so each one is a separate copy of the decoder: a few coarse steps, not every power
+/// of two. Beyond the last one (or on 32-bit targets), the address space is the limit.
+#[cfg(target_pointer_width = "64")]
+const DECODE_LIMIT_EXPS: [u32; 5] = [27, 30, 33, 36, 39];
+#[cfg(not(target_pointer_width = "64"))]
+const DECODE_LIMIT_EXPS: [u32; 2] = [27, 30];
+
+/// The smallest decode limit (as an exponent of two) of at least twice `max_memory_usage`;
+/// `None` means no limit.
+fn decode_limit_exp(max_memory_usage: u64) -> Option<u32> {
+    let wanted = max_memory_usage.saturating_mul(2);
+    DECODE_LIMIT_EXPS
+        .into_iter()
+        .find(|&exp| (1u64 << exp) >= wanted)
+}
+
+/// Decodes with a bincode limit of at least twice `max_memory_usage` (see `decode_limit_exp`);
+/// without `max_memory_usage`, no limit.
 fn decode_bounded<D: Decode<()>, R: Read>(
     reader: &mut R,
     max_memory_usage: Option<u64>,
@@ -282,33 +299,18 @@ fn decode_bounded<D: Decode<()>, R: Read>(
     let Some(max_memory_usage) = max_memory_usage else {
         return decode_from_std_read(reader, err_msg);
     };
-    let exp = max_memory_usage
-        .saturating_mul(2)
-        .checked_next_power_of_two()
-        .map_or(64, |p| p.trailing_zeros())
-        .max(20);
-
-    macro_rules! decode_with_exp {
-        ($($e:literal),*) => {
-            match exp {
-                $($e => bincode::decode_from_std_read(
-                    reader,
-                    bincode::config::standard().with_limit::<{ 1usize << $e }>(),
-                ),)*
-                // Beyond the ladder (or on 32-bit targets): the address space is the limit.
-                _ => bincode::decode_from_std_read(reader, bincode::config::standard()),
-            }
-        };
-    }
-
-    #[cfg(target_pointer_width = "64")]
-    let result = decode_with_exp!(
-        20, 21, 22, 23, 24, 25, 26, 27, 28, 29, 30, 31, 32, 33, 34, 35, 36, 37, 38, 39, 40, 41, 42,
-        43, 44, 45, 46, 47, 48
-    );
-    #[cfg(not(target_pointer_width = "64"))]
-    let result = decode_with_exp!(20, 21, 22, 23, 24, 25, 26, 27, 28, 29, 30);
-
+    let standard = bincode::config::standard();
+    let result = match decode_limit_exp(max_memory_usage) {
+        Some(27) => bincode::decode_from_std_read(reader, standard.with_limit::<{ 1 << 27 }>()),
+        Some(30) => bincode::decode_from_std_read(reader, standard.with_limit::<{ 1 << 30 }>()),
+        #[cfg(target_pointer_width = "64")]
+        Some(33) => bincode::decode_from_std_read(reader, standard.with_limit::<{ 1 << 33 }>()),
+        #[cfg(target_pointer_width = "64")]
+        Some(36) => bincode::decode_from_std_read(reader, standard.with_limit::<{ 1 << 36 }>()),
+        #[cfg(target_pointer_width = "64")]
+        Some(39) => bincode::decode_from_std_read(reader, standard.with_limit::<{ 1 << 39 }>()),
+        _ => bincode::decode_from_std_read(reader, standard),
+    };
     result.map_err(|e| format!("{}: {}", err_msg, e))
 }
 
@@ -603,5 +605,18 @@ mod tests {
         let result = load_data_from_file::<PostFlopGame, _>(&path, Some(limit));
         std::fs::remove_file(&path).unwrap();
         assert!(result.is_ok(), "{:?}", result.err());
+    }
+
+    #[test]
+    fn decode_limit_is_a_coarse_step_at_least_twice_the_budget() {
+        assert_eq!(decode_limit_exp(0), Some(27));
+        assert_eq!(decode_limit_exp(1 << 26), Some(27));
+        assert_eq!(decode_limit_exp((1 << 26) + 1), Some(30));
+        if cfg!(target_pointer_width = "64") {
+            assert_eq!(decode_limit_exp(3 << 30), Some(33));
+            assert_eq!(decode_limit_exp(1 << 38), Some(39));
+            assert_eq!(decode_limit_exp((1 << 38) + 1), None);
+        }
+        assert_eq!(decode_limit_exp(u64::MAX), None);
     }
 }

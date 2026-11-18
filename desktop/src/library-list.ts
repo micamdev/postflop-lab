@@ -69,3 +69,46 @@ export const filterEntries = (
       (entry.meta !== null && fold(boardText(entry.meta)).includes(q))
   );
 };
+
+/** Files whose body failed to load, by name, with their size then (and the error). */
+export type FailedLoads = Map<string, { size: number; error: string }>;
+
+/**
+ * Entries with each file that failed to load shown as unreadable. The listing only reads the
+ * header, so a file truncated in its body looks fine until loaded. A file saved again under
+ * that name (another size) is listed normally.
+ */
+export const withFailedLoads = (
+  entries: LibraryEntry[],
+  failed: FailedLoads
+): LibraryEntry[] =>
+  entries.map((entry) => {
+    const failure = failed.get(entry.name);
+    return failure && failure.size === entry.file_size
+      ? { ...entry, meta: null, error: failure.error }
+      : entry;
+  });
+
+/** Start of the error of a load that failed while reading the file's body. */
+export const DAMAGED_FILE =
+  "The solution could not be read (the file may be damaged)";
+
+/**
+ * Records the outcome of loading `entry`: a damaged file is marked (shown as unreadable, Open
+ * still offered to retry), a successful load clears its mark. Other errors (not enough
+ * memory, solver running) say nothing about the file.
+ */
+export const noteLoad = (
+  failed: FailedLoads,
+  entry: LibraryEntry,
+  error: string | null
+) => {
+  if (error === null) {
+    failed.delete(entry.name);
+  } else if (error.startsWith(DAMAGED_FILE)) {
+    failed.set(entry.name, {
+      size: entry.file_size,
+      error: error.slice(DAMAGED_FILE.length + 2),
+    });
+  }
+};

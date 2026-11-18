@@ -147,36 +147,25 @@ impl PostFlopGame {
         Ok(game)
     }
 
-    /// Number of nodes the game tree of this configuration would have, computed without
-    /// building the tree (its node arena is not allocated): lets an application refuse a tree
-    /// too large to build. Fails like [`update_config`](Self::update_config) on an invalid
-    /// configuration.
-    pub fn count_tree_nodes(
-        card_config: CardConfig,
-        action_tree: ActionTree,
-    ) -> Result<u64, String> {
-        if !action_tree.invalid_terminals().is_empty() {
-            return Err("Invalid terminal is found in action tree".to_string());
-        }
-        let mut game = Self::new();
-        game.card_config = card_config;
-        (
-            game.tree_config,
-            game.added_lines,
-            game.removed_lines,
-            game.action_root,
-        ) = action_tree.eject();
-        game.check_card_config()?;
-        game.init_card_fields();
-        Ok(game.count_num_nodes().iter().sum())
-    }
-
     /// Updates the game configuration. The solved result will be lost.
     #[inline]
     pub fn update_config(
         &mut self,
         card_config: CardConfig,
         action_tree: ActionTree,
+    ) -> Result<(), String> {
+        self.update_config_checked(card_config, action_tree, |_| Ok(()))
+    }
+
+    /// As [`update_config`](Self::update_config), first passing `check` the number of nodes the
+    /// game tree will have, before its node arena is allocated: lets an application refuse a
+    /// tree too large to build. An error from `check` is returned before the node arena is
+    /// allocated, the game left unusable (as after any configuration error).
+    pub fn update_config_checked(
+        &mut self,
+        card_config: CardConfig,
+        action_tree: ActionTree,
+        check: impl FnOnce(u64) -> Result<(), String>,
     ) -> Result<(), String> {
         self.state = State::ConfigError;
 
@@ -194,6 +183,7 @@ impl PostFlopGame {
 
         self.check_card_config()?;
         self.init_card_fields();
+        check(self.count_num_nodes().iter().sum())?;
         self.init_root()?;
 
         self.state = State::TreeBuilt;

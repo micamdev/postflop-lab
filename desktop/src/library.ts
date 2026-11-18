@@ -9,6 +9,7 @@ import {
   setSolutionLocks,
 } from "./store";
 import * as invokes from "./invokes";
+import { DAMAGED_FILE } from "./library-list";
 import { weightPercent } from "./utils";
 
 /** Asks a yes/no question in a native dialog. */
@@ -128,8 +129,7 @@ const replaceWithSolution = async (name: string): Promise<string | null> => {
       store.treeResetCount++;
       setSolutionLocks([]);
       return (
-        "The solution could not be read (the file may be damaged): " +
-        message.slice(invokes.ERR_GAME_FREED.length + 2)
+        DAMAGED_FILE + ": " + message.slice(invokes.ERR_GAME_FREED.length + 2)
       );
     }
     // Refused before the game was touched: restore the previous state and results view.

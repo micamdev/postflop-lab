@@ -140,11 +140,18 @@
 </template>
 
 <script setup lang="ts">
-import { computed, onMounted, ref, watch } from "vue";
+import { computed, onMounted, reactive, ref, watch } from "vue";
 import { open, save } from "@tauri-apps/plugin-dialog";
 import { useStore } from "../store";
 import { cardText, suitBgClasses } from "../utils";
-import { SortKey, filterEntries, sortEntries } from "../library-list";
+import {
+  FailedLoads,
+  SortKey,
+  filterEntries,
+  noteLoad,
+  sortEntries,
+  withFailedLoads,
+} from "../library-list";
 import UiButton from "./ui/UiButton.vue";
 import UiMenu from "./ui/UiMenu.vue";
 import * as invokes from "../invokes";
@@ -161,6 +168,7 @@ import {
 const store = useStore();
 
 const entries = ref<invokes.LibraryEntry[]>([]);
+const failedLoads: FailedLoads = reactive(new Map());
 const errorText = ref("");
 const busyText = ref("");
 const renaming = ref<string | null>(null);
@@ -186,7 +194,7 @@ const sortKey = ref<SortKey>("date");
 const descending = ref(true);
 const shown = computed(() =>
   sortEntries(
-    filterEntries(entries.value, query.value),
+    filterEntries(withFailedLoads(entries.value, failedLoads), query.value),
     sortKey.value,
     descending.value
   )
@@ -202,16 +210,22 @@ const sortBy = (key: SortKey) => {
   }
 };
 
+/** Readable, or only marked after a failed load (which may have been temporary). */
+const canOpen = (entry: invokes.LibraryEntry) =>
+  entry.meta !== null || failedLoads.has(entry.name);
+
 const onRowClick = (entry: invokes.LibraryEntry) => {
-  if (!entry.meta || store.isLibraryBusy || renaming.value === entry.name)
+  if (!canOpen(entry) || store.isLibraryBusy || renaming.value === entry.name)
     return;
-  void load(entry.name);
+  void load(entry);
 };
 
 const rowMenu = (entry: invokes.LibraryEntry) => [
+  ...(canOpen(entry)
+    ? [{ label: "Open", onSelect: () => void load(entry) }]
+    : []),
   ...(entry.meta
     ? [
-        { label: "Open", onSelect: () => void load(entry.name) },
         { label: "Rename", onSelect: () => startRename(entry.name) },
         { label: "Export…", onSelect: () => void exportFile(entry.name) },
       ]
@@ -236,11 +250,18 @@ watch(
 );
 watch(
   () => store.isSolutionSaved,
-  (saved) => saved && refresh()
+  (saved) => {
+    if (!saved) return;
+    // The save may have replaced a marked file.
+    failedLoads.clear();
+    void refresh();
+  }
 );
 
+/** Renames, deletes, imports: any file may have been replaced, the marks are dropped. */
 const run = async (action: () => Promise<void>) => {
   errorText.value = "";
+  failedLoads.clear();
   try {
     await action();
   } catch (e) {
@@ -256,11 +277,12 @@ const exploitabilityText = (meta: invokes.SolutionMeta) => {
   return meta.exploitability.toFixed(2) + percent;
 };
 
-const load = async (name: string) => {
+const load = async (entry: invokes.LibraryEntry) => {
   errorText.value = "";
-  busyText.value = `Loading "${name}"...`;
-  const error = await loadSolution(name);
+  busyText.value = `Loading "${entry.name}"...`;
+  const error = await loadSolution(entry.name);
   busyText.value = "";
+  noteLoad(failedLoads, entry, error);
   if (error) errorText.value = error;
 };
 
