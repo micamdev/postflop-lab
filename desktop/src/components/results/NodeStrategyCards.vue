@@ -14,17 +14,9 @@
           :key="item.name + item.amount"
           :class="[
             'flex-1 min-w-[96px] px-2.5 py-1.5 rounded-md tabular-nums',
-            isPlayed(item)
-              ? 'text-white'
-              : 'bg-panel2 border-l-[3px] text-muted',
+            isPlayed(item) ? 'text-white' : 'text-white/60',
           ]"
-          :style="
-            isPlayed(item)
-              ? {
-                  backgroundColor: `color-mix(in srgb, ${item.color} 82%, black)`,
-                }
-              : { borderLeftColor: item.color }
-          "
+          :style="{ backgroundColor: cardColor(item) }"
         >
           <div class="text-xs truncate opacity-90">{{ label(item) }}</div>
           <div class="text-lg font-semibold leading-tight">
@@ -56,6 +48,12 @@ defineProps<{ items: StrategyItem[] | null; noHands: boolean }>();
 
 /** Actions taken at least once in 1000 get a filled card; the others stay discreet. */
 const isPlayed = (item: StrategyItem) => item.frequency >= 0.0005;
+
+/** Filled in the action colour; a pale fill for actions not taken (0%). */
+const cardColor = (item: StrategyItem) =>
+  isPlayed(item)
+    ? `color-mix(in srgb, ${item.color} 82%, black)`
+    : `color-mix(in srgb, ${item.color} 22%, rgb(var(--panel2)))`;
 
 const label = (item: StrategyItem) =>
   item.amount === "0" ? item.name : `${item.name} ${item.amount}`;

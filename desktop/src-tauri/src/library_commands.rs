@@ -209,6 +209,9 @@ pub fn library_load(
         library::load(&dir, &name, max_memory).map_err(|e| format!("{ERR_GAME_FREED}: {e}"))?;
     let ranges = loaded.card_config().range;
     *game = loaded;
+    // The same key for the same node whatever version saved the locks.
+    let mut meta = meta;
+    crate::locks::refresh_lock_keys(&mut game, &mut meta.locks);
     *locks_state.0.lock().unwrap() = meta.locks.clone();
     let mut range_manager = range_state.lock().unwrap();
     range_manager.0[0] = ranges[0];

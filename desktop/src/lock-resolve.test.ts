@@ -118,11 +118,11 @@ describe("useLockResolve guards", () => {
 
     const started = resolve.start(line);
     await Promise.resolve();
-    expect(resolve.blocksResults).toBe(true);
+    expect(resolve.isBusy).toBe(true);
 
     release(false);
     await started;
-    expect(resolve.blocksResults).toBe(false);
+    expect(resolve.isBusy).toBe(false);
   });
 
   test("invalid solve settings refuse before touching the solution", async () => {
@@ -158,5 +158,16 @@ describe("useLockResolve guards", () => {
     // A save unrelated to a re-solve.
     expect(await resolve.onSaveDialogClosed()).toBe(false);
     expect(resolve.error).toBe("");
+  });
+});
+
+describe("a lock being captured", () => {
+  test("refuses the re-solve until the capture is stored", async () => {
+    finished(true);
+    const resolve = useLockResolve();
+    resolve.isCapturing = true;
+    expect(resolve.disabledReason).not.toBe("");
+    await resolve.start(line);
+    expect(prepare).not.toHaveBeenCalled();
   });
 });

@@ -258,23 +258,48 @@ impl PostFlopGame {
     /// suits absent from the flop and the ranges): they share one subtree, stored under a
     /// representative card. `card` itself is returned when it is not merged.
     ///
-    /// Returns `Err` when the current node is not the turn chance node or `card` cannot be
-    /// dealt there.
+    /// Returns `Err` when the current node is not the turn chance node, the turn cannot be dealt
+    /// there (a save that stops at the flop) or `card` cannot be dealt there.
     pub fn turn_representative(&self, card: Card) -> Result<Card, String> {
         if self.state < State::MemoryAllocated || !self.is_chance_node() || self.turn != NOT_DEALT {
             return Err("Not at the turn chance node".to_string());
         }
+        self.chance_representative(card)
+    }
+
+    /// Returns the card standing for `card` at the current chance node (turn or river), in the
+    /// frame of the stored tree: after a mirrored turn, suits are swapped first, as [`play`]
+    /// does; then a card merged by suit isomorphism maps to its representative.
+    ///
+    /// Returns `Err` when the current node is not a chance node that can be dealt or `card` cannot
+    /// be dealt there.
+    ///
+    /// [`play`]: PostFlopGame::play
+    pub fn chance_representative(&self, card: Card) -> Result<Card, String> {
+        if self.state < State::MemoryAllocated || !self.is_chance_node() || !self.can_deal_card() {
+            return Err("Not at a chance node that can be dealt".to_string());
+        }
         if card >= 52 || self.possible_cards() & (1u64 << card) == 0 {
             return Err("This card cannot be dealt here".to_string());
         }
+        let card = match self.turn_swapped_suit {
+            Some((suit1, suit2)) if card & 3 == suit1 => card - suit1 + suit2,
+            Some((suit1, suit2)) if card & 3 == suit2 => card + suit1 - suit2,
+            _ => card,
+        };
         if self.available_actions().contains(&Action::Chance(card)) {
             return Ok(card);
         }
         let node = self.node();
         let isomorphism = self.isomorphic_chances(&node);
+        let isomorphic_cards = if node.turn == NOT_DEALT {
+            &self.isomorphism_card_turn
+        } else {
+            &self.isomorphism_card_river[node.turn as usize & 3]
+        };
         let actions = self.available_actions();
         for (i, &repr_index) in isomorphism.iter().enumerate() {
-            if self.isomorphism_card_turn[i] == card {
+            if isomorphic_cards[i] == card {
                 if let Action::Chance(repr_card) = actions[repr_index as usize] {
                     return Ok(repr_card);
                 }

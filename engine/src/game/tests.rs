@@ -1292,3 +1292,60 @@ fn turn_representative_maps_mirror_suits() {
         .turn_representative(card_from_str("Ks").unwrap())
         .is_err());
 }
+
+#[test]
+fn chance_representative_reaches_the_node_play_reaches() {
+    // Monotone flop with suitless ranges: diamonds, hearts and spades are interchangeable, so
+    // both the turn and the river can be mirrored.
+    let card_config = CardConfig {
+        range: ["AA,KK".parse().unwrap(), "QQ,JJ".parse().unwrap()],
+        flop: flop_from_str("Kc7c2c").unwrap(),
+        ..Default::default()
+    };
+    let tree_config = TreeConfig {
+        starting_pot: 60,
+        effective_stack: 300,
+        ..Default::default()
+    };
+    let action_tree = ActionTree::new(tree_config).unwrap();
+    let mut game = PostFlopGame::with_config(card_config, action_tree).unwrap();
+    game.allocate_memory(false);
+
+    let card = |s: &str| card_from_str(s).unwrap();
+    for turn in ["Th", "Td", "Ts", "8c"] {
+        for river in ["5h", "5d", "5s", "Ts", "5c"] {
+            let (turn, river) = (card(turn), card(river));
+            if turn == river {
+                continue;
+            }
+            // The actual cards, through play().
+            game.back_to_root();
+            game.play(0);
+            game.play(0);
+            let turn_rep = game.chance_representative(turn).unwrap();
+            game.play(turn as usize);
+            game.play(0);
+            game.play(0);
+            let river_rep = game.chance_representative(river).unwrap();
+            game.play(river as usize);
+            let reached = *game.node_history.last().unwrap();
+            // The representatives, played from the root: the same node.
+            game.back_to_root();
+            for action in [0, 0, turn_rep as usize, 0, 0, river_rep as usize] {
+                game.play(action);
+            }
+            assert_eq!(*game.node_history.last().unwrap(), reached);
+        }
+    }
+
+    // Cards that cannot be dealt, and positions that are not chance nodes.
+    game.back_to_root();
+    assert!(game.chance_representative(card("Th")).is_err());
+    game.play(0);
+    game.play(0);
+    assert!(game.chance_representative(card("Kc")).is_err());
+    game.play(card("Th") as usize);
+    game.play(0);
+    game.play(0);
+    assert!(game.chance_representative(card("Th")).is_err());
+}

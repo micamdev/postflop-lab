@@ -218,13 +218,13 @@
         class="mt-4"
         variant="ghost"
         size="sm"
-        :disabled="!hasPendingChanges || busy || !!resolveDisabledReason"
+        :disabled="!hasPendingChanges || busy || !!lockResolve.disabledReason"
         @click="resolveWithLocks"
       >
         Re-solve with locks
       </UiButton>
-      <div v-if="resolveDisabledReason" class="mt-1 text-sm text-muted">
-        {{ resolveDisabledReason }}
+      <div v-if="lockResolve.disabledReason" class="mt-1 text-sm text-muted">
+        {{ lockResolve.disabledReason }}
       </div>
       <div v-else-if="busy" class="mt-1 text-sm text-muted">
         Preparing the tree...
@@ -249,7 +249,7 @@ import { Results, SpotPlayer } from "../result-types";
 import { cardText, cardPairCellIndex, ranks, suitLetters } from "../utils";
 import { useLockResolve } from "../lock-resolve";
 import UiButton from "./ui/UiButton.vue";
-import { hasPendingLocks, mirrorEdits } from "../lock-utils";
+import { hasPendingLocks, mirrorEdits, sameKey } from "../lock-utils";
 
 const props = defineProps<{
   spot: SpotPlayer | null;
@@ -345,7 +345,7 @@ const lockResolve = useLockResolve();
 const busy = computed(() => isBusy.value || lockResolve.isBusy);
 
 const existingLock = (key: number[]) =>
-  store.locks.find((lock) => lock.key.join(",") === key.join(","));
+  store.locks.find((lock) => sameKey(lock.key, key));
 
 onMounted(async () => {
   if (props.unlockableReason) return;
@@ -387,10 +387,12 @@ const cellEdited = (row: number, col: number) =>
 const mirrorText = computed(() => {
   const lock = baseLock.value;
   if (!lock) return "";
-  const i = lock.key.findIndex((v, k) => v !== lock.history[k]);
-  if (i === -1) return "";
-  const card = cardText(lock.key[i]);
-  return `same spot as the turn ${card.rank}${card.suit}: one lock for both`;
+  // Dealt cards (turn, river) that differ from the stored line's: a mirror line.
+  const cards = lock.key
+    .filter((v, k) => v !== lock.history[k])
+    .map((v) => cardText(v).rank + cardText(v).suit);
+  if (cards.length === 0) return "";
+  return `same spot as the line with ${cards.join(" and ")}: one lock for both`;
 });
 
 /* Selection */
@@ -510,19 +512,19 @@ const hasEditedSelected = computed(() =>
 /** Captures the node's lock with the current edits and stores it in the lock list. */
 const captureAndStore = async (nextEdits: Record<string, number[]>) => {
   isBusy.value = true;
+  lockResolve.isCapturing = true;
   try {
     const lock = await invokes.gameCaptureLock(props.line.history, nextEdits);
     lock.label = props.line.label;
     edits.value = nextEdits;
-    const others = store.locks.filter(
-      (l) => l.key.join(",") !== lock.key.join(",")
-    );
+    const others = store.locks.filter((l) => !sameKey(l.key, lock.key));
     store.locks = [...others, lock];
     captureError.value = "";
   } catch (e) {
     captureError.value = String(e);
   } finally {
     isBusy.value = false;
+    lockResolve.isCapturing = false;
   }
 };
 
@@ -549,7 +551,7 @@ const isInSolution = (lock: NodeLock) =>
 const removedCount = computed(
   () =>
     store.solutionLocks.filter(
-      (l) => !store.locks.some((lock) => lock.key.join(",") === l.key.join(","))
+      (l) => !store.locks.some((lock) => sameKey(lock.key, l.key))
     ).length
 );
 
@@ -564,16 +566,13 @@ const editedSummary = (lock: NodeLock) => {
 
 const removeLock = (lock: NodeLock) => {
   store.locks = store.locks.filter((l) => l !== lock);
-  if (baseLock.value && lock.key.join(",") === baseLock.value.key.join(",")) {
+  if (baseLock.value && sameKey(lock.key, baseLock.value.key)) {
     edits.value = {};
     setSelection(selected.value);
   }
 };
 
 /* Re-solve */
-
-/** Why a re-solve with locks cannot start (shared with the top bar), or "". */
-const resolveDisabledReason = computed(() => lockResolve.disabledReason);
 
 const resolveWithLocks = async () => {
   await lockResolve.start(props.line);
