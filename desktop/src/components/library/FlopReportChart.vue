@@ -14,7 +14,7 @@
     >
       <!-- The bar, over 25% grid lines -->
       <div
-        class="flex flex-col justify-end flex-1 min-h-0 w-full"
+        class="relative flex flex-col justify-end flex-1 min-h-0 w-full"
         :style="GRID"
       >
         <div
@@ -30,14 +30,27 @@
             }"
           ></div>
         </div>
-        <div
-          v-else-if="metric !== 'strategy'"
-          class="w-full group-enabled:group-hover:opacity-80"
-          :style="{
-            height: `${barHeight(row) * 100}%`,
-            backgroundColor: themeColor(player === 0 ? 'oop' : 'ip'),
-          }"
-        ></div>
+        <template v-else-if="metric !== 'strategy'">
+          <!-- From the zero line: up for a positive value, down for a negative one. -->
+          <div
+            :class="[
+              'absolute inset-x-0 group-enabled:group-hover:opacity-80',
+              valueOf(row) < 0 ? 'opacity-60' : '',
+            ]"
+            :style="{
+              bottom: `${bar(row).bottom * 100}%`,
+              height: `${bar(row).height * 100}%`,
+              backgroundColor: themeColor(player === 0 ? 'oop' : 'ip'),
+            }"
+          ></div>
+          <div
+            v-if="zero !== null"
+            class="absolute inset-x-0 h-px bg-muted"
+            :style="{
+              bottom: `calc(${zero * 100}% - ${zero === 1 ? 1 : 0}px)`,
+            }"
+          ></div>
+        </template>
       </div>
       <!-- The flop, one card per line -->
       <div
@@ -65,7 +78,8 @@ import {
   ReportRow,
   actionLabel,
   boardText,
-  chartScale,
+  chartBar,
+  chartZero,
 } from "../../flop-report";
 
 // The report as a chart: one bar per flop (in the table's order), its strategy stacked or one
@@ -97,17 +111,13 @@ const valueOf = (row: ReportRow) =>
       ? row.ev[props.player]
       : row.eqr[props.player];
 
-const scale = computed(() =>
-  chartScale(
-    props.metric,
-    props.metric === "strategy" ? [] : props.rows.map(valueOf)
-  )
+const values = computed(() =>
+  props.metric === "strategy" ? [] : props.rows.map(valueOf)
 );
-
-const barHeight = (row: ReportRow) => {
-  const value = valueOf(row);
-  return isFinite(value) ? Math.min(Math.max(value / scale.value, 0), 1) : 0;
-};
+const bar = (row: ReportRow) =>
+  chartBar(props.metric, valueOf(row), values.value);
+/** The zero line, drawn when some value is negative. */
+const zero = computed(() => chartZero(props.metric, values.value));
 
 const sortedBoard = (board: number[]) => [...board].sort((a, b) => b - a);
 

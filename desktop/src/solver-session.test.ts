@@ -289,6 +289,28 @@ describe("audit review fixes", () => {
     expect(mocked.setNumThreads).not.toHaveBeenCalled();
   });
 
+  test("Stop while paused with an invalid thread count still finalizes", async () => {
+    mocked.gameExploitability.mockResolvedValue(10);
+    const session = useSolverSession();
+    session.settings.targetExploitability = 1;
+    let steps = 0;
+    mocked.gameSolveStep.mockImplementation(async () => {
+      if (++steps === 3) session.pause();
+    });
+    await session.solve();
+    expect(useStore().isSolverPaused).toBe(true);
+    // The field cleared during the pause (v-model.number gives "").
+    (session.settings as { threads: unknown }).threads = "";
+    mocked.setNumThreads.mockClear();
+    mocked.setNumThreads.mockRejectedValue("invalid type: string");
+    session.stop();
+    await flush();
+    await flush();
+    expect(mocked.setNumThreads).not.toHaveBeenCalled();
+    expect(useStore().isSolverError).toBe(false);
+    expect(mocked.gameFinalize).toHaveBeenCalled();
+  });
+
   test("a short board with bunching data reports the board", async () => {
     const store = useStore();
     store.isBunchingEnabled = true;

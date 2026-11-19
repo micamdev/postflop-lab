@@ -7,7 +7,7 @@
         min="1"
         max="64"
         class="ui-input w-24"
-        :disabled="isRunning"
+        :disabled="isComputing"
       />
     </UiField>
 
@@ -111,6 +111,8 @@ const session = useSolverSession();
 const isRunning = computed(
   () => store.isSolverRunning || store.isSolverPaused || store.isFinalizing
 );
+/** Threads can change during a pause: resuming applies them. */
+const isComputing = computed(() => store.isSolverRunning || store.isFinalizing);
 const settingsError = computed(() => validateSolveSettings(session.settings));
 
 const bunchingText = computed(() => {

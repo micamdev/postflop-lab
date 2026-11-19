@@ -5,7 +5,8 @@ import {
   advantageText,
   averageRow,
   buildReport,
-  chartScale,
+  chartBar,
+  chartZero,
   configKey,
   defaultCbetBy,
   sortReportRows,
@@ -408,14 +409,30 @@ describe("subsets", () => {
   });
 });
 
-describe("chartScale", () => {
-  test("strategy and equity fill 0-100%; EV and EQR up to the largest value", () => {
-    expect(chartScale("strategy", [])).toBe(1);
-    expect(chartScale("eq", [0.4, 0.6])).toBe(1);
-    expect(chartScale("ev", [2, 8, Number.NaN])).toBe(8);
-    expect(chartScale("eqr", [0.9, 1.3])).toBe(1.3);
-    // Nothing positive: a scale that does not divide by zero.
-    expect(chartScale("ev", [0, -1])).toBe(1);
+describe("chartBar", () => {
+  test("no negative value: bars from the bottom, the largest one full", () => {
+    expect(chartBar("ev", 5, [5, 10])).toEqual({ bottom: 0, height: 0.5 });
+    expect(chartBar("eq", 0.4, [0.4])).toEqual({ bottom: 0, height: 0.4 });
+  });
+
+  test("negative values hang below a zero line", () => {
+    // From -5 to 15: the zero line at a quarter of the height.
+    expect(chartBar("ev", 15, [15, -5])).toEqual({
+      bottom: 0.25,
+      height: 0.75,
+    });
+    expect(chartBar("ev", -5, [15, -5])).toEqual({ bottom: 0, height: 0.25 });
+    // All negative: the zero line on top.
+    expect(chartBar("ev", -2, [-2, -4])).toEqual({ bottom: 0.5, height: 0.5 });
+  });
+
+  test("a value it cannot draw: no bar", () => {
+    expect(chartBar("ev", Number.NaN, [1])).toEqual({ bottom: 0, height: 0 });
+  });
+
+  test("the zero line, when values go below it", () => {
+    expect(chartZero("ev", [15, -5])).toBe(0.25);
+    expect(chartZero("ev", [1, 2])).toBeNull();
   });
 });
 

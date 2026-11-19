@@ -3,8 +3,9 @@
     <SavedExplorer />
 
     <!-- Ranges on top, the tree settings under them, board / memory / solve on the right. -->
+    <!-- Kept mounted (v-show): a range being edited keeps its Cancel point. -->
     <div
-      v-if="store.sideView === 'main'"
+      v-show="store.sideView === 'main'"
       class="grid flex-1 min-w-0 content-start gap-3 p-3 overflow-y-auto"
       style="grid-template-columns: minmax(0, 1fr) minmax(0, 1fr) 280px"
     >
