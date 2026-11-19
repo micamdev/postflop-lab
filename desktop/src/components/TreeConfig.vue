@@ -1,500 +1,45 @@
 <template>
-  <div v-if="!isEditMode">
-    <div class="flex">
-      <div class="shrink-0">
-        <div class="flex my-1 gap-8">
-          <div>
-            <div class="my-1">
-              <span class="inline-block w-[7.5rem]">Starting pot:</span>
-              <input
-                v-model="config.startingPot"
-                type="number"
-                :class="
-                  'w-24 px-2 py-1 rounded-lg text-sm text-center ' +
-                  (config.startingPot <= 0 ||
-                  config.startingPot > MAX_AMOUNT ||
-                  config.startingPot % 1 !== 0
-                    ? 'input-error'
-                    : '')
-                "
-                :disabled="hasEdit"
-                min="0"
-                :max="MAX_AMOUNT"
-              />
-            </div>
+  <div v-if="!isEditMode" class="flex flex-col max-w-2xl gap-4">
+    <p class="text-sm text-muted">
+      The tree is built from the Setup: stacks, bet sizes, all-in thresholds and
+      merging. Here you can preview it and add or remove lines by hand. While
+      lines are edited, those settings are locked.
+    </p>
 
-            <div class="my-1">
-              <span class="inline-block w-[7.5rem]">Effective stack:</span>
-              <input
-                v-model="config.effectiveStack"
-                type="number"
-                :class="
-                  'w-24 px-2 py-1 rounded-lg text-sm text-center ' +
-                  (config.effectiveStack <= 0 ||
-                  config.effectiveStack > MAX_AMOUNT ||
-                  config.effectiveStack % 1 !== 0
-                    ? 'input-error'
-                    : '')
-                "
-                :disabled="hasEdit"
-                min="0"
-                :max="MAX_AMOUNT"
-              />
-            </div>
-          </div>
-
-          <div>
-            <div class="my-1">
-              <span class="inline-block w-20">Rake:</span>
-              <input
-                v-model="config.rakePercent"
-                type="number"
-                :class="
-                  'w-24 px-2 py-1 rounded-lg text-sm text-center ' +
-                  (config.rakePercent < 0 || config.rakePercent > 100
-                    ? 'input-error'
-                    : '')
-                "
-                :disabled="hasEdit"
-                min="0"
-                max="100"
-                step="0.5"
-              />
-              %
-            </div>
-
-            <div class="my-1">
-              <span class="inline-block w-20">Rake cap:</span>
-              <input
-                v-model="config.rakeCap"
-                type="number"
-                :class="
-                  'w-24 px-2 py-1 rounded-lg text-sm text-center ' +
-                  (config.rakeCap < 0 || config.rakeCap > 3 * MAX_AMOUNT
-                    ? 'input-error'
-                    : '')
-                "
-                :disabled="hasEdit"
-                min="0"
-                :max="3 * MAX_AMOUNT"
-              />
-            </div>
-          </div>
-
-          <div class="ml-auto p-1">
-            <UiButton variant="ghost" @click="clearConfig"> Clear </UiButton>
-          </div>
-        </div>
-
-        <div
-          v-if="errorBasics.length > 0"
-          class="flex font-semibold text-red-400"
-        >
-          <div class="underline">Error:</div>
-          <div class="ml-2">
-            <div v-for="error in errorBasics" :key="error">
-              {{ error }}
-            </div>
-          </div>
-        </div>
-
-        <div class="mt-6">
-          <div class="flex">
-            <span class="font-semibold">OOP bet sizes</span>
-            <label class="inline-block ml-6">
-              <input
-                v-model="config.donkOption"
-                type="checkbox"
-                class="mr-1 align-middle rounded cursor-pointer peer"
-                :disabled="hasEdit"
-              />
-              <span class="cursor-pointer peer-disabled:cursor-not-allowed">
-                Use different sizes for donk bets
-              </span>
-            </label>
-            <div class="flex flex-grow justify-center">
-              <Tippy
-                class="inline-block cursor-help text-muted"
-                max-width="500px"
-                trigger="mouseenter click"
-                placement="bottom"
-                :delay="[200, 0]"
-                :interactive="true"
-              >
-                <QuestionMarkCircleIcon class="inline w-5 h-5" />
-                <div class="inline-block ml-0.5 text-sm underline">
-                  How to input
-                </div>
-                <template #content>
-                  <div class="px-1 py-0.5 text-justify">
-                    Multiple bet sizes can be input, separated by commas or
-                    spaces, in any of the following sizes. If left blank, no bet
-                    or raise will be made.
-                    <ul class="pl-6 list-disc">
-                      <li class="mt-1">
-                        A number representing a percentage of the pot (e.g.,
-                        "50"). For raises, the size is calculated by first
-                        calling and then combining a bet of the specified
-                        percentage. For example, if the pot is 100 before the
-                        bet, and the opponent bets 75, a raise of 50% would
-                        result in a bet of 75 + (100 + 75 + 75) * 50% = 200.
-                      </li>
-                      <li class="mt-1">
-                        A multiple of the previous bet size (e.g., "2.5x"). Only
-                        valid for raises.
-                      </li>
-                      <li class="mt-1">All-in (e.g., "a").</li>
-                      <li class="mt-1">
-                        Constant addition (e.g., "100c"). For raises, you can
-                        also specify a cap on the number of raises (e.g.,
-                        "20c3r").
-                      </li>
-                      <li class="mt-1">
-                        Geometric size, i.e., dividing the remaining stack into
-                        a specified number of equal percentage bets (e.g.,
-                        "3e"). For example, if the current pot is 100 and the
-                        effective stack is 400, "2e" would result in a bet of
-                        100. If the number before the "e" is omitted, the number
-                        of remaining streets is used (flop=3, turn=2, river=1).
-                        For raises, the number of previous raises is subtracted
-                        from the specified number. For example, "3e" will change
-                        to "2e" on re-raises. You can also specify a maximum
-                        percentage limit by adding a number after the "e" (e.g.,
-                        "2e200").
-                      </li>
-                    </ul>
-                  </div>
-                </template>
-              </Tippy>
-            </div>
-          </div>
-
-          <div class="flex gap-5">
-            <div v-for="street in STREETS" :key="street">
-              <div class="my-1 underline">{{ street }}</div>
-              <div
-                v-for="field in betFields('oop', street)"
-                :key="field.key"
-                class="my-1"
-              >
-                <span class="inline-block w-14">{{ field.label }}:</span>
-                <input
-                  v-model="betText[field.key]"
-                  type="text"
-                  :class="[
-                    'w-24 px-2 py-1 rounded-lg text-sm',
-                    !sanitized(field.key).valid ? 'input-error' : '',
-                  ]"
-                  :disabled="hasEdit"
-                  @change="normalize(field.key)"
-                />
-                %
-              </div>
-            </div>
-          </div>
-        </div>
-
-        <div>
-          <div class="flex">
-            <div class="mt-6 font-semibold">IP bet sizes</div>
-            <div class="flex flex-grow items-center justify-center gap-6">
-              <UiButton
-                class="mt-3 button-arrow"
-                variant="ghost"
-                :disabled="errorIp.length > 0 || hasEdit"
-                @click="ipToOop"
-              >
-                ↑
-              </UiButton>
-              <UiButton
-                class="mt-3 button-arrow"
-                variant="ghost"
-                :disabled="errorOop.length > 0 || hasEdit"
-                @click="oopToIp"
-              >
-                ↓
-              </UiButton>
-            </div>
-          </div>
-
-          <div class="flex gap-5">
-            <div v-for="street in STREETS" :key="street">
-              <div class="my-1 underline">{{ street }}</div>
-              <div
-                v-for="field in betFields('ip', street)"
-                :key="field.key"
-                class="my-1"
-              >
-                <span class="inline-block w-14">{{ field.label }}:</span>
-                <input
-                  v-model="betText[field.key]"
-                  type="text"
-                  :class="[
-                    'w-24 px-2 py-1 rounded-lg text-sm',
-                    !sanitized(field.key).valid ? 'input-error' : '',
-                  ]"
-                  :disabled="hasEdit"
-                  @change="normalize(field.key)"
-                />
-                %
-              </div>
-            </div>
-          </div>
-        </div>
-
-        <div
-          v-if="errorOop.length > 0 || errorIp.length > 0"
-          class="flex mt-1 font-semibold text-red-400"
-        >
-          <div class="underline">Error:</div>
-          <div class="ml-2">
-            <div v-for="error in errorOop" :key="error">
-              {{ error }}
-            </div>
-            <div v-for="error in errorIp" :key="error">
-              {{ error }}
-            </div>
-          </div>
-        </div>
-
-        <div class="flex mt-6 gap-4">
-          <div>
-            <div class="my-1">
-              <div class="inline-block w-48">
-                Add all-in threshold:
-                <Tippy
-                  class="inline-block cursor-help"
-                  max-width="420px"
-                  trigger="mouseenter click"
-                  :delay="[200, 0]"
-                  :interactive="true"
-                >
-                  <QuestionMarkCircleIcon class="w-5 h-5 text-muted" />
-                  <template #content>
-                    <div class="px-1 py-0.5 text-justify">
-                      Add all-in action to all spots where the ratio of the
-                      maximum possible betting size to the pot is less than this
-                      threshold.
-                    </div>
-                  </template>
-                </Tippy>
-              </div>
-              <input
-                v-model="config.addAllInThreshold"
-                type="number"
-                :class="
-                  'w-24 px-2 py-1 rounded-lg text-sm text-center ' +
-                  (config.addAllInThreshold < 0 ? 'input-error' : '')
-                "
-                :disabled="hasEdit"
-                min="0"
-                :max="MAX_AMOUNT * 100"
-              />
-              %
-            </div>
-
-            <div class="my-1">
-              <div class="inline-block w-48">
-                Force all-in threshold:
-                <Tippy
-                  class="inline-block cursor-help"
-                  max-width="500px"
-                  trigger="mouseenter click"
-                  :delay="[200, 0]"
-                  :interactive="true"
-                >
-                  <QuestionMarkCircleIcon class="w-5 h-5 text-muted" />
-                  <template #content>
-                    <div class="px-1 py-0.5 text-justify">
-                      <div>
-                        Replace the betting action with an all-in action if the
-                        SPR (Stack/Pot Ratio) is below this threshold after the
-                        betting action is called by the opponent. The
-                        recommended value is around 15% - 20%.
-                      </div>
-                      <div class="mt-3">
-                        This option is similar to the "all-in threshold" in
-                        PioSOLVER. PioSOLVER will replace the betting action
-                        with an all-in if the percentage of one's pot commitment
-                        to the initial stack exceeds the threshold.
-                      </div>
-                      <div class="mt-3">
-                        The conversion formula, when ignoring decimal rounding,
-                        is as follows (s = initial SPR, r = PioSOLVER's
-                        threshold):
-                      </div>
-                      <div class="mt-1 text-center">
-                        Threshold = s * (1 - r) / (1 + 2 * s * r).
-                      </div>
-                    </div>
-                  </template>
-                </Tippy>
-              </div>
-              <input
-                v-model="config.forceAllInThreshold"
-                type="number"
-                :class="
-                  'w-24 px-2 py-1 rounded-lg text-sm text-center ' +
-                  (config.forceAllInThreshold < 0 ? 'input-error' : '')
-                "
-                :disabled="hasEdit"
-                min="0"
-                :max="MAX_AMOUNT * 100"
-              />
-              %
-            </div>
-
-            <div class="my-1">
-              <div class="inline-block w-48">
-                Merging threshold:
-                <Tippy
-                  class="inline-block cursor-help"
-                  max-width="500px"
-                  trigger="mouseenter click"
-                  :delay="[200, 0]"
-                  :interactive="true"
-                >
-                  <QuestionMarkCircleIcon class="w-5 h-5 text-muted" />
-                  <template #content>
-                    <div class="px-1 py-0.5 text-justify">
-                      <div>
-                        Merge betting actions if there are betting actions of
-                        similar size.
-                      </div>
-                      <div class="mt-3">
-                        The algorithm is the same as in PioSOLVER. That is,
-                        select the largest bet size (= X% of the pot) and remove
-                        all other betting actions with sizes (= Y% of the pot)
-                        that satisfy the following inequality:
-                      </div>
-                      <div class="my-1 text-center">
-                        (100 + X) / (100 + Y) &lt; 1.0 + Threshold.
-                      </div>
-                      <div>
-                        Repeat this process with the next largest bet size among
-                        the remaining bets.
-                      </div>
-                    </div>
-                  </template>
-                </Tippy>
-              </div>
-              <input
-                v-model="config.mergingThreshold"
-                type="number"
-                :class="
-                  'w-24 px-2 py-1 rounded-lg text-sm text-center ' +
-                  (config.mergingThreshold < 0 ? 'input-error' : '')
-                "
-                :disabled="hasEdit"
-                min="0"
-                :max="MAX_AMOUNT * 100"
-              />
-              %
-            </div>
-          </div>
-
-          <div class="flex justify-center flex-grow">
-            <div class="flex flex-col justify-center gap-3">
-              <UiButton
-                variant="ghost"
-                :disabled="!isInputValid"
-                @click="startEdit"
-              >
-                Preview & Edit Tree
-              </UiButton>
-
-              <UiButton v-if="hasEdit" variant="danger" @click="clearEdit">
-                Clear Edit & Unlock
-              </UiButton>
-            </div>
-          </div>
-        </div>
-
-        <div
-          v-if="errorMisc.length > 0"
-          class="flex mt-1 font-semibold text-red-400"
-        >
-          <div class="underline">Error:</div>
-          <div class="ml-2">
-            <div v-for="error in errorMisc" :key="error">
-              {{ error }}
-            </div>
-          </div>
-        </div>
-
-        <div
-          v-if="warningMisc.length > 0"
-          class="flex mt-1 font-semibold text-ip"
-        >
-          <div class="underline">Warning:</div>
-          <div class="ml-2">
-            <div
-              v-for="warning in warningMisc"
-              :key="warning"
-              class="whitespace-pre-line"
-            >
-              {{ warning }}
-            </div>
-          </div>
-        </div>
-      </div>
+    <div class="flex items-center gap-2">
+      <UiButton variant="primary" :disabled="!isInputValid" @click="startEdit">
+        Preview & edit tree
+      </UiButton>
+      <UiButton v-if="hasEdit" variant="danger" @click="clearEdit">
+        Clear edits & unlock
+      </UiButton>
     </div>
+    <p v-if="firstSetupError" class="text-xs text-red-400">
+      Fix the Setup first: {{ firstSetupError }}
+    </p>
 
-    <div
-      v-if="addedLinesArray.length > 0 || removedLinesArray.length > 0"
-      class="mt-5"
-    >
-      <div v-if="addedLinesArray.length > 0" class="flex">
-        <div class="font-semibold underline w-[7.75rem]">
-          Added line{{ addedLinesArray.length > 1 ? "s" : "" }}:
-        </div>
-        <div class="flex flex-col">
-          <div v-for="addedLine in addedLinesArray" :key="addedLine">
-            {{ addedLine }}
-          </div>
-        </div>
+    <UiPanel v-if="hasEdit" title="Lines edited by hand">
+      <div v-if="addedLinesArray.length > 0" class="text-sm">
+        <div class="mb-1 text-xs text-muted">Added</div>
+        <div v-for="line in addedLinesArray" :key="line">{{ line }}</div>
       </div>
-
-      <div v-if="removedLinesArray.length > 0" class="flex mt-2">
-        <div class="font-semibold underline w-[7.75rem]">
-          Removed line{{ removedLinesArray.length > 1 ? "s" : "" }}:
-        </div>
-        <div class="flex flex-col">
-          <div v-for="removedLine in removedLinesArray" :key="removedLine">
-            {{ removedLine }}
-          </div>
-        </div>
-      </div>
-
       <div
-        v-if="
-          config.board.length >= 3 &&
-          config.expectedBoardLength > 0 &&
-          config.board.length !== config.expectedBoardLength
-        "
-        class="flex mt-2 font-semibold text-ip"
+        v-if="removedLinesArray.length > 0"
+        :class="['text-sm', addedLinesArray.length > 0 ? 'mt-3' : '']"
       >
-        <div class="underline">Warning:</div>
-        <div class="ml-2">
-          The edited tree assumes a {{ config.expectedBoardLength }}-card board,
-          but the current board consists of {{ config.board.length }} cards.
-          <br />
-          To reset the edited tree, click the "Clear Edit & Unlock" button.
-        </div>
+        <div class="mb-1 text-xs text-muted">Removed</div>
+        <div v-for="line in removedLinesArray" :key="line">{{ line }}</div>
       </div>
-    </div>
+    </UiPanel>
 
-    <div
-      v-if="errorLines.length > 0"
-      class="flex mt-2 font-semibold text-red-400"
-    >
-      <div class="underline">Error:</div>
-      <div class="ml-2">
-        <div v-for="error in errorLines" :key="error">
-          {{ error }}
-        </div>
-      </div>
-    </div>
+    <p v-if="boardMismatch" class="text-xs text-ip">
+      The edited tree assumes a {{ config.expectedBoardLength }}-card board, but
+      the board has {{ config.board.length }} cards. Clear the edits to use this
+      board.
+    </p>
+    <ul v-if="errorLines.length > 0" class="text-xs text-red-400">
+      <li v-for="error in errorLines" :key="error">{{ error }}</li>
+    </ul>
   </div>
 
   <div v-else>
@@ -510,45 +55,19 @@
 </template>
 
 <script setup lang="ts">
-import UiButton from "./ui/UiButton.vue";
 import { computed, ref } from "vue";
 import { useStore, useConfigStore } from "../store";
-import { MAX_AMOUNT, readableLineString } from "../utils";
+import { readableLineString } from "../utils";
 import { setupErrors } from "../setup-validation";
-
 import TreeEditor from "./TreeEditor.vue";
-import { Tippy } from "vue-tippy";
-import { QuestionMarkCircleIcon } from "@heroicons/vue/20/solid";
+import UiButton from "./ui/UiButton.vue";
+import UiPanel from "./ui/UiPanel.vue";
+
+// The tree's lines edited by hand (the other tree settings are in the Setup): their list,
+// the tree preview and editor, and clearing them.
 
 const store = useStore();
 const config = useConfigStore();
-
-/* Bet size fields (one per player, street and kind) */
-
-const STREETS = ["Flop", "Turn", "River"] as const;
-type BetKey =
-  `${"oop" | "ip"}${(typeof STREETS)[number]}${"Bet" | "Raise" | "Donk"}`;
-
-/** The fields of one street: bet and raise, plus OOP's donk on the turn and river. */
-const betFields = (player: "oop" | "ip", street: (typeof STREETS)[number]) => [
-  { key: `${player}${street}Bet` as BetKey, label: "Bet" },
-  { key: `${player}${street}Raise` as BetKey, label: "Raise" },
-  ...(player === "oop" && street !== "Flop" && config.donkOption
-    ? [{ key: `oop${street}Donk` as BetKey, label: "Donk" }]
-    : []),
-];
-
-// The bet size texts, by field key.
-const betText = config as unknown as Record<BetKey, string>;
-const sanitized = (key: BetKey) =>
-  (config as unknown as Record<string, { s: string; valid: boolean }>)[
-    `${key}Sanitized`
-  ];
-/** Rewrites a valid size in its clean form ("50 , 100" -> "50, 100"). */
-const normalize = (key: BetKey) => {
-  const s = sanitized(key);
-  if (s.valid) betText[key] = s.s;
-};
 
 const isEditMode = ref(false);
 
@@ -568,79 +87,28 @@ const removedLinesArray = computed(() =>
     : config.removedLines.split(",").map(readableLineString)
 );
 
-// The same checks as Solve (setup-validation), listed by section.
+// The same checks as Solve (setup-validation).
 const errors = computed(() => setupErrors(config));
-const errorBasics = computed(() => errors.value.basics);
-const errorOop = computed(() => errors.value.oop);
-const errorIp = computed(() => errors.value.ip);
-const errorMisc = computed(() => errors.value.misc);
-
-const warningMisc = computed(() => {
-  const warnings: string[] = [];
-  if (config.forceAllInThreshold > 30) {
-    warnings.push(
-      "Force all-in threshold higher than 30% is not recommended.\nPlease see help to confirm the meaning."
-    );
-  }
-  return warnings;
-});
-
 const errorLines = computed(() => errors.value.lines);
-
-const isInputValid = computed(
+const firstSetupError = computed(
   () =>
-    errorBasics.value.length === 0 &&
-    errorOop.value.length === 0 &&
-    errorIp.value.length === 0 &&
-    errorMisc.value.length === 0 &&
-    errorLines.value.length === 0
+    [
+      ...errors.value.basics,
+      ...errors.value.oop,
+      ...errors.value.ip,
+      ...errors.value.misc,
+    ][0] ?? ""
+);
+const isInputValid = computed(
+  () => firstSetupError.value === "" && errorLines.value.length === 0
 );
 
-const clearConfig = () => {
-  config.startingPot = 0;
-  config.effectiveStack = 0;
-  config.rakePercent = 0;
-  config.rakeCap = 0;
-  config.donkOption = false;
-  config.oopFlopBet = "";
-  config.oopFlopRaise = "";
-  config.oopTurnBet = "";
-  config.oopTurnRaise = "";
-  config.oopTurnDonk = "";
-  config.oopRiverBet = "";
-  config.oopRiverRaise = "";
-  config.oopRiverDonk = "";
-  config.ipFlopBet = "";
-  config.ipFlopRaise = "";
-  config.ipTurnBet = "";
-  config.ipTurnRaise = "";
-  config.ipRiverBet = "";
-  config.ipRiverRaise = "";
-  config.addAllInThreshold = 0;
-  config.forceAllInThreshold = 0;
-  config.mergingThreshold = 0;
-  config.expectedBoardLength = 0;
-  config.addedLines = "";
-  config.removedLines = "";
-};
-
-const oopToIp = () => {
-  config.ipFlopBet = config.oopFlopBet;
-  config.ipFlopRaise = config.oopFlopRaise;
-  config.ipTurnBet = config.oopTurnBet;
-  config.ipTurnRaise = config.oopTurnRaise;
-  config.ipRiverBet = config.oopRiverBet;
-  config.ipRiverRaise = config.oopRiverRaise;
-};
-
-const ipToOop = () => {
-  config.oopFlopBet = config.ipFlopBet;
-  config.oopFlopRaise = config.ipFlopRaise;
-  config.oopTurnBet = config.ipTurnBet;
-  config.oopTurnRaise = config.ipTurnRaise;
-  config.oopRiverBet = config.ipRiverBet;
-  config.oopRiverRaise = config.ipRiverRaise;
-};
+const boardMismatch = computed(
+  () =>
+    config.board.length >= 3 &&
+    config.expectedBoardLength > 0 &&
+    config.board.length !== config.expectedBoardLength
+);
 
 const startEdit = () => {
   isEditMode.value = true;
@@ -674,13 +142,3 @@ const cancelEdit = () => {
   store.headers["tree-config"].pop();
 };
 </script>
-
-<style scoped>
-input {
-  @apply disabled:cursor-not-allowed;
-}
-
-.button-arrow {
-  @apply px-2 py-1 text-lg;
-}
-</style>

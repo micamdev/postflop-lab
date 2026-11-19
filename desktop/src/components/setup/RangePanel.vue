@@ -45,7 +45,7 @@
     </header>
 
     <div
-      class="grid gap-[2px] select-none [container-type:inline-size]"
+      class="grid gap-[2px] select-none"
       style="grid-template-columns: repeat(13, minmax(0, 1fr))"
       @mouseleave="editing.endPaint"
       @mouseup="editing.endPaint"
@@ -54,7 +54,7 @@
         v-for="cell in cells"
         :key="cell.index"
         :class="[
-          'relative aspect-square rounded-[2px] overflow-hidden bg-cell',
+          'relative h-[clamp(22px,calc((100vh-460px)/14),44px)] rounded-[2px] overflow-hidden bg-cell',
           isEditing ? 'cursor-pointer' : '',
         ]"
         @mousedown="isEditing && editing.startPaint(cell.row, cell.col)"
@@ -66,7 +66,7 @@
         />
         <span
           :class="[
-            'relative block px-[3px] pt-[1px] text-[max(10px,2cqw)] leading-tight',
+            'relative px-[3px] text-[10px] leading-[18px]',
             store.ranges[player][cell.index] > 0
               ? 'font-semibold text-white'
               : 'text-muted/70',

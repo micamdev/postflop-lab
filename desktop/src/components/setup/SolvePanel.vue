@@ -1,21 +1,30 @@
 <template>
   <UiPanel title="Solve">
-    <!-- Settings: a summary, the fields on demand (open when one is invalid). -->
+    <!-- Settings: a summary; the fields in a popover (open by itself when one is invalid). -->
     <div class="flex items-start justify-between gap-2 text-xs text-muted">
       <span class="tabular-nums">{{ summary }}</span>
-      <button
-        v-if="!settingsError"
-        type="button"
-        class="shrink-0 text-accent-ink hover:underline"
-        :aria-expanded="isOpen"
-        @click="isEditing = !isEditing"
-      >
-        {{ isOpen ? "Done" : "Edit" }}
-      </button>
+      <UiPopover v-model:open="isOpen">
+        <template #trigger>
+          <button
+            type="button"
+            class="shrink-0 text-accent-ink hover:underline"
+          >
+            Edit
+          </button>
+        </template>
+        <div class="w-72">
+          <h3
+            class="mb-3 text-[11px] font-semibold tracking-[0.07em] text-muted"
+          >
+            SOLVE SETTINGS
+          </h3>
+          <SolveSettingsFields />
+        </div>
+      </UiPopover>
     </div>
-    <div v-if="isOpen" class="mt-3 pt-3 border-t border-line">
-      <SolveSettingsFields />
-    </div>
+    <p v-if="settingsError" class="mt-2 text-xs text-red-400">
+      {{ settingsError }}
+    </p>
 
     <UiButton
       variant="primary"
@@ -38,18 +47,17 @@ import { ask } from "../../library";
 import UiPanel from "../ui/UiPanel.vue";
 import UiButton from "../ui/UiButton.vue";
 import SolveSettingsFields from "./SolveSettingsFields.vue";
+import UiPopover from "../ui/UiPopover.vue";
 
 // Solves the spot of the Setup. The solve settings are rarely changed: a summary line, the
-// fields behind "Edit".
+// fields in a popover behind "Edit"; an invalid setting is shown under the summary.
 
 const store = useStore();
 const session = useSolverSession();
 const batch = useBatch();
 
-const isEditing = ref(false);
+const isOpen = ref(false);
 const settingsError = computed(() => validateSolveSettings(session.settings));
-// An invalid setting must not stay hidden.
-const isOpen = computed(() => isEditing.value || settingsError.value !== null);
 
 const summary = computed(() => {
   const s = session.settings;
