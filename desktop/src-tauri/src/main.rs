@@ -3,6 +3,7 @@
     windows_subsystem = "windows"
 )]
 
+mod batch;
 mod bunching;
 mod guard;
 mod library;

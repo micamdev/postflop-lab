@@ -120,7 +120,7 @@ fn parse_line(line: &str) -> Result<Vec<Action>, String> {
 }
 
 /// Card configuration and action tree of a setup; every invalid input is an error.
-fn build_game_inputs(
+pub fn build_game_inputs(
     ranges: &[Range; 2],
     args: &GameTreeArgs,
 ) -> Result<(CardConfig, ActionTree), String> {
@@ -841,7 +841,7 @@ pub fn game_get_chance_reports(
 }
 
 #[cfg(test)]
-mod tests {
+pub(crate) mod tests {
     use super::*;
     use crate::library;
 
@@ -977,7 +977,7 @@ mod tests {
     }
 
     /// Setup arguments: `board`, OOP and IP flop bets `bet`, nothing else.
-    fn setup_args(board: &str, bet: &str) -> GameTreeArgs {
+    pub(crate) fn setup_args(board: &str, bet: &str) -> GameTreeArgs {
         let board_cards = (0..board.len())
             .step_by(2)
             .map(|i| card_from_str(&board[i..i + 2]).unwrap())
@@ -995,7 +995,7 @@ mod tests {
         }
     }
 
-    fn setup_ranges(oop: &str, ip: &str) -> [Range; 2] {
+    pub(crate) fn setup_ranges(oop: &str, ip: &str) -> [Range; 2] {
         [oop.parse().unwrap(), ip.parse().unwrap()]
     }
 
