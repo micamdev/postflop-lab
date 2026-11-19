@@ -89,11 +89,8 @@
 
           <UiField label="Add all-in" suffix="%">
             <template #help>
-              <UiTooltip
-                text="Add an all-in action wherever the largest possible bet is less than this share of the pot."
-              >
-                <span class="cursor-help">ⓘ</span>
-              </UiTooltip>
+              Add an all-in action wherever the largest possible bet is less
+              than this share of the pot.
             </template>
             <input
               v-model.number="config.addAllInThreshold"
@@ -105,22 +102,15 @@
           </UiField>
           <UiField label="Force all-in" suffix="%">
             <template #help>
-              <UiTooltip>
-                <span class="cursor-help">ⓘ</span>
-                <template #content>
-                  <p>
-                    Replace a bet with an all-in if the SPR (stack / pot) after
-                    the bet is called is below this threshold. 15-20% is
-                    recommended.
-                  </p>
-                  <p class="mt-1">
-                    Like PioSOLVER's "all-in threshold", which looks at the
-                    share of the initial stack committed: with s the initial SPR
-                    and r Pio's threshold, Threshold = s × (1 − r) / (1 + 2 × s
-                    × r).
-                  </p>
-                </template>
-              </UiTooltip>
+              <p>
+                Replace a bet with an all-in if the SPR (stack / pot) after the
+                bet is called is below this threshold. 15-20% is recommended.
+              </p>
+              <p class="mt-1">
+                Like PioSOLVER's "all-in threshold", which looks at the share of
+                the initial stack committed: with s the initial SPR and r Pio's
+                threshold, Threshold = s × (1 − r) / (1 + 2 × s × r).
+              </p>
             </template>
             <input
               v-model.number="config.forceAllInThreshold"
@@ -132,17 +122,12 @@
           </UiField>
           <UiField label="Merging" suffix="%">
             <template #help>
-              <UiTooltip>
-                <span class="cursor-help">ⓘ</span>
-                <template #content>
-                  <p>Merge bets of similar sizes, as PioSOLVER does.</p>
-                  <p class="mt-1">
-                    Take the largest bet (X% of the pot) and remove the other
-                    bets (Y%) with (100 + X) / (100 + Y) &lt; 1 + threshold;
-                    repeat with the next largest remaining bet.
-                  </p>
-                </template>
-              </UiTooltip>
+              <p>Merge bets of similar sizes, as PioSOLVER does.</p>
+              <p class="mt-1">
+                Take the largest bet (X% of the pot) and remove the other bets
+                (Y%) with (100 + X) / (100 + Y) &lt; 1 + threshold; repeat with
+                the next largest remaining bet.
+              </p>
             </template>
             <input
               v-model.number="config.mergingThreshold"
@@ -168,7 +153,8 @@
           <li v-for="error in errors" :key="error">{{ error }}</li>
         </ul>
         <p v-if="config.forceAllInThreshold > 30" class="mt-2 text-xs text-ip">
-          A force all-in threshold above 30% is not recommended (see ⓘ).
+          A force all-in threshold above 30% is not recommended (hover its
+          label).
         </p>
       </section>
       <BetSizesFields />
@@ -189,7 +175,6 @@ import { setupErrors } from "../../setup-validation";
 import { hasManualEdits } from "../../tree-config-value";
 import UiField from "../ui/UiField.vue";
 import UiPanel from "../ui/UiPanel.vue";
-import UiTooltip from "../ui/UiTooltip.vue";
 import BetSizesFields from "./BetSizesFields.vue";
 
 // Stacks, rake, all-in thresholds, merging and donk bets: the tree settings besides the bet

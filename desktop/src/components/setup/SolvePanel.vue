@@ -21,10 +21,10 @@
         </div>
       </UiPopover>
     </template>
-    <p class="text-xs text-muted tabular-nums">{{ summary }}</p>
-    <p v-if="settingsError" class="mt-2 text-xs text-red-400">
-      {{ settingsError }}
-    </p>
+    <div class="text-xs text-muted tabular-nums leading-5">
+      <div>{{ summary[0] }}</div>
+      <div>{{ summary[1] }}</div>
+    </div>
 
     <UiButton
       variant="primary"
@@ -34,7 +34,14 @@
     >
       ▶ Solve
     </UiButton>
-    <p v-if="blocker" class="mt-2 text-xs text-muted">{{ blocker }}</p>
+    <!-- One line kept even when empty: the panel never changes height. -->
+    <p
+      class="h-4 mt-1.5 text-xs truncate"
+      :class="settingsError ? 'text-red-400' : 'text-muted'"
+      :title="status"
+    >
+      {{ status }}
+    </p>
   </UiPanel>
 </template>
 
@@ -63,17 +70,22 @@ const settingsError = computed(() => validateSolveSettings(session.settings));
 /** What the spot still lacks to be solved (board, ranges, tree settings), or null. */
 const blocker = computed(() => solveBlocker(config, store.ranges));
 
+/** Two lines: how it computes, then when it stops. */
 const summary = computed(() => {
   const s = session.settings;
   return [
-    `${s.precision}-bit`,
-    `target ${s.targetExploitability}%`,
-    `max ${s.maxIterations} iterations`,
-    `${s.threads} threads`,
-    ...(store.isBunchingEnabled ? ["bunching on"] : []),
-    ...(session.ignoreMemoryLimit ? ["RAM limit ignored"] : []),
-  ].join(" · ");
+    [
+      `${s.precision}-bit`,
+      `${s.threads} threads`,
+      ...(store.isBunchingEnabled ? ["bunching on"] : []),
+      ...(session.ignoreMemoryLimit ? ["RAM limit ignored"] : []),
+    ].join(" · "),
+    `target ${s.targetExploitability}% · max ${s.maxIterations} iterations`,
+  ];
 });
+
+/** Under the button: an invalid setting, or what the spot lacks, or nothing. */
+const status = computed(() => settingsError.value ?? blocker.value ?? "");
 
 const canSolve = computed(
   () =>

@@ -23,7 +23,10 @@
         IP → OOP
       </button>
       <UiTooltip>
-        <span class="cursor-help">ⓘ</span>
+        <span
+          class="normal-case tracking-normal font-normal underline decoration-dotted decoration-muted/50 underline-offset-[3px] cursor-help"
+          >How to input</span
+        >
         <template #content>
           <p>
             Several sizes per field, separated by commas or spaces. Empty: no

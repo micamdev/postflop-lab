@@ -13,24 +13,18 @@
 
     <UiField label="Precision">
       <template #help>
-        <UiTooltip>
-          <span class="cursor-help text-muted">ⓘ</span>
-          <template #content>
-            <p>Precision mainly changes memory usage.</p>
-            <p class="mt-1">
-              16-bit uses about half the memory of 32-bit. Speed depends on the
-              machine: 32-bit needs fewer instructions, 16-bit moves less
-              memory.
-            </p>
-            <p class="mt-1">
-              32-bit keeps about 7 significant digits, 16-bit about 4: 16-bit is
-              not suited to a target below 0.1%.
-            </p>
-            <p class="mt-1">
-              If 32-bit does not fit in memory, the solve switches to 16-bit.
-            </p>
-          </template>
-        </UiTooltip>
+        <p>Precision mainly changes memory usage.</p>
+        <p class="mt-1">
+          16-bit uses about half the memory of 32-bit. Speed depends on the
+          machine: 32-bit needs fewer instructions, 16-bit moves less memory.
+        </p>
+        <p class="mt-1">
+          32-bit keeps about 7 significant digits, 16-bit about 4: 16-bit is not
+          suited to a target below 0.1%.
+        </p>
+        <p class="mt-1">
+          If 32-bit does not fit in memory, the solve switches to 16-bit.
+        </p>
       </template>
       <UiSegmented
         v-model="session.settings.precision"
@@ -43,11 +37,8 @@
 
     <UiField label="Target exploitability" suffix="% of the pot">
       <template #help>
-        <UiTooltip
-          text="Distance to the Nash equilibrium at which the solve stops: lower is more accurate but slower."
-        >
-          <span class="cursor-help text-muted">ⓘ</span>
-        </UiTooltip>
+        Distance to the Nash equilibrium at which the solve stops: lower is more
+        accurate but slower.
       </template>
       <input
         v-model.number="session.settings.targetExploitability"
@@ -109,7 +100,6 @@ import { validateSolveSettings } from "../../solve-settings";
 import { cardText } from "../../utils";
 import UiField from "../ui/UiField.vue";
 import UiSegmented from "../ui/UiSegmented.vue";
-import UiTooltip from "../ui/UiTooltip.vue";
 import UiButton from "../ui/UiButton.vue";
 
 // The solve settings (threads, precision, target, iterations, RAM limit, bunching), shown
