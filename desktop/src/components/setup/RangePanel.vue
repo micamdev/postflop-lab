@@ -29,17 +29,23 @@
         <template v-else>Unsaved range</template>
       </span>
       <div class="flex-1" />
-      <UiButton
-        size="sm"
-        :variant="isEditing ? 'primary' : 'ghost'"
-        @click="isEditing = !isEditing"
-      >
-        {{ isEditing ? "Done" : "Edit" }}
-      </UiButton>
+      <template v-if="isEditing">
+        <UiButton
+          size="sm"
+          title="Back to the range before Edit"
+          @click="cancelEdit"
+        >
+          Cancel
+        </UiButton>
+        <UiButton size="sm" variant="primary" @click="isEditing = false">
+          Done
+        </UiButton>
+      </template>
+      <UiButton v-else size="sm" @click="startEdit">Edit</UiButton>
     </header>
 
     <div
-      class="grid gap-[2px] select-none"
+      class="grid gap-[2px] select-none [container-type:inline-size]"
       style="grid-template-columns: repeat(13, minmax(0, 1fr))"
       @mouseleave="editing.endPaint"
       @mouseup="editing.endPaint"
@@ -48,7 +54,7 @@
         v-for="cell in cells"
         :key="cell.index"
         :class="[
-          'relative h-[26px] rounded-[2px] overflow-hidden bg-cell',
+          'relative aspect-square rounded-[2px] overflow-hidden bg-cell',
           isEditing ? 'cursor-pointer' : '',
         ]"
         @mousedown="isEditing && editing.startPaint(cell.row, cell.col)"
@@ -60,7 +66,7 @@
         />
         <span
           :class="[
-            'relative px-[3px] text-[10px] leading-[18px]',
+            'relative block px-[3px] pt-[1px] text-[max(10px,2cqw)] leading-tight',
             store.ranges[player][cell.index] > 0
               ? 'font-semibold text-white'
               : 'text-muted/70',
@@ -133,6 +139,19 @@ const props = defineProps<{ player: 0 | 1 }>();
 const store = useStore();
 const editing = useRangeEditing(props.player);
 const isEditing = ref(false);
+/** The range before Edit, for Cancel. */
+let beforeEdit: Awaited<ReturnType<typeof editing.snapshot>> | null = null;
+
+const startEdit = async () => {
+  beforeEdit = await editing.snapshot();
+  isEditing.value = true;
+};
+
+const cancelEdit = async () => {
+  if (beforeEdit) await editing.restore(beforeEdit);
+  beforeEdit = null;
+  isEditing.value = false;
+};
 const isDropTarget = ref(false);
 
 const source = computed(() => store.rangeSources[props.player]);

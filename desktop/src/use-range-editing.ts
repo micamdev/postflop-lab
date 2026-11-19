@@ -121,9 +121,28 @@ const createRangeEditing = (player: number) => {
     await refresh();
   };
 
+  /** The range as it is (engine text, with weights) and its origin, to cancel an edit. */
+  const snapshot = async () => ({
+    text: await invokes.rangeToString(player),
+    source:
+      player < 2 && store.rangeSources[player]
+        ? { ...store.rangeSources[player]! }
+        : null,
+  });
+
+  /** Puts back a range taken by `snapshot` (Cancel of an edit). */
+  const restore = async (saved: Awaited<ReturnType<typeof snapshot>>) => {
+    if (saved.text === "") await clear();
+    else await setFromText(saved.text);
+    text.value = saved.text;
+    if (player < 2) store.rangeSources[player] = saved.source;
+  };
+
   return {
     text,
     error,
+    snapshot,
+    restore,
     weight,
     numCombos,
     applyText,
