@@ -25,6 +25,10 @@ pnpm build
 # Run the app in development mode
 pnpm tauri dev
 
+# End-to-end smoke test, before a release (Windows): starts the app in a temporary
+# library, then setup, solve, navigation, save and load. Exit code 0 when it passes.
+pnpm e2e
+
 # Rust checks (from the repository root)
 cargo fmt --all --check
 cargo clippy --workspace --all-targets --all-features -- -D warnings

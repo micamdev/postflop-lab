@@ -13,7 +13,14 @@ use std::time::{Duration, Instant, SystemTime, UNIX_EPOCH};
 use tauri::{AppHandle, Emitter, Manager};
 use tauri_plugin_opener::OpenerExt;
 
+/// Environment variable that replaces the library folder (used by the end-to-end test).
+pub const LIBRARY_DIR_ENV: &str = "POSTFLOP_LAB_LIBRARY_DIR";
+
 pub fn library_dir(app: &AppHandle) -> Result<PathBuf, String> {
+    // The end-to-end test keeps its saves out of the user's library.
+    if let Some(dir) = std::env::var_os(LIBRARY_DIR_ENV) {
+        return Ok(PathBuf::from(dir));
+    }
     let documents = app
         .path()
         .document_dir()
