@@ -1,7 +1,7 @@
 <template>
   <UiPanel title="Memory">
     <p v-if="state.kind === 'none'" class="text-xs text-muted">
-      — {{ state.reason }}
+      —<template v-if="state.reason"> {{ state.reason }}</template>
     </p>
     <p v-else-if="state.kind === 'pending'" class="text-xs text-muted">
       Estimating…
@@ -71,7 +71,7 @@ type State =
 const config = useConfigStore();
 const store = useStore();
 const session = useSolverSession();
-const state = ref<State>({ kind: "none", reason: "Set up the spot." });
+const state = ref<State>({ kind: "none", reason: "" });
 
 let requestId = 0;
 let timer: ReturnType<typeof setTimeout> | undefined;
@@ -81,7 +81,8 @@ const estimate = latestOnly(async () => {
   const id = ++requestId;
   const configError = checkConfig(config);
   if (configError) {
-    state.value = { kind: "none", reason: configError };
+    // What the spot lacks is shown under Solve: not repeated here.
+    state.value = { kind: "none", reason: "" };
     return;
   }
   state.value = { kind: "pending" };
