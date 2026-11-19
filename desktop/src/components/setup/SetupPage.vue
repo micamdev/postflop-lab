@@ -12,8 +12,8 @@
       <RangePanel :player="1" />
       <div class="flex flex-col row-span-2 gap-3">
         <BoardPanel />
-        <SolvePanel />
         <MemoryEstimate />
+        <SolvePanel />
       </div>
       <TreePanel class="col-span-2" />
     </div>

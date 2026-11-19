@@ -34,15 +34,15 @@
     >
       ▶ Solve
     </UiButton>
-    <!-- One line kept even when empty: the panel never changes height. -->
-    <p
-      class="h-4 mt-1.5 text-xs truncate"
-      :class="settingsError ? 'text-red-400' : 'text-muted'"
-      :title="status"
-    >
-      {{ status }}
-    </p>
   </UiPanel>
+  <!-- Outside the panel, last in its column: appearing moves nothing. -->
+  <p
+    v-if="status"
+    class="px-1 text-xs"
+    :class="settingsError ? 'text-red-400' : 'text-muted'"
+  >
+    {{ status }}
+  </p>
 </template>
 
 <script setup lang="ts">

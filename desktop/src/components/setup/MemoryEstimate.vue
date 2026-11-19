@@ -1,50 +1,55 @@
 <template>
   <UiPanel title="Memory">
-    <p v-if="state.kind === 'none'" class="text-xs text-muted">
-      —<template v-if="state.reason"> {{ state.reason }}</template>
-    </p>
-    <p v-else-if="state.kind === 'pending'" class="text-xs text-muted">
-      Estimating…
-    </p>
-    <template v-else>
-      <p class="text-sm tabular-nums">
-        <span
-          :class="choice.ok && !choice.compression ? 'text-ink' : 'text-muted'"
-        >
-          {{ formatBytes(state.need32) }} (32-bit)
-        </span>
-        ·
-        <span
-          :class="choice.ok && choice.compression ? 'text-ink' : 'text-muted'"
-        >
-          {{ formatBytes(state.need16) }} (16-bit)
-        </span>
+    <!-- A fixed height for its two lines: the panels under it never move. -->
+    <div class="min-h-[2.625rem]">
+      <p v-if="state.kind === 'none'" class="text-xs text-muted">
+        {{ state.reason || "Not estimated yet" }}
       </p>
-      <p
-        :class="[
-          'mt-1 text-xs',
-          choice.ok
-            ? choice.fellBack
-              ? 'text-ip'
-              : 'text-muted'
-            : 'text-red-400',
-        ]"
-      >
-        <template v-if="!choice.ok"
-          >Not enough memory: {{ choice.message }}</template
-        >
-        <template v-else>
-          {{
-            Number.isFinite(state.available)
-              ? `${formatBytes(state.available)} available`
-              : "Memory unknown"
-          }}
+      <p v-else-if="state.kind === 'pending'" class="text-xs text-muted">
+        Estimating…
+      </p>
+      <template v-else>
+        <p class="text-sm tabular-nums">
+          <span
+            :class="
+              choice.ok && !choice.compression ? 'text-ink' : 'text-muted'
+            "
+          >
+            {{ formatBytes(state.need32) }} (32-bit)
+          </span>
           ·
-          {{ choice.compression ? "16-bit" : "32-bit" }}
-          <template v-if="choice.fellBack">(32-bit does not fit)</template>
-        </template>
-      </p>
-    </template>
+          <span
+            :class="choice.ok && choice.compression ? 'text-ink' : 'text-muted'"
+          >
+            {{ formatBytes(state.need16) }} (16-bit)
+          </span>
+        </p>
+        <p
+          :class="[
+            'mt-1 text-xs',
+            choice.ok
+              ? choice.fellBack
+                ? 'text-ip'
+                : 'text-muted'
+              : 'text-red-400',
+          ]"
+        >
+          <template v-if="!choice.ok"
+            >Not enough memory: {{ choice.message }}</template
+          >
+          <template v-else>
+            {{
+              Number.isFinite(state.available)
+                ? `${formatBytes(state.available)} available`
+                : "Memory unknown"
+            }}
+            ·
+            {{ choice.compression ? "16-bit" : "32-bit" }}
+            <template v-if="choice.fellBack">(32-bit does not fit)</template>
+          </template>
+        </p>
+      </template>
+    </div>
   </UiPanel>
 </template>
 
