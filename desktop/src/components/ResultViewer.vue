@@ -127,7 +127,7 @@
         />
 
         <ResultTable
-          class="flex-1 min-w-[380px]"
+          class="flex-1 min-w-[480px]"
           table-mode="basics"
           :cards="cards"
           :selected-spot="selectedSpot"
@@ -170,15 +170,14 @@
         <div
           v-for="player in COMPARE_PLAYERS.slice(0, 1)"
           :key="player"
-          class="flex flex-col flex-1 min-w-0 items-center pt-1"
+          class="flex flex-1 min-w-0 items-start justify-center"
         >
-          <div
-            class="h-5 text-[11px] font-bold tracking-wider"
-            :class="player === 'oop' ? 'text-oop' : 'text-ip'"
-          >
-            {{ player.toUpperCase() }}
-          </div>
+          <!-- A line in the player's colour on top: the middle column names OOP and IP. -->
           <ResultBasics
+            :class="[
+              'border-t-2',
+              player === 'oop' ? 'border-oop' : 'border-ip',
+            ]"
             :style="{ width: COMPARE_SIDE, height: COMPARE_SIDE }"
             :cards="cards"
             :selected-spot="selectedSpot"
@@ -198,7 +197,7 @@
         >
           <div
             v-if="strategyItems"
-            class="flex h-1.5 mx-3 mt-3 rounded-full overflow-hidden"
+            class="flex shrink-0 h-1.5 mx-3 mt-3 mb-2 rounded-full overflow-hidden"
             :title="strategyTitle"
             role="img"
             :aria-label="strategyTitle"
@@ -226,15 +225,14 @@
         <div
           v-for="player in COMPARE_PLAYERS.slice(1)"
           :key="player"
-          class="flex flex-col flex-1 min-w-0 items-center pt-1"
+          class="flex flex-1 min-w-0 items-start justify-center"
         >
-          <div
-            class="h-5 text-[11px] font-bold tracking-wider"
-            :class="player === 'oop' ? 'text-oop' : 'text-ip'"
-          >
-            {{ player.toUpperCase() }}
-          </div>
+          <!-- A line in the player's colour on top: the middle column names OOP and IP. -->
           <ResultBasics
+            :class="[
+              'border-t-2',
+              player === 'oop' ? 'border-oop' : 'border-ip',
+            ]"
             :style="{ width: COMPARE_SIDE, height: COMPARE_SIDE }"
             :cards="cards"
             :selected-spot="selectedSpot"
@@ -265,7 +263,7 @@
           :is-compare-mode="false"
         />
         <div
-          class="flex flex-col flex-1 min-w-[380px] bg-panel border-l border-line"
+          class="flex flex-col flex-1 min-w-[480px] bg-panel border-l border-line"
         >
           <NodeStrategyCards :items="strategyItems" :no-hands="noHandsAtNode" />
           <BreakdownTable
@@ -368,10 +366,14 @@ const line = ref<{ history: number[]; label: string }>({
 
 /* Node lock */
 
-/** Side of the square grid in Strategy mode (the summary keeps at least 380 px). */
-const BASICS_SIDE = "min(100cqh, 100cqw - 380px)";
-/** Side of each square grid in Compare mode (label 20 px + padding, statistics 240 px). */
-const COMPARE_SIDE = "min(100cqh - 24px, (100cqw - 240px) / 2)";
+/**
+ * Side of the square grid in Strategy, Equity and Breakdown: as tall as the area, but the
+ * summary keeps at least half the width (and 480 px), so a tall window does not give a
+ * huge grid and a cut table.
+ */
+const BASICS_SIDE = "min(100cqh, 100cqw - max(480px, 50cqw))";
+/** Side of each square grid in Compare mode (statistics 240 px between them). */
+const COMPARE_SIDE = "min(100cqh, (100cqw - 240px) / 2)";
 const COMPARE_PLAYERS = ["oop", "ip"] as const;
 
 /* Breakdown */
