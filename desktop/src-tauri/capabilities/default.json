@@ -16,7 +16,10 @@
     "fs:allow-write-text-file",
     {
       "identifier": "opener:allow-open-url",
-      "allow": [{ "url": "https://github.com/*" }]
+      "allow": [
+        { "url": "https://github.com/*" },
+        { "url": "https://ko-fi.com/*" }
+      ]
     }
   ]
 }
