@@ -57,7 +57,7 @@
 import { computed, onUnmounted, ref, watch } from "vue";
 import { useConfigStore, useStore } from "../../store";
 import {
-  checkConfig,
+  solveBlocker,
   memoryLimit,
   useSolverSession,
 } from "../../solver-session";
@@ -84,8 +84,8 @@ let timer: ReturnType<typeof setTimeout> | undefined;
 // One estimate in flight (each may build a tree): edits made meanwhile run once after it.
 const estimate = latestOnly(async () => {
   const id = ++requestId;
-  const configError = checkConfig(config);
-  if (configError) {
+  // The same check as Solve (setup and ranges): what is missing is shown under Solve.
+  if (solveBlocker(config, store.ranges)) {
     // What the spot lacks is shown under Solve: not repeated here.
     state.value = { kind: "none", reason: "" };
     return;
