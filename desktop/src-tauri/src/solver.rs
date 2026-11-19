@@ -200,8 +200,9 @@ pub fn build_action_tree(args: &GameTreeArgs, state: BoardState) -> Result<Actio
 /// its node arena (64 bytes per node), so a larger tree would take gigabytes on every edit.
 const MAX_ESTIMATE_NODES: u64 = 8_000_000;
 
-/// Memory needed to solve a setup (32-bit, 16-bit), from a separate game.
-fn estimate_memory(ranges: &[Range; 2], args: &GameTreeArgs) -> Result<(u64, u64), String> {
+/// Memory needed to solve a setup (32-bit, 16-bit, and what the bunching effect adds), from
+/// a separate game.
+fn estimate_memory(ranges: &[Range; 2], args: &GameTreeArgs) -> Result<(u64, u64, u64), String> {
     estimate_memory_capped(ranges, args, MAX_ESTIMATE_NODES)
 }
 
@@ -210,7 +211,7 @@ fn estimate_memory_capped(
     ranges: &[Range; 2],
     args: &GameTreeArgs,
     max_nodes: u64,
-) -> Result<(u64, u64), String> {
+) -> Result<(u64, u64, u64), String> {
     let (card_config, action_tree) = build_game_inputs(ranges, args)?;
     let mut game = PostFlopGame::new();
     game.update_config_checked(card_config, action_tree, |nodes| {
@@ -222,7 +223,8 @@ fn estimate_memory_capped(
         }
         Ok(())
     })?;
-    Ok(game.memory_usage())
+    let (raw, compressed) = game.memory_usage();
+    Ok((raw, compressed, game.memory_usage_bunching()))
 }
 
 #[tauri::command(async)]
@@ -255,7 +257,7 @@ pub fn game_init(
 pub fn game_memory_estimate(
     range_state: tauri::State<Mutex<RangeManager>>,
     args: GameTreeArgs,
-) -> Result<(u64, u64), String> {
+) -> Result<(u64, u64, u64), String> {
     crate::guard::guard(move || {
         let ranges: [Range; 2] = crate::guard::lock(&range_state).0[..2].try_into().unwrap();
         estimate_memory(&ranges, &args)
@@ -1049,13 +1051,15 @@ pub(crate) mod tests {
     fn estimate_matches_built_game() {
         let ranges = setup_ranges("AA,KK", "QQ,JJ");
         let args = setup_args("Td9d6h", "50%");
-        let (raw, compressed) = estimate_memory(&ranges, &args).unwrap();
+        let estimate = estimate_memory(&ranges, &args).unwrap();
 
         let (card_config, action_tree) = build_game_inputs(&ranges, &args).unwrap();
         let mut game = PostFlopGame::new();
         game.update_config(card_config, action_tree).unwrap();
-        assert_eq!((raw, compressed), game.memory_usage());
-        assert!(raw > compressed && compressed > 0);
+        let (raw, compressed) = game.memory_usage();
+        // The bunching effect adds its own tables to either precision.
+        assert_eq!(estimate, (raw, compressed, game.memory_usage_bunching()));
+        assert!(raw > compressed && compressed > 0 && estimate.2 > 0);
     }
 
     #[test]

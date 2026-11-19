@@ -48,7 +48,7 @@ pub fn prepare_lock_solve(
 
 /// Memory the re-solve may use (the game it replaces is freed: nothing counted as in use).
 fn max_prepare_memory() -> u64 {
-    crate::memory_limit::memory_limit(0)
+    crate::memory_limit::memory_limit(|| 0)
 }
 
 /// Captures a lock on the node at `history` of the current solution, with `edits` applied.

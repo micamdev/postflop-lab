@@ -153,6 +153,15 @@ fn tmp_path(dir: &Path, name: &str) -> PathBuf {
     dir.join(format!("{name}.{EXTENSION}.tmp"))
 }
 
+/// Serializes the library's writes (save, import, rename, delete): each checks that a name is
+/// free, then writes and renames; two at once (a batch saving while the user renames or
+/// saves) would both see the name free and the last rename would replace the other's file.
+static WRITE_LOCK: std::sync::Mutex<()> = std::sync::Mutex::new(());
+
+fn write_lock() -> std::sync::MutexGuard<'static, ()> {
+    WRITE_LOCK.lock().unwrap_or_else(|e| e.into_inner())
+}
+
 /// Writes `write` to a temporary file, then renames it to `dest`: `dest` is never partial.
 fn write_atomically(
     dir: &Path,
@@ -214,6 +223,7 @@ pub fn save_with_progress(
     progress: impl FnMut(u64),
 ) -> Result<String, String> {
     let name = sanitize_name(name)?;
+    let _write = write_lock();
     fs::create_dir_all(dir).map_err(|e| format!("Failed to create the library folder: {e}"))?;
     if file_path(dir, &name).exists() && !overwrite {
         return Err(ERR_EXISTS.to_string());
@@ -331,6 +341,7 @@ pub fn refresh_summary(
 pub fn rename(dir: &Path, from: &str, to: &str) -> Result<String, String> {
     check_name(from)?;
     let to = sanitize_name(to)?;
+    let _write = write_lock();
     if to == from {
         return Ok(to);
     }
@@ -360,6 +371,7 @@ fn has_exact_entry(dir: &Path, path: &Path) -> bool {
 /// Deletes a solution.
 pub fn delete(dir: &Path, name: &str) -> Result<(), String> {
     check_name(name)?;
+    let _write = write_lock();
     fs::remove_file(file_path(dir, name)).map_err(|e| format!("Failed to delete: {e}"))
 }
 
@@ -394,6 +406,7 @@ pub fn import(dir: &Path, src: &Path, overwrite: bool) -> Result<String, String>
         .to_string_lossy()
         .to_string();
     let name = sanitize_name(&stem)?;
+    let _write = write_lock();
     fs::create_dir_all(dir).map_err(|e| format!("Failed to create the library folder: {e}"))?;
     if file_path(dir, &name).exists() && !overwrite {
         return Err(ERR_EXISTS.to_string());
@@ -570,6 +583,29 @@ pub(crate) mod tests {
         );
         save(dir.path(), "spot", &game, &meta(2), true).unwrap();
         assert_eq!(list(dir.path())[0].meta.as_ref().unwrap().created_at, 2);
+    }
+
+    #[test]
+    fn concurrent_saves_of_one_name_never_overwrite_each_other() {
+        // Check, write, rename: without serializing, two writers both see the name free and
+        // the last rename silently replaces the other's file.
+        let dir = tempfile::tempdir().unwrap();
+        let game = std::sync::Arc::new(small_game(true));
+        let results: Vec<_> = (0..8)
+            .map(|i| {
+                let (dir, game) = (dir.path().to_path_buf(), game.clone());
+                std::thread::spawn(move || save(&dir, "race", &game, &meta(i), false))
+            })
+            .collect::<Vec<_>>()
+            .into_iter()
+            .map(|t| t.join().unwrap())
+            .collect();
+        let ok = results.iter().filter(|r| r.is_ok()).count();
+        assert_eq!(ok, 1, "{results:?}");
+        assert!(results
+            .iter()
+            .filter_map(|r| r.as_ref().err())
+            .all(|e| e == ERR_EXISTS));
     }
 
     #[test]

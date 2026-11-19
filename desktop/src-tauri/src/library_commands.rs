@@ -307,8 +307,7 @@ pub fn library_refresh_summary(
     crate::guard::guard(move || {
         let dir = library_dir(&app)?;
         // The open solution and its river cache stay loaded meanwhile.
-        let in_use = loaded_memory(&game_state, &cache_state);
-        let limit = crate::memory_limit::memory_limit(in_use);
+        let limit = crate::memory_limit::memory_limit(|| loaded_memory(&game_state, &cache_state));
         library::refresh_summary(&dir, &name, limit, compute_summary)
     })
 }

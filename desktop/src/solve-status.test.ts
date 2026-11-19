@@ -2,6 +2,7 @@ import { describe, expect, test } from "vitest";
 import {
   SolveFlags,
   choosePrecision,
+  memoryNeeds,
   primaryAction,
   savesBeside,
   progressFraction,
@@ -103,6 +104,13 @@ describe("progressFraction", () => {
     expect(progressFraction({ ...base, exploitability: 0.5 })).toBe(1);
     expect(progressFraction({ ...base, exploitability: Infinity })).toBe(0);
     expect(progressFraction({ ...base, initialExploitability: NaN })).toBe(0);
+  });
+});
+
+describe("memoryNeeds", () => {
+  test("the bunching effect adds its tables when it is used", () => {
+    expect(memoryNeeds([4, 2, 1], true)).toEqual({ need32: 5, need16: 3 });
+    expect(memoryNeeds([4, 2, 1], false)).toEqual({ need32: 4, need16: 2 });
   });
 });
 
