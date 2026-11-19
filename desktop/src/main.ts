@@ -3,10 +3,14 @@ import { createPinia } from "pinia";
 import { getCurrentWindow } from "@tauri-apps/api/window";
 import { Chart as ChartJS } from "chart.js";
 import App from "./components/App.vue";
+import { checkForUpdate } from "./update";
 import "./style.css";
 import "tippy.js/dist/tippy.css";
 
 createApp(App).use(createPinia()).mount("#app");
+
+// A newer release, looked for once the app is up (shown in the top bar).
+setTimeout(() => void checkForUpdate(), 3000);
 
 // disable the right click menu
 document.addEventListener("contextmenu", (e) => e.preventDefault());

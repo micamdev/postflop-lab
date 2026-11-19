@@ -71,8 +71,12 @@ jobs:
         working-directory: desktop
         run: pnpm install --frozen-lockfile
 
+      # The updater packages (MSI, AppImage) are signed: the app only installs signed ones.
       - name: Build the app
         working-directory: desktop
+        env:
+          TAURI_SIGNING_PRIVATE_KEY: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY }}
+          TAURI_SIGNING_PRIVATE_KEY_PASSWORD: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY_PASSWORD }}
         run: pnpm tauri build --target ${{ matrix.target }}
 
       - name: Upload artifacts (Windows)
@@ -83,6 +87,7 @@ jobs:
           files: |
             target/x86_64-pc-windows-msvc/release/postflop-lab.exe
             target/x86_64-pc-windows-msvc/release/bundle/msi/*.msi
+            target/x86_64-pc-windows-msvc/release/bundle/msi/*.msi.sig
 
       - name: Upload artifacts (Linux)
         if: matrix.platform == 'ubuntu-24.04' && startsWith(github.ref, 'refs/tags/')
@@ -92,6 +97,7 @@ jobs:
           files: |
             target/x86_64-unknown-linux-gnu/release/bundle/deb/*.deb
             target/x86_64-unknown-linux-gnu/release/bundle/appimage/*.AppImage
+            target/x86_64-unknown-linux-gnu/release/bundle/appimage/*.AppImage.sig
 
       # Manual run: the files as workflow artifacts (no release).
       - name: Upload workflow artifacts (manual run)
@@ -102,6 +108,46 @@ jobs:
           if-no-files-found: error
           path: |
             target/${{ matrix.target }}/release/postflop-lab.exe
-            target/${{ matrix.target }}/release/bundle/msi/*.msi
+            target/${{ matrix.target }}/release/bundle/msi/*.msi*
             target/${{ matrix.target }}/release/bundle/deb/*.deb
-            target/${{ matrix.target }}/release/bundle/appimage/*.AppImage
+            target/${{ matrix.target }}/release/bundle/appimage/*.AppImage*
+
+  # The file the installed apps read to find a newer version: the version, and the URL and
+  # signature of each platform's package, from the draft release's assets.
+  updater-manifest:
+    needs: release
+    if: startsWith(github.ref, 'refs/tags/')
+    runs-on: ubuntu-24.04
+    env:
+      GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+    steps:
+      - name: Write and upload latest.json
+        shell: bash
+        run: |
+          tag="${GITHUB_REF_NAME}"
+          mkdir sigs && cd sigs
+          gh release download "$tag" --repo "${GITHUB_REPOSITORY}" --pattern '*.sig'
+          msi=$(ls *.msi.sig)
+          appimage=$(ls *.AppImage.sig)
+          base="https://github.com/${GITHUB_REPOSITORY}/releases/download/$tag"
+          node -e '
+            const fs = require("fs");
+            const [tag, base, msi, appimage] = process.argv.slice(1);
+            const entry = (sig) => ({
+              signature: fs.readFileSync(sig, "utf8").trim(),
+              url: base + "/" + sig.slice(0, -".sig".length),
+            });
+            fs.writeFileSync("../latest.json", JSON.stringify({
+              version: tag.replace(/^v/, ""),
+              notes: "See the release notes on GitHub.",
+              pub_date: new Date().toISOString(),
+              platforms: {
+                "windows-x86_64": entry(msi),
+                // AppImage only: a .deb install cannot update from it (it finds no entry).
+                "linux-x86_64-appimage": entry(appimage),
+              },
+            }, null, 2));
+          ' "$tag" "$base" "$msi" "$appimage"
+          cd ..
+          cat latest.json
+          gh release upload "$tag" latest.json --repo "${GITHUB_REPOSITORY}" --clobber

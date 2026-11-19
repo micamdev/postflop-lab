@@ -8,9 +8,10 @@
   },
   "bundle": {
     "active": true,
+    "createUpdaterArtifacts": true,
     "category": "Utility",
     "copyright": "Copyright (C) 2022 Wataru Inariba, 2026 Michael Maccio",
-    "targets": "all",
+    "targets": ["msi", "deb", "appimage"],
     "externalBin": [],
     "icon": [
       "icons/32x32.png",
@@ -44,7 +45,15 @@
   "productName": "Postflop Lab",
   "version": "../package.json",
   "identifier": "dev.micam.postflop-lab",
-  "plugins": {},
+  "plugins": {
+    "updater": {
+      "pubkey": "dW50cnVzdGVkIGNvbW1lbnQ6IG1pbmlzaWduIHB1YmxpYyBrZXk6IERDOTlCQjRFQ0RFRTVENDkKUldSSlhlN05UcnVaM0JXc0UzVXVoSE1IdXdabyt3L1dhcm0yOGg5QTloWlRyZzgra2dHM3QwNkcK",
+      "endpoints": [
+        "https://github.com/micamdev/postflop-lab/releases/latest/download/latest.json"
+      ],
+      "windows": { "installMode": "passive" }
+    }
+  },
   "app": {
     "windows": [
       {
