@@ -12,9 +12,59 @@ const colorOf = (actions: string[], i: number, numBetActions: number) => {
   return actionColor(name, i - (actions.length - numBetActions), numBets);
 };
 
+/** The pot when a street starts and the largest bet made on it so far (amounts per street). */
+export type StreetBets = { pot: number; bet: number };
+
+/** The street's pot and the bet to face at spot `index`, from the actions chosen before it. */
+export const streetBets = (spots: Spot[], index: number): StreetBets => {
+  let start = index - 1;
+  while (start > 0 && spots[start].type !== "chance") --start;
+  const first = spots[start];
+  const pot = first.type === "root" || first.type === "chance" ? first.pot : 0;
+  let bet = 0;
+  for (const spot of spots.slice(start + 1, index)) {
+    if (spot.type !== "player") continue;
+    const action = spot.actions[spot.selectedIndex];
+    if (action && action.amount !== "0") bet = Number(action.amount);
+  }
+  return { pot, bet };
+};
+
+/**
+ * A bet or raise size in % of the pot, as the tree builds it (Pio, GTO Wizard): a bet over
+ * the pot, a raise's increase over the pot after calling. Null for fold, check, call and
+ * all-in (its size is the stack, not a choice).
+ */
+export const potPercent = (
+  name: string,
+  amount: string,
+  street: StreetBets
+): number | null => {
+  if (name !== "Bet" && name !== "Raise") return null;
+  const potAfterCall = street.pot + 2 * street.bet;
+  if (potAfterCall <= 0) return null;
+  return ((Number(amount) - street.bet) / potAfterCall) * 100;
+};
+
+/** "Bet 18 · 33%": the amount, then the % of the pot when there is one. */
+export const actionText = (action: {
+  name: string;
+  amount: string;
+  percent: number | null;
+}) => {
+  if (action.amount === "0") return action.name;
+  const percent =
+    action.percent === null ? "" : ` · ${Math.round(action.percent)}%`;
+  return `${action.name} ${action.amount}${percent}`;
+};
+
 /** The actions of a spot ("Name:amount") with their colours. Fold, check and call (amount 0)
- * come first; the others are bets and raises, ranked by amount for their colour. */
-export const toSpotActions = (actions: string[]): SpotPlayer["actions"] => {
+ * come first; the others are bets and raises, ranked by amount for their colour. With the
+ * street's bets, each bet or raise also gets its % of the pot. */
+export const toSpotActions = (
+  actions: string[],
+  street?: StreetBets
+): SpotPlayer["actions"] => {
   const numBetActions = actions.filter((a) => a.split(":")[1] !== "0").length;
   return actions.map((action, i) => {
     const [name, amount] = action.split(":");
@@ -22,6 +72,7 @@ export const toSpotActions = (actions: string[]): SpotPlayer["actions"] => {
       index: i,
       name,
       amount,
+      percent: street ? potPercent(name, amount, street) : null,
       isSelected: false,
       color: colorOf(actions, i, numBetActions),
     };

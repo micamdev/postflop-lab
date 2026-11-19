@@ -121,9 +121,8 @@
                 class="inline-block w-3 h-3 rounded-sm"
                 :style="{ backgroundColor: action.color }"
               ></span>
-              <span class="w-28 text-sm">
-                {{ action.name }}
-                {{ action.amount === "0" ? "" : action.amount }}
+              <span class="w-36 text-sm">
+                {{ actionText(action) }}
               </span>
               <input
                 type="number"
@@ -241,6 +240,7 @@
 </template>
 
 <script setup lang="ts">
+import { actionText } from "../nav-spots";
 import { computed, onMounted, ref } from "vue";
 import { useStore } from "../store";
 import * as invokes from "../invokes";

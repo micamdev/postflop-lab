@@ -61,6 +61,8 @@ export type SpotPlayer = {
     index: number;
     name: string;
     amount: string;
+    /** Bet or raise size in % of the pot (see `potPercent`), null for the others. */
+    percent: number | null;
     isSelected: boolean;
     color: string;
   }[];

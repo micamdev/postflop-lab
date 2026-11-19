@@ -35,9 +35,13 @@ export const defaultSolveSettings = (
 ): SolveSettings => ({
   threads: Math.min(64, Math.max(1, Math.floor(hardwareThreads) || 1)),
   precision: "32",
-  targetExploitability: 0.3,
+  targetExploitability: 0.5,
   maxIterations: 1000,
 });
+
+/** Targets a batch offers (% of the pot): each flop counts less once averaged in a report. */
+export const BATCH_TARGETS = [0.5, 1, 2];
+export const DEFAULT_BATCH_TARGET = 1;
 
 /** Human-readable reason why `s` cannot be used, or null. */
 export const validateSolveSettings = (s: SolveSettings): string | null =>

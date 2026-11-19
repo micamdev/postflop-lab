@@ -1,11 +1,14 @@
 import { describe, expect, test } from "vitest";
 import type { Spot, SpotChance, SpotPlayer } from "./result-types";
 import {
+  actionText,
   boardAt,
   cardsFromMask,
   historyOf,
   lineOf,
   nextLiveCard,
+  potPercent,
+  streetBets,
   toSpotActions,
 } from "./nav-spots";
 
@@ -67,6 +70,60 @@ describe("toSpotActions", () => {
     ]);
     expect(actions.every((a) => !a.isSelected && a.color)).toBe(true);
     expect(new Set(actions.map((a) => a.color)).size).toBe(4);
+  });
+});
+
+describe("bet sizes in % of the pot", () => {
+  // Root pot 10: OOP checks, IP bets 5 (50%), OOP raises to 20: +15 over the pot after
+  // calling (10 + 2 × 5 = 20), 75%. Amounts are per street, as the engine builds them.
+  test("the street's pot and the bet to face, from the actions chosen before", () => {
+    expect(streetBets(spots, 1)).toEqual({ pot: 10, bet: 0 });
+    expect(streetBets(spots, 2)).toEqual({ pot: 10, bet: 0 });
+    expect(streetBets(spots, 3)).toEqual({ pot: 10, bet: 5 });
+    // A new street starts from its chance spot's pot.
+    const turn = [
+      ...spots.slice(0, 4),
+      { ...chance(4, 34), pot: 50 },
+      spots[5],
+    ];
+    expect(streetBets(turn, 5)).toEqual({ pot: 50, bet: 0 });
+  });
+
+  test("a bet over the pot, a raise's increase over the pot after calling", () => {
+    expect(potPercent("Bet", "5", { pot: 10, bet: 0 })).toBe(50);
+    expect(potPercent("Raise", "20", { pot: 10, bet: 5 })).toBe(75);
+    for (const [name, amount] of [
+      ["Check", "0"],
+      ["Call", "0"],
+      ["Fold", "0"],
+      ["Allin", "100"],
+    ]) {
+      expect(potPercent(name, amount, { pot: 10, bet: 0 })).toBeNull();
+    }
+  });
+
+  test("toSpotActions adds them when the street is known", () => {
+    const actions = toSpotActions(["Fold:0", "Call:0", "Raise:20"], {
+      pot: 10,
+      bet: 5,
+    });
+    expect(actions.map((a) => a.percent)).toEqual([null, null, 75]);
+    expect(toSpotActions(["Check:0", "Bet:5"]).map((a) => a.percent)).toEqual([
+      null,
+      null,
+    ]);
+  });
+
+  test("labels: the amount, then the % of the pot", () => {
+    expect(actionText({ name: "Bet", amount: "18", percent: 32.7 })).toBe(
+      "Bet 18 · 33%"
+    );
+    expect(actionText({ name: "Bet", amount: "18", percent: null })).toBe(
+      "Bet 18"
+    );
+    expect(actionText({ name: "Check", amount: "0", percent: null })).toBe(
+      "Check"
+    );
   });
 });
 

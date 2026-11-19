@@ -246,6 +246,8 @@ step("setup: ranges, board and tree", async () => {
     board: ${JSON.stringify(BOARD)}, startingPot: 60, effectiveStack: 300,
     oopFlopBet: '50', ipFlopBet: '50', oopTurnBet: '75', ipTurnBet: '75',
     oopRiverBet: '100', ipRiverBet: '100',
+    oopFlopRaise: '', ipFlopRaise: '', oopTurnRaise: '', ipTurnRaise: '',
+    oopRiverRaise: '', ipRiverRaise: '',
   })`);
   await evaluate(
     `Object.assign(${store("solverSession")}.settings, { maxIterations: 100, targetExploitability: 1 })`
