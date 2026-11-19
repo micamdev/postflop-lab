@@ -252,7 +252,8 @@ pub fn game_init(
     })
 }
 
-/// Memory needed to solve the setup, without touching the game held by the app.
+/// Memory needed to solve the setup (32-bit, 16-bit, bunching tables), without touching the
+/// game held by the app.
 #[tauri::command(async)]
 pub fn game_memory_estimate(
     range_state: tauri::State<Mutex<RangeManager>>,
