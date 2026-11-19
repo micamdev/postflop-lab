@@ -58,3 +58,9 @@ Both projects' full git histories are preserved in this repository.
 ## License
 
 [AGPL-3.0-or-later](LICENSE), as the original projects.
+
+## Website
+
+`site/` is the landing page at https://postflop.mica.app (Astro, deployed to Cloudflare
+Workers): `cd site && pnpm install && pnpm dev`, then `pnpm run deploy` to publish.
+The hero's strategy grid is real solver output (`site/src/data/strategy.json`).

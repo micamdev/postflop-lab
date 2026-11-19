@@ -1,0 +1,7 @@
+{
+  "$schema": "node_modules/wrangler/config-schema.json",
+  "name": "postflop-lab-site",
+  "compatibility_date": "2026-11-19",
+  "assets": { "directory": "./dist", "not_found_handling": "404-page" },
+  "routes": [{ "pattern": "postflop.mica.app", "custom_domain": true }]
+}

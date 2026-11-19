@@ -1,0 +1,35 @@
+---
+// A screenshot of the app, framed like its window.
+import { Image } from "astro:assets";
+
+interface Props {
+  name: string;
+  alt: string;
+  eager?: boolean;
+  /** Width the image is shown at (default: the page's content width). */
+  sizes?: string;
+}
+
+const {
+  name,
+  alt,
+  eager = false,
+  sizes = "(min-width: 1152px) 1104px, 100vw",
+} = Astro.props;
+const images = import.meta.glob<{ default: ImageMetadata }>("../assets/shots/*.png", {
+  eager: true,
+});
+const image = images[`../assets/shots/${name}.png`]?.default;
+if (!image) throw new Error(`Missing screenshot: ${name}`);
+---
+
+<div class="overflow-hidden rounded-xl bg-slate shadow-[0_30px_80px_-30px_rgba(0,0,0,0.8)] ring-1 ring-rule">
+  <Image
+    src={image}
+    alt={alt}
+    widths={[700, 1100, 1600]}
+    sizes={sizes}
+    loading={eager ? "eager" : "lazy"}
+    class="block h-auto w-full"
+  />
+</div>
