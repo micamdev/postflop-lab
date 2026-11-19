@@ -192,10 +192,29 @@
           />
         </div>
 
+        <!-- No action cards: the strategy is in the navigation spot, a thin bar recalls it. -->
         <div
           class="flex flex-col w-[240px] shrink-0 bg-panel border-x border-line"
         >
-          <NodeStrategyCards :items="strategyItems" :no-hands="noHandsAtNode" />
+          <div
+            v-if="strategyItems"
+            class="flex h-1.5 mx-3 mt-3 rounded-full overflow-hidden"
+            :title="strategyTitle"
+            role="img"
+            :aria-label="strategyTitle"
+          >
+            <div
+              v-for="item in strategyItems"
+              :key="item.name + item.amount"
+              :style="{
+                width: `${item.frequency * 100}%`,
+                backgroundColor: item.color,
+              }"
+            />
+          </div>
+          <p v-else-if="noHandsAtNode" class="px-3 pt-3 text-xs text-muted">
+            No hands for this player at this node.
+          </p>
           <ResultCompare
             class="flex-1 min-h-0"
             :selected-spot="selectedSpot"
@@ -310,6 +329,7 @@ import {
 import UiButton from "./ui/UiButton.vue";
 import UiTooltip from "./ui/UiTooltip.vue";
 import { nodeStrategy } from "../node-strategy";
+import { toFixed1 } from "../utils";
 import { useLockResolve } from "../lock-resolve";
 import ResultBasics from "./ResultBasics.vue";
 import ResultTable from "./ResultTable.vue";
@@ -451,6 +471,16 @@ const strategyItems = computed(() => {
     shownResults.value.weights[player]
   );
 });
+
+/** The strategy as text, for the thin bar of Compare: "Check 0.2%, Bet 30 99.8%". */
+const strategyTitle = computed(() =>
+  (strategyItems.value ?? [])
+    .map(
+      (item) =>
+        `${item.amount === "0" ? item.name : `${item.name} ${item.amount}`} ${toFixed1(item.frequency * 100)}%`
+    )
+    .join(", ")
+);
 
 /** The acting player has no hand left at the selected node. */
 const noHandsAtNode = computed(() => {
