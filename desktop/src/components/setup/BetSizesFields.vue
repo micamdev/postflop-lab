@@ -102,22 +102,7 @@ import { setupErrors } from "../../setup-validation";
 import { sanitizeBetString } from "../../utils";
 import { hasManualEdits } from "../../tree-config-value";
 import UiTooltip from "../ui/UiTooltip.vue";
-
-type BetField =
-  | "oopFlopBet"
-  | "oopFlopRaise"
-  | "oopTurnBet"
-  | "oopTurnRaise"
-  | "oopTurnDonk"
-  | "oopRiverBet"
-  | "oopRiverRaise"
-  | "oopRiverDonk"
-  | "ipFlopBet"
-  | "ipFlopRaise"
-  | "ipTurnBet"
-  | "ipTurnRaise"
-  | "ipRiverBet"
-  | "ipRiverRaise";
+import { type BetField, isRaiseField } from "../../bet-fields";
 
 const STREETS = ["Flop", "Turn", "River"];
 
@@ -130,7 +115,7 @@ watch(
   () => (Object.keys(errors) as BetField[]).map((field) => config[field]),
   () => {
     for (const field of Object.keys(errors) as BetField[]) {
-      const result = sanitizeBetString(config[field], field.endsWith("Raise"));
+      const result = sanitizeBetString(config[field], isRaiseField(field));
       if (result.valid) delete errors[field];
       else errors[field] = result.s;
     }
@@ -161,7 +146,7 @@ const rows = computed(() => {
 
 /** Tidies a valid entry; keeps an invalid one as typed, outlined, with the reason. */
 const sanitize = (field: BetField) => {
-  const result = sanitizeBetString(config[field], field.endsWith("Raise"));
+  const result = sanitizeBetString(config[field], isRaiseField(field));
   if (result.valid) {
     config[field] = result.s;
     delete errors[field];
