@@ -1,5 +1,10 @@
 <template>
-  <span class="inline-flex gap-0.5" :title="title">
+  <span
+    class="inline-flex gap-0.5"
+    role="img"
+    :title="title"
+    :aria-label="title"
+  >
     <span
       v-for="card in cards"
       :key="card"
@@ -30,8 +35,13 @@ const cards = computed(() =>
   props.sorted ? [...props.board].sort((a, b) => b - a) : props.board
 );
 
-/** The board with suits, for a tooltip and screen readers ("Kd 8s 3c"). */
+/** The board with suits, in the order shown, for a tooltip and screen readers ("Kd 8s 3c"). */
 const title = computed(() =>
-  props.board.map((c) => cardText(c).rank + "cdhs"[c & 3]).join(" ")
+  cards.value
+    .map((c) => {
+      const text = cardText(c);
+      return text.rank + text.suitLetter;
+    })
+    .join(" ")
 );
 </script>
