@@ -2,19 +2,20 @@
   <div class="relative flex h-full min-h-0">
     <SavedExplorer />
 
+    <!-- Ranges on top, the tree settings under them, board / memory / solve on the right. -->
     <div
       v-if="store.sideView === 'main'"
-      class="flex flex-1 min-w-0 gap-3 p-3 overflow-y-auto"
+      class="grid flex-1 min-w-0 content-start gap-3 p-3 overflow-y-auto"
+      style="grid-template-columns: minmax(0, 1fr) minmax(0, 1fr) 280px"
     >
-      <RangePanel class="flex-1 self-start" :player="0" />
-      <RangePanel class="flex-1 self-start" :player="1" />
-      <div class="flex flex-col shrink-0 w-[290px] gap-3">
+      <RangePanel :player="0" />
+      <RangePanel :player="1" />
+      <div class="flex flex-col row-span-2 gap-3">
         <BoardPanel />
-        <StacksPanel />
-        <BetSizesPanel />
         <MemoryEstimate />
         <SolvePanel />
       </div>
+      <TreePanel class="col-span-2" />
     </div>
 
     <div
@@ -26,7 +27,7 @@
           ← Back to setup
         </UiButton>
         <h1 class="text-lg font-semibold">
-          {{ store.sideView === "bunching" ? "Bunching effect" : "Tree" }}
+          {{ store.sideView === "bunching" ? "Bunching effect" : "Tree lines" }}
         </h1>
       </div>
       <TreeConfig v-show="store.sideView === 'tree-config'" />
@@ -40,8 +41,7 @@ import { useStore } from "../../store";
 import SavedExplorer from "./SavedExplorer.vue";
 import RangePanel from "./RangePanel.vue";
 import BoardPanel from "./BoardPanel.vue";
-import StacksPanel from "./StacksPanel.vue";
-import BetSizesPanel from "./BetSizesPanel.vue";
+import TreePanel from "./TreePanel.vue";
 import MemoryEstimate from "./MemoryEstimate.vue";
 import SolvePanel from "./SolvePanel.vue";
 import TreeConfig from "../TreeConfig.vue";

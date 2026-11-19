@@ -116,3 +116,15 @@ export const checkConfig = (config: Config): string | null => {
   }
   return null;
 };
+
+/** Why Solve cannot start (the setup, or an empty range), or null. */
+export const solveBlocker = (
+  config: Config,
+  ranges: number[][]
+): string | null => {
+  const configError = checkConfig(config);
+  if (configError !== null) return configError;
+  if (ranges[0].every((w) => w === 0)) return "The OOP range is empty.";
+  if (ranges[1].every((w) => w === 0)) return "The IP range is empty.";
+  return null;
+};

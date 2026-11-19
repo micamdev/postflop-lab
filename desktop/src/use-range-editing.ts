@@ -121,9 +121,40 @@ const createRangeEditing = (player: number) => {
     await refresh();
   };
 
+  /** The range as it is (engine text, with weights) and its origin, to cancel an edit. */
+  const snapshot = async () => ({
+    /** A solution loaded since replaces the ranges: this snapshot no longer applies. */
+    loadCount: store.solutionLoadCount,
+    text: await invokes.rangeToString(player),
+    source:
+      player < 2 && store.rangeSources[player]
+        ? { ...store.rangeSources[player]! }
+        : null,
+  });
+
+  /**
+   * Puts back a range taken by `snapshot` (Cancel of an edit). Refused (false) once a
+   * solution was loaded since, or if the range cannot be set back.
+   */
+  const restore = async (
+    saved: Awaited<ReturnType<typeof snapshot>>
+  ): Promise<boolean> => {
+    if (saved.loadCount !== store.solutionLoadCount) return false;
+    if (saved.text === "") await clear();
+    else if (!(await setFromText(saved.text))) return false;
+    text.value = saved.text;
+    // Last: an edit still being applied must not leave the origin "modified".
+    if (player < 2) {
+      store.rangeSources[player] = saved.source && { ...saved.source };
+    }
+    return true;
+  };
+
   return {
     text,
     error,
+    snapshot,
+    restore,
     weight,
     numCombos,
     applyText,

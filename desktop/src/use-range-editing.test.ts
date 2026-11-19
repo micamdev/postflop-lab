@@ -95,3 +95,52 @@ describe("weights read from the engine", () => {
     expect(useStore().ranges[0][0]).toBe(70);
   });
 });
+
+describe("cancel an edit", () => {
+  test("restore puts back the range and its origin as they were", async () => {
+    const store = useStore();
+    const editing = useRangeEditing(0);
+    await editing.loadText("AA", ["BB defend"]);
+    mocked.rangeToString.mockResolvedValue("AA,KK:0.5");
+    const before = await editing.snapshot();
+
+    await editing.setCell(2, 2, 100);
+    expect(store.rangeSources[0]?.modified).toBe(true);
+
+    mocked.rangeFromString.mockClear();
+    await editing.restore(before);
+    expect(mocked.rangeFromString).toHaveBeenCalledWith(0, "AA,KK:0.5");
+    expect(store.rangeSources[0]).toEqual({
+      path: ["BB defend"],
+      modified: false,
+    });
+  });
+
+  test("an empty range before the edit is cleared back", async () => {
+    const editing = useRangeEditing(1);
+    mocked.rangeToString.mockResolvedValue("");
+    const before = await editing.snapshot();
+    await editing.setCell(1, 1, 100);
+    await editing.restore(before);
+    expect(mocked.rangeClear).toHaveBeenCalledWith(1);
+    expect(useStore().rangeSources[1]).toBeNull();
+  });
+});
+
+describe("cancel after a solution was loaded", () => {
+  test("a snapshot from before the load is not restored", async () => {
+    const store = useStore();
+    const editing = useRangeEditing(0);
+    mocked.rangeToString.mockResolvedValue("AA");
+    const before = await editing.snapshot();
+
+    // A solution replaces the ranges meanwhile.
+    store.solutionLoadCount++;
+    store.rangeSources[0] = null;
+    mocked.rangeFromString.mockClear();
+
+    expect(await editing.restore(before)).toBe(false);
+    expect(mocked.rangeFromString).not.toHaveBeenCalled();
+    expect(store.rangeSources[0]).toBeNull();
+  });
+});

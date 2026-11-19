@@ -4,8 +4,9 @@
       'flex flex-col min-w-0 gap-2 rounded-lg border bg-panel px-3 py-2.5',
       isDropTarget ? 'border-accent' : 'border-line',
     ]"
+    @dragenter="onDragOver"
     @dragover="onDragOver"
-    @dragleave="isDropTarget = false"
+    @dragleave="onDragLeave"
     @drop="onDrop"
   >
     <header class="flex items-center gap-2 min-w-0">
@@ -29,45 +30,69 @@
         <template v-else>Unsaved range</template>
       </span>
       <div class="flex-1" />
-      <UiButton
-        size="sm"
-        :variant="isEditing ? 'primary' : 'ghost'"
-        @click="isEditing = !isEditing"
-      >
-        {{ isEditing ? "Done" : "Edit" }}
-      </UiButton>
+      <template v-if="isEditing">
+        <UiButton
+          size="sm"
+          title="Back to the range before Edit"
+          @click="cancelEdit"
+        >
+          Cancel
+        </UiButton>
+        <UiButton size="sm" variant="primary" @click="isEditing = false">
+          Done
+        </UiButton>
+      </template>
+      <UiButton v-else size="sm" @click="startEdit">Edit</UiButton>
     </header>
 
-    <div
-      class="grid gap-[2px] select-none"
-      style="grid-template-columns: repeat(13, minmax(0, 1fr))"
-      @mouseleave="editing.endPaint"
-      @mouseup="editing.endPaint"
-    >
+    <div class="relative">
+      <!-- While a saved range is dragged over it, or when the range is empty. -->
       <div
-        v-for="cell in cells"
-        :key="cell.index"
+        v-if="isDropTarget || (!isEditing && editing.numCombos.value === 0)"
         :class="[
-          'relative h-[26px] rounded-[2px] overflow-hidden bg-cell',
-          isEditing ? 'cursor-pointer' : '',
+          'absolute inset-0 z-10 flex items-center justify-center rounded-md text-sm pointer-events-none',
+          isDropTarget ? 'bg-accent/15 text-ink font-semibold' : 'text-muted',
         ]"
-        @mousedown="isEditing && editing.startPaint(cell.row, cell.col)"
-        @mouseenter="isEditing && editing.paintOver(cell.row, cell.col)"
+      >
+        <span class="px-3 py-1.5 rounded-md bg-panel/90">
+          {{
+            isDropTarget
+              ? `Drop to load into ${player === 0 ? "OOP" : "IP"}`
+              : "Empty range: Edit, or drag one from the explorer"
+          }}
+        </span>
+      </div>
+      <div
+        class="grid gap-[2px] select-none"
+        style="grid-template-columns: repeat(13, minmax(0, 1fr))"
+        @mouseleave="editing.endPaint"
+        @mouseup="editing.endPaint"
       >
         <div
-          :class="['absolute inset-x-0 bottom-0', fillClass]"
-          :style="{ height: `${store.ranges[player][cell.index]}%` }"
-        />
-        <span
+          v-for="cell in cells"
+          :key="cell.index"
           :class="[
-            'relative px-[3px] text-[10px] leading-[18px]',
-            store.ranges[player][cell.index] > 0
-              ? 'font-semibold text-white'
-              : 'text-muted/70',
+            'relative h-[clamp(22px,calc((100vh-460px)/14),44px)] rounded-[2px] overflow-hidden bg-cell',
+            isEditing ? 'cursor-pointer' : '',
           ]"
+          @mousedown="isEditing && editing.startPaint(cell.row, cell.col)"
+          @mouseenter="isEditing && editing.paintOver(cell.row, cell.col)"
         >
-          {{ cell.text }}
-        </span>
+          <div
+            :class="['absolute inset-x-0 bottom-0', fillClass]"
+            :style="{ height: `${store.ranges[player][cell.index]}%` }"
+          />
+          <span
+            :class="[
+              'relative px-[3px] text-[10px] leading-[18px]',
+              store.ranges[player][cell.index] > 0
+                ? 'font-semibold text-white'
+                : 'text-muted/70',
+            ]"
+          >
+            {{ cell.text }}
+          </span>
+        </div>
       </div>
     </div>
 
@@ -77,7 +102,6 @@
           ((editing.numCombos.value * 100) / ((52 * 51) / 2)).toFixed(1)
         }}%)
       </span>
-      <span v-if="!isEditing">Drop a saved range here</span>
     </footer>
 
     <div v-if="isEditing" class="flex flex-col gap-2">
@@ -122,7 +146,7 @@
 </template>
 
 <script setup lang="ts">
-import { computed, ref } from "vue";
+import { computed, ref, watch } from "vue";
 import { useStore } from "../../store";
 import { ranks } from "../../utils";
 import { useRangeEditing } from "../../use-range-editing";
@@ -133,6 +157,28 @@ const props = defineProps<{ player: 0 | 1 }>();
 const store = useStore();
 const editing = useRangeEditing(props.player);
 const isEditing = ref(false);
+/** The range before Edit, for Cancel. */
+let beforeEdit: Awaited<ReturnType<typeof editing.snapshot>> | null = null;
+
+const startEdit = async () => {
+  beforeEdit = await editing.snapshot();
+  isEditing.value = true;
+};
+
+// A loaded solution replaces the ranges: the edit (and its Cancel) no longer applies.
+watch(
+  () => store.solutionLoadCount,
+  () => {
+    beforeEdit = null;
+    isEditing.value = false;
+  }
+);
+
+const cancelEdit = async () => {
+  if (beforeEdit) await editing.restore(beforeEdit);
+  beforeEdit = null;
+  isEditing.value = false;
+};
 const isDropTarget = ref(false);
 
 const source = computed(() => store.rangeSources[props.player]);
@@ -156,11 +202,20 @@ const cells = Array.from({ length: 13 * 13 }, (_, index) => {
 
 const RANGE_TYPE = "application/x-postflop-range";
 
+/** Accepts a saved range (on enter too: else each new element shows "forbidden"). */
 const onDragOver = (e: DragEvent) => {
   if (!e.dataTransfer?.types.includes(RANGE_TYPE)) return;
   e.preventDefault();
   e.dataTransfer.dropEffect = "copy";
   isDropTarget.value = true;
+};
+
+/** Leaving for another element inside the panel (a cell, a gap) is not leaving it. */
+const onDragLeave = (e: DragEvent) => {
+  const panel = e.currentTarget as HTMLElement;
+  const to = e.relatedTarget as Node | null;
+  if (to && panel.contains(to)) return;
+  isDropTarget.value = false;
 };
 
 const onDrop = async (e: DragEvent) => {

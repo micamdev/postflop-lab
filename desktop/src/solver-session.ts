@@ -21,7 +21,7 @@ import {
 } from "./solve-settings";
 import { SolveFlags, choosePrecision } from "./solve-status";
 
-export { checkConfig } from "./setup-validation";
+export { checkConfig, solveBlocker } from "./setup-validation";
 import { checkConfig } from "./setup-validation";
 
 /** Memory the solver may use: available memory, or 70% of the total on macOS; unlimited when

@@ -1,12 +1,57 @@
 <template>
-  <UiPanel title="Bet sizes">
-    <template #actions>
-      <UiTooltip
-        text="Sizes in % of the pot, comma separated (e.g. 33, 75). Raises also accept 2.5x; a for all-in."
+  <section>
+    <header
+      class="flex items-center gap-1.5 mb-2 text-[11px] font-semibold tracking-[0.07em] text-muted"
+    >
+      <span class="mr-auto">BET SIZES</span>
+      <button
+        type="button"
+        class="px-1.5 rounded hover:bg-panel2 hover:text-ink normal-case tracking-normal font-normal disabled:opacity-40"
+        :disabled="locked || sideErrors.oop"
+        title="Copy OOP's sizes to IP"
+        @click="copySizes('oop', 'ip')"
       >
-        <span class="cursor-help">ⓘ</span>
+        OOP → IP
+      </button>
+      <button
+        type="button"
+        class="px-1.5 rounded hover:bg-panel2 hover:text-ink normal-case tracking-normal font-normal disabled:opacity-40"
+        :disabled="locked || sideErrors.ip"
+        title="Copy IP's sizes to OOP"
+        @click="copySizes('ip', 'oop')"
+      >
+        IP → OOP
+      </button>
+      <UiTooltip>
+        <span
+          class="normal-case tracking-normal font-normal underline decoration-dotted decoration-muted/50 underline-offset-[3px] cursor-help"
+          >How to input</span
+        >
+        <template #content>
+          <p>
+            Several sizes per field, separated by commas or spaces. Empty: no
+            bet or raise.
+          </p>
+          <ul class="mt-1 pl-4 list-disc">
+            <li>
+              A share of the pot: "50" or "50%". A raise first calls, then bets
+              that share: pot 100, bet 75, a 50% raise is 75 + (100 + 75 + 75) ×
+              50% = 200.
+            </li>
+            <li>A multiple of the previous bet (raises only): "2.5x".</li>
+            <li>All-in: "a".</li>
+            <li>
+              A fixed amount: "100c"; for raises, a cap on the number of raises:
+              "20c3r".
+            </li>
+            <li>
+              Geometric: "3e" splits the remaining stack into 3 equal bets in %
+              of the pot ("e" alone: the streets left); "2e200" caps it at 200%.
+            </li>
+          </ul>
+        </template>
       </UiTooltip>
-    </template>
+    </header>
 
     <table class="w-full text-xs">
       <thead>
@@ -44,35 +89,18 @@
       </tbody>
     </table>
 
-    <p v-if="locked" class="mt-2 text-xs text-ip">
-      This tree has lines edited by hand: pot, stack and sizes can only change
-      in Edit tree.
-    </p>
-
-    <div class="flex items-center justify-between mt-2 text-xs">
-      <span class="truncate text-muted" :title="treeOrigin">
-        {{ treeOrigin }}
-        <span v-if="store.treeSource?.modified" class="text-ip">
-          (modified)</span
-        >
-      </span>
-      <button
-        type="button"
-        class="shrink-0 font-semibold text-accent-ink hover:underline"
-        @click="store.sideView = 'tree-config'"
-      >
-        Edit tree ›
-      </button>
-    </div>
-  </UiPanel>
+    <ul v-if="betErrors.length > 0" class="mt-2 text-xs text-red-400">
+      <li v-for="error in betErrors" :key="error">{{ error }}</li>
+    </ul>
+  </section>
 </template>
 
 <script setup lang="ts">
 import { computed, reactive, watch } from "vue";
-import { useConfigStore, useStore } from "../../store";
+import { useConfigStore } from "../../store";
+import { setupErrors } from "../../setup-validation";
 import { sanitizeBetString } from "../../utils";
 import { hasManualEdits } from "../../tree-config-value";
-import UiPanel from "../ui/UiPanel.vue";
 import UiTooltip from "../ui/UiTooltip.vue";
 
 type BetField =
@@ -94,7 +122,6 @@ type BetField =
 const STREETS = ["Flop", "Turn", "River"];
 
 const config = useConfigStore();
-const store = useStore();
 const locked = computed(() => hasManualEdits(config));
 const errors = reactive<Partial<Record<BetField, string>>>({});
 
@@ -143,7 +170,23 @@ const sanitize = (field: BetField) => {
   }
 };
 
-const treeOrigin = computed(() =>
-  store.treeSource ? store.treeSource.path.join(" › ") : "Unsaved tree"
-);
+/** Copies one player's bet and raise sizes (not the donk sizes) to the other. */
+const copySizes = (from: "oop" | "ip", to: "oop" | "ip") => {
+  for (const street of STREETS) {
+    for (const kind of ["Bet", "Raise"]) {
+      config[`${to}${street}${kind}` as BetField] =
+        config[`${from}${street}${kind}` as BetField];
+    }
+  }
+};
+
+const betErrors = computed(() => {
+  const all = setupErrors(config);
+  return [...all.oop, ...all.ip];
+});
+/** A side with an invalid size is not copied. */
+const sideErrors = computed(() => {
+  const all = setupErrors(config);
+  return { oop: all.oop.length > 0, ip: all.ip.length > 0 };
+});
 </script>
