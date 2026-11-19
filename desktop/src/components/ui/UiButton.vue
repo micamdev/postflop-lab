@@ -6,7 +6,7 @@
       'inline-flex items-center justify-center gap-1.5 rounded-md font-semibold whitespace-nowrap',
       'transition-colors select-none disabled:opacity-40 disabled:cursor-default',
       'focus-visible:outline focus-visible:outline-2 focus-visible:outline-accent',
-      { sm: 'h-6 px-2 text-[11px]', md: 'h-7 px-3 text-xs', lg: 'h-8 px-3.5 text-sm' }[size],
+      { sm: 'h-6 px-2 text-[11px]', md: 'h-7 px-3 text-xs' }[size],
       variantClass,
     ]"
   >
@@ -20,7 +20,7 @@ import { computed } from "vue";
 const props = withDefaults(
   defineProps<{
     variant?: "primary" | "ghost" | "danger";
-    size?: "sm" | "md" | "lg";
+    size?: "sm" | "md";
     disabled?: boolean;
   }>(),
   { variant: "ghost", size: "md", disabled: false }
