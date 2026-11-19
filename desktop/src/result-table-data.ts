@@ -143,6 +143,23 @@ export const chanceRows = (
   return rows;
 };
 
+/**
+ * Why some cards show "-" (a range is empty there: no equity or EV), or null. When a player
+ * has no combo on any card, the line itself is never played by them (e.g. IP always bets).
+ */
+export const chanceEmptyNote = (reports: ChanceReports): string | null => {
+  const cards = reports.status.flatMap((s, card) => (s === 0 ? [] : [card]));
+  if (!cards.some((card) => reports.status[card] === 1)) return null;
+  const absent = [0, 1].find((player) =>
+    cards.every((card) => reports.combos[player][card] === 0)
+  );
+  if (absent !== undefined) {
+    const name = absent === 0 ? "OOP" : "IP";
+    return `${name}'s range is empty after this line (it is never played): no equity or EV.`;
+  }
+  return "A range is empty after the cards showing “-”: no equity or EV there.";
+};
+
 /** Sorted copy, by hand order or by a value (undefined values after the others, ascending). */
 export const sortRows = (
   rows: number[][],

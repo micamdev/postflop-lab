@@ -4,6 +4,7 @@ import { toSpotActions } from "./nav-spots";
 import {
   INDEX,
   chanceRows,
+  chanceEmptyNote,
   columnIndex,
   handRows,
   sortRows,
@@ -104,6 +105,37 @@ describe("chanceRows", () => {
     expect(rows[0].slice(0, 2)).toEqual([0xff01, 3]);
     expect(rows[0].slice(2).every(isNaN)).toBe(true);
     expect(rows[1]).toEqual([0xff02, 3, Number.NaN, 0.5, 7, 1]);
+  });
+});
+
+describe("chanceEmptyNote", () => {
+  const reports = (status: number[], combos: number[][]) =>
+    ({ status, combos }) as unknown as ChanceReports;
+  const pad = (xs: number[]) => [...xs, ...Array(52 - xs.length).fill(0)];
+
+  test("none when every card has values", () => {
+    expect(
+      chanceEmptyNote(reports(pad([2, 2]), [pad([3, 3]), pad([4, 4])]))
+    ).toBeNull();
+  });
+
+  test("the player who never reaches the line", () => {
+    // IP always bets: no IP combo after this line, on every card (#57).
+    const r = reports(pad([1, 0, 1]), [pad([16, 0, 16]), pad([0, 0, 0])]);
+    expect(chanceEmptyNote(r)).toBe(
+      "IP's range is empty after this line (it is never played): no equity or EV."
+    );
+    const oop = reports(pad([1, 1]), [pad([0, 0]), pad([5, 5])]);
+    expect(chanceEmptyNote(oop)).toBe(
+      "OOP's range is empty after this line (it is never played): no equity or EV."
+    );
+  });
+
+  test("some cards only", () => {
+    const r = reports(pad([2, 1]), [pad([3, 3]), pad([4, 0])]);
+    expect(chanceEmptyNote(r)).toBe(
+      "A range is empty after the cards showing “-”: no equity or EV there."
+    );
   });
 });
 
