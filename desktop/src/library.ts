@@ -12,6 +12,7 @@ import {
 import * as invokes from "./invokes";
 import { DAMAGED_FILE } from "./library-list";
 import { weightPercent } from "./utils";
+import { leaveTreeEdit } from "./tree-edit-guard";
 
 /** Asks a yes/no question in a native dialog. */
 export const ask = async (message: string): Promise<boolean> => {
@@ -72,6 +73,8 @@ export const loadSolution = async (name: string): Promise<string | null> => {
   if (store.isLibraryBusy || isLoading) return null;
   isLoading = true;
   try {
+    // An open tree lines edit is saved, dropped, or the load does not happen.
+    if (!(await leaveTreeEdit())) return null;
     // Refused loads (unreadable file, not enough memory) leave everything as it is.
     try {
       await invokes.libraryCheckLoad(name);
