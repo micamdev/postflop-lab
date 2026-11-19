@@ -723,7 +723,7 @@ pub fn results_of(game: &mut PostFlopGame) -> GameResultsResponse {
     }
 }
 
-#[derive(Serialize)]
+#[derive(Serialize, Debug)]
 pub struct GameChanceReportsResponse {
     status: Vec<i32>,
     combos: [Vec<f64>; 2],
@@ -745,6 +745,16 @@ pub fn game_get_chance_reports(
     if crate::guard::lock(&cache_state).active.is_some() {
         return Err(ERR_BEYOND_DEPTH.to_string());
     }
+    chance_reports(&mut game, &append, num_actions)
+}
+
+/// Per dealt card at the current chance node, after the actions of `append[1..]`: combos,
+/// equity, EV, EQR and strategy of each player.
+pub(crate) fn chance_reports(
+    game: &mut PostFlopGame,
+    append: &[isize],
+    num_actions: usize,
+) -> Result<GameChanceReportsResponse, String> {
     if append.is_empty() {
         return Err("No card to report on".to_string());
     }
@@ -768,7 +778,7 @@ pub fn game_get_chance_reports(
 
         game.play(chance);
         let after = append[1..].iter().map(|&a| action_usize(a));
-        if let Err(e) = play_all_checked(&mut game, after) {
+        if let Err(e) = play_all_checked(game, after) {
             game.apply_history(&history);
             return Err(e);
         }
@@ -892,6 +902,34 @@ pub(crate) mod tests {
         assert_eq!(loaded.history(), &[0, 0]);
         apply_history_checked(&mut loaded, &[]).unwrap();
         assert!(!loaded.is_chance_node());
+    }
+
+    #[test]
+    fn turn_cards_have_equity_and_ev_in_a_turn_depth_save() {
+        // #57: flop solved, saved up to the turn; flop check, check; the Turn tab.
+        let dir = tempfile::tempdir().unwrap();
+        let mut game = crate::locks::tests::flop_game();
+        crate::locks::tests::solve_it(&mut game, 20);
+        game.set_target_storage_mode(BoardState::Turn).unwrap();
+        let mut meta = library::tests::meta(1);
+        meta.depth = "turn".to_string();
+        library::save(dir.path(), "turn-depth", &game, &meta, false).unwrap();
+        let (mut loaded, _) = library::load(dir.path(), "turn-depth", u64::MAX).unwrap();
+
+        apply_history_checked(&mut loaded, &[0, 0]).unwrap();
+        assert!(loaded.is_chance_node());
+        let card = loaded.possible_cards().trailing_zeros() as usize;
+        loaded.play(card);
+        let num_actions = loaded.available_actions().len();
+        apply_history_checked(&mut loaded, &[0, 0]).unwrap();
+        let reports = chance_reports(&mut loaded, &[-1], num_actions).unwrap();
+        // The game is back where it was.
+        assert_eq!(loaded.history(), &[0, 0]);
+        let possible = (0..52).filter(|&c| reports.status[c] != 0).count();
+        assert_eq!(possible, 49);
+        for card in (0..52).filter(|&c| reports.status[c] != 0) {
+            assert_eq!(reports.status[card], 2, "card {card}: {reports:?}");
+        }
     }
 
     #[test]

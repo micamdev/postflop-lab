@@ -53,6 +53,13 @@
     </div>
 
     <div
+      v-if="chanceNote"
+      class="shrink-0 px-3 py-1.5 border-b border-line text-xs text-muted"
+    >
+      {{ chanceNote }}
+    </div>
+
+    <div
       ref="tableDiv"
       class="flex-grow overflow-y-scroll will-change-scroll"
       @scroll.passive="onTableScroll"
@@ -371,6 +378,7 @@ import {
 
 import {
   INDEX,
+  chanceEmptyNote,
   chanceRows,
   columnIndex,
   handRows,
@@ -422,6 +430,13 @@ const props = withDefaults(defineProps<Props>(), {
   hoverContent: null,
   scrollTarget: null,
 });
+
+/** Why some cards show "-" in the turn or river table. */
+const chanceNote = computed(() =>
+  props.tableMode === "chance" && props.chanceReports
+    ? chanceEmptyNote(props.chanceReports)
+    : null
+);
 
 const displayOptions =
   props.tableMode !== "chance"
