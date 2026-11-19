@@ -6,10 +6,10 @@
     <div class="w-[28rem] p-5 rounded-lg border border-line bg-panel shadow-xl">
       <h2 class="mb-1 font-semibold">Solve a flop subset</h2>
       <p class="mb-4 text-sm text-muted">
-        The spot of the Setup (ranges, tree, solve settings) solved on a set of
-        flops that stands for all of them, each saved in the library. Its report
-        then compares the flops. Node locks and the bunching effect are not
-        used.
+        The spot of the Setup (ranges, tree, threads, precision) solved on a set
+        of flops that stands for all of them, each saved in the library. Its
+        report then compares the flops. Node locks and the bunching effect are
+        not used.
       </p>
 
       <div class="flex flex-col gap-3 text-sm">
@@ -30,6 +30,19 @@
           Name prefix
           <input v-model="prefix" type="text" class="ui-input w-56" />
         </label>
+        <div class="flex items-center justify-between gap-3">
+          Target (of the pot)
+          <UiSegmented
+            :model-value="String(target)"
+            :options="
+              BATCH_TARGETS.map((t) => ({
+                value: String(t),
+                label: `${t}%`,
+              }))
+            "
+            @update:model-value="target = Number($event)"
+          />
+        </div>
         <div class="flex items-center justify-between gap-3">
           Save depth
           <UiSegmented
@@ -81,6 +94,7 @@
 import { computed, ref, watch } from "vue";
 import { useBatch, BatchPreview } from "../../use-batch";
 import { SUBSET_SIZES } from "../../flop-subsets";
+import { BATCH_TARGETS, DEFAULT_BATCH_TARGET } from "../../solve-settings";
 import { latestOnly } from "../../latest-only";
 import * as invokes from "../../invokes";
 import UiButton from "../ui/UiButton.vue";
@@ -97,6 +111,8 @@ const batch = useBatch();
 const size = ref(49);
 const prefix = ref(props.defaultPrefix);
 const depth = ref("flop");
+/** Exploitability to reach on each flop: the report averages them, so 1% is enough. */
+const target = ref(DEFAULT_BATCH_TARGET);
 const plan = ref<BatchPreview | null>(null);
 
 // The plan for the current choices (one preview at a time, the latest choices last).
@@ -123,6 +139,6 @@ const onStart = () => {
   const current = plan.value;
   if (!current?.ok || !canStart.value) return;
   emit("close");
-  void batch.start(current, depth.value);
+  void batch.start(current, depth.value, target.value);
 };
 </script>

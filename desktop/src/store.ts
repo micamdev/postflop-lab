@@ -118,8 +118,22 @@ export const useStore = defineStore("app", {
 export const useConfigStore = defineStore("config", {
   state: () => ({
     ...emptySetup(),
-    startingPot: 20,
-    effectiveStack: 100,
+    // A single raised pot at 100bb (in tenths of a big blind: amounts are integers) with the
+    // usual sizes, so a first solve only needs ranges and a board. Clear empties it all.
+    startingPot: 55,
+    effectiveStack: 975,
+    oopFlopBet: "33, 75",
+    oopFlopRaise: "60",
+    ipFlopBet: "33, 75",
+    ipFlopRaise: "60",
+    oopTurnBet: "75",
+    oopTurnRaise: "60",
+    ipTurnBet: "75",
+    ipTurnRaise: "60",
+    oopRiverBet: "75",
+    oopRiverRaise: "60",
+    ipRiverBet: "75",
+    ipRiverRaise: "60",
     addAllInThreshold: 150,
     forceAllInThreshold: 20,
     mergingThreshold: 10,
