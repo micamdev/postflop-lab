@@ -549,7 +549,7 @@ const updateOlder = async () => {
   const failed: string[] = [];
   try {
     for (const [i, name] of names.entries()) {
-      busyText.value = `Updating “${name}” (${i + 1}/${names.length})...`;
+      busyText.value = `Updating “${name}” (${i + 1}/${names.length})…`;
       try {
         await invokes.libraryRefreshSummary(name);
       } catch (e) {

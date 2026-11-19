@@ -227,7 +227,7 @@
         {{ lockResolve.disabledReason }}
       </div>
       <div v-else-if="busy" class="mt-1 text-sm text-muted">
-        Preparing the tree...
+        Preparing the tree…
       </div>
       <div v-if="lockResolve.error" class="mt-1 text-sm text-red-400">
         {{ lockResolve.error }}

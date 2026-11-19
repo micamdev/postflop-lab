@@ -55,7 +55,7 @@
 </template>
 
 <script setup lang="ts">
-import { computed, ref } from "vue";
+import { computed, onBeforeUnmount, ref, watch } from "vue";
 import { useStore, useConfigStore } from "../store";
 import { readableLineString } from "../utils";
 import { setupErrors } from "../setup-validation";
@@ -115,7 +115,6 @@ const startEdit = () => {
   if (config.expectedBoardLength === 0) {
     config.expectedBoardLength = Math.max(config.board.length, 3);
   }
-  store.headers["tree-config"].push("Tree Preview & Edit");
 };
 
 const clearEdit = () => {
@@ -131,14 +130,23 @@ const saveEdit = (addedLines: string, removedLines: string) => {
   if (config.addedLines === "" && config.removedLines === "") {
     config.expectedBoardLength = 0;
   }
-  store.headers["tree-config"].pop();
 };
+
+// Leaving the view (or loading a solution) ends an unsaved edit: its tree would be stale.
+onBeforeUnmount(() => {
+  if (isEditMode.value) cancelEdit();
+});
+watch(
+  () => store.solutionLoadCount,
+  () => {
+    if (isEditMode.value) cancelEdit();
+  }
+);
 
 const cancelEdit = () => {
   isEditMode.value = false;
   if (config.addedLines === "" && config.removedLines === "") {
     config.expectedBoardLength = 0;
   }
-  store.headers["tree-config"].pop();
 };
 </script>

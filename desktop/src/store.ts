@@ -70,11 +70,6 @@ export const useStore = defineStore("app", {
   state: () => ({
     navView: "library" as NavView,
     sideView: "main" as SideView,
-    headers: {
-      main: ["Setup"],
-      "tree-config": ["Tree Configuration"],
-      bunching: ["Bunching Effect"],
-    },
     ranges: Array.from({ length: 6 }, () =>
       Array.from({ length: 13 * 13 }, () => 0)
     ),
@@ -118,18 +113,6 @@ export const useStore = defineStore("app", {
     /** Locks for the next re-solve: the solution's locks plus pending changes. */
     locks: [] as NodeLock[],
   }),
-
-  getters: {
-    hasSolverRun: (state) => {
-      return (
-        state.isSolverRunning ||
-        state.isSolverPaused ||
-        state.isSolverFinished ||
-        state.isSolverError ||
-        state.isFinalizing
-      );
-    },
-  },
 });
 
 export const useConfigStore = defineStore("config", {

@@ -56,12 +56,9 @@
 <script setup lang="ts">
 import { computed, onUnmounted, ref, watch } from "vue";
 import { useConfigStore, useStore } from "../../store";
-import {
-  solveBlocker,
-  memoryLimit,
-  useSolverSession,
-} from "../../solver-session";
+import { memoryLimit, useSolverSession } from "../../solver-session";
 import { choosePrecision } from "../../solve-status";
+import { solveBlocker } from "../../setup-validation";
 import { gameTreeArgs } from "../../game-args";
 import { formatBytes } from "../../utils";
 import { latestOnly } from "../../latest-only";

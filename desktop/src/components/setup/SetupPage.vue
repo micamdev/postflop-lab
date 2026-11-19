@@ -30,7 +30,7 @@
           {{ store.sideView === "bunching" ? "Bunching effect" : "Tree lines" }}
         </h1>
       </div>
-      <TreeConfig v-show="store.sideView === 'tree-config'" />
+      <TreeConfig v-if="store.sideView === 'tree-config'" />
       <BunchingEffect v-show="store.sideView === 'bunching'" />
     </div>
   </div>

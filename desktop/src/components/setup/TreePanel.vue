@@ -169,7 +169,7 @@
 
 <script setup lang="ts">
 import { computed } from "vue";
-import { useConfigStore, useStore } from "../../store";
+import { emptySetup, useConfigStore, useStore } from "../../store";
 import { MAX_AMOUNT } from "../../utils";
 import { setupErrors } from "../../setup-validation";
 import { hasManualEdits } from "../../tree-config-value";
@@ -198,33 +198,10 @@ const errors = computed(() => {
 
 /** Empties the tree: stacks, rake, bet sizes, thresholds, donk option and edited lines. */
 const clearTree = () => {
-  config.$patch({
-    startingPot: 0,
-    effectiveStack: 0,
-    rakePercent: 0,
-    rakeCap: 0,
-    donkOption: false,
-    oopFlopBet: "",
-    oopFlopRaise: "",
-    oopTurnBet: "",
-    oopTurnRaise: "",
-    oopTurnDonk: "",
-    oopRiverBet: "",
-    oopRiverRaise: "",
-    oopRiverDonk: "",
-    ipFlopBet: "",
-    ipFlopRaise: "",
-    ipTurnBet: "",
-    ipTurnRaise: "",
-    ipRiverBet: "",
-    ipRiverRaise: "",
-    addAllInThreshold: 0,
-    forceAllInThreshold: 0,
-    mergingThreshold: 0,
-    expectedBoardLength: 0,
-    addedLines: "",
-    removedLines: "",
-  });
+  // Everything empty but the board.
+  const { board, ...tree } = emptySetup();
+  void board;
+  config.$patch(tree);
 };
 
 const treeOrigin = computed(() =>

@@ -149,7 +149,7 @@
 import { computed, ref, watch } from "vue";
 import { useStore } from "../../store";
 import { ranks } from "../../utils";
-import { useRangeEditing } from "../../use-range-editing";
+import { RANGE_DRAG_TYPE, useRangeEditing } from "../../use-range-editing";
 import UiButton from "../ui/UiButton.vue";
 
 const props = defineProps<{ player: 0 | 1 }>();
@@ -200,7 +200,7 @@ const cells = Array.from({ length: 13 * 13 }, (_, index) => {
   return { index, row, col, text: cellText(row, col) };
 });
 
-const RANGE_TYPE = "application/x-postflop-range";
+const RANGE_TYPE = RANGE_DRAG_TYPE;
 
 /** Accepts a saved range (on enter too: else each new element shows "forbidden"). */
 const onDragOver = (e: DragEvent) => {

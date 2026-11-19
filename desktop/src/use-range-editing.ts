@@ -7,6 +7,9 @@ import * as invokes from "./invokes";
 import { parseRangeText } from "./range-text";
 import { weightPercent } from "./utils";
 
+/** Drag-and-drop type of a saved range (explorer -> range editors). */
+export const RANGE_DRAG_TYPE = "application/x-postflop-range";
+
 type PaintMode = "none" | "enabling" | "disabling";
 
 const createRangeEditing = (player: number) => {

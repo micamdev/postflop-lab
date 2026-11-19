@@ -224,7 +224,9 @@
                 'row-divider ' +
                 (column.type === 'card'
                   ? 'sticky left-0 z-10 ' +
-                    (item[0] === scrollTarget ? 'bg-scroll-target ' : 'bg-panel ')
+                    (item[0] === scrollTarget
+                      ? 'bg-scroll-target '
+                      : 'bg-panel ')
                   : 'relative ') +
                 (column.type === 'bar' ? 'pt-[0.3125rem] pb-1 px-1' : 'pt-0.5')
               "
