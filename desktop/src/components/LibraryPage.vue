@@ -1,5 +1,15 @@
 <template>
-  <div class="flex flex-col h-full">
+  <FlopReport
+    v-if="reportSource"
+    :key="reportSource.name"
+    :entries="entries"
+    :source="reportSource"
+    :loading-text="busyText"
+    @back="reportSource = null"
+    @open="openFromReport"
+    @refresh="refresh"
+  />
+  <div v-else class="flex flex-col h-full">
     <div class="flex items-center gap-2 mb-4">
       <input
         v-model="query"
@@ -153,6 +163,7 @@ import {
   withFailedLoads,
 } from "../library-list";
 import UiButton from "./ui/UiButton.vue";
+import FlopReport from "./library/FlopReport.vue";
 import UiMenu from "./ui/UiMenu.vue";
 import * as invokes from "../invokes";
 import {
@@ -168,6 +179,20 @@ import {
 const store = useStore();
 
 const entries = ref<invokes.LibraryEntry[]>([]);
+/** The solution whose flop report is shown (instead of the list), or null. */
+const reportSource = ref<
+  (invokes.LibraryEntry & { meta: invokes.SolutionMeta }) | null
+>(null);
+const withMeta = (entry: invokes.LibraryEntry) =>
+  entry as invokes.LibraryEntry & { meta: invokes.SolutionMeta };
+
+/** Opens a flop of the report; a refused load goes back to the list, where its error shows. */
+const openFromReport = async (name: string) => {
+  const entry = entries.value.find((e) => e.name === name);
+  if (!entry || store.isLibraryBusy) return;
+  await load(entry);
+  if (errorText.value) reportSource.value = null;
+};
 const failedLoads: FailedLoads = reactive(new Map());
 const errorText = ref("");
 const busyText = ref("");
@@ -226,6 +251,14 @@ const rowMenu = (entry: invokes.LibraryEntry) => [
     : []),
   ...(entry.meta
     ? [
+        ...(entry.meta.board.length === 3
+          ? [
+              {
+                label: "Report",
+                onSelect: () => (reportSource.value = withMeta(entry)),
+              },
+            ]
+          : []),
         { label: "Rename", onSelect: () => startRename(entry.name) },
         { label: "Export…", onSelect: () => void exportFile(entry.name) },
       ]
