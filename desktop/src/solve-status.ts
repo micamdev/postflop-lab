@@ -93,3 +93,15 @@ export const choosePrecision = (
 /** Save stays offered beside "Re-solve with locks" while the solution is unsaved. */
 export const savesBeside = (f: SolveFlags, canSave: boolean): boolean =>
   f.isSolverFinished && !f.isSolutionSaved && canSave;
+
+/**
+ * Memory a solve needs (32-bit, 16-bit) from the estimate [32-bit, 16-bit, bunching]: the
+ * bunching effect's tables count when it is used, as when the solve starts.
+ */
+export const memoryNeeds = (
+  [need32, need16, bunching]: [number, number, number],
+  isBunchingUsed: boolean
+) => {
+  const extra = isBunchingUsed ? bunching : 0;
+  return { need32: need32 + extra, need16: need16 + extra };
+};

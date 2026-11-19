@@ -3,8 +3,9 @@
     <SavedExplorer />
 
     <!-- Ranges on top, the tree settings under them, board / memory / solve on the right. -->
+    <!-- Kept mounted (v-show): a range being edited keeps its Cancel point. -->
     <div
-      v-if="store.sideView === 'main'"
+      v-show="store.sideView === 'main'"
       class="grid flex-1 min-w-0 content-start gap-3 p-3 overflow-y-auto"
       style="grid-template-columns: minmax(0, 1fr) minmax(0, 1fr) 280px"
     >
@@ -23,9 +24,7 @@
       class="flex-1 min-w-0 overflow-y-auto px-6 py-4"
     >
       <div class="flex items-center gap-3 mb-4">
-        <UiButton size="sm" @click="store.sideView = 'main'">
-          ← Back to setup
-        </UiButton>
+        <UiButton size="sm" @click="backToSetup"> ← Back to setup </UiButton>
         <h1 class="text-lg font-semibold">
           {{ store.sideView === "bunching" ? "Bunching effect" : "Tree lines" }}
         </h1>
@@ -38,6 +37,7 @@
 
 <script setup lang="ts">
 import { useStore } from "../../store";
+import { leaveTreeEdit } from "../../tree-edit-guard";
 import SavedExplorer from "./SavedExplorer.vue";
 import RangePanel from "./RangePanel.vue";
 import BoardPanel from "./BoardPanel.vue";
@@ -49,4 +49,9 @@ import BunchingEffect from "../BunchingEffect.vue";
 import UiButton from "../ui/UiButton.vue";
 
 const store = useStore();
+
+/** Back to the main Setup view, after asking about an unsaved tree lines edit. */
+const backToSetup = async () => {
+  if (await leaveTreeEdit()) store.sideView = "main";
+};
 </script>

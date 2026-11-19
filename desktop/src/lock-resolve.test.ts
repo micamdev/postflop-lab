@@ -6,6 +6,7 @@ vi.mock("./library", () => ({ choose: vi.fn() }));
 const runLockedSolve = vi.fn();
 const session = {
   runLockedSolve,
+  isBuilding: false,
   saveDisabledReason: "",
   settings: {
     threads: 8,
@@ -94,6 +95,20 @@ describe("useLockResolve", () => {
     await resolve.onSaveDialogClosed();
     expect(prepare).toHaveBeenCalledTimes(1);
     expect(store.returnLine).toEqual([0, 1]);
+  });
+
+  test("save first: checked again once saved (something may have started meanwhile)", async () => {
+    const store = finished(false);
+    choose.mockResolvedValue("Save first");
+    const resolve = useLockResolve();
+    await resolve.start(line);
+    store.isSolutionSaved = true;
+    store.isSaveDialogOpen = false;
+    // The bunching precomputation started while the save dialog was open.
+    store.isBunchingRunning = true;
+    expect(await resolve.onSaveDialogClosed()).toBe(true);
+    expect(prepare).not.toHaveBeenCalled();
+    expect(resolve.error).toBe("The bunching effect is being precomputed.");
   });
 
   test("a prepare error keeps the solution and shows the reason", async () => {

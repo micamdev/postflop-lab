@@ -352,7 +352,10 @@ export const useSolverSession = defineStore("solverSession", () => {
 
       if (segmentStart.value === 0) {
         segmentStart.value = performance.now();
-        await invokes.setNumThreads(settings.value.threads);
+        // Editable during a pause: only a valid count reaches the engine (Stop resumes too).
+        if (threadsError(settings.value.threads) === null) {
+          await invokes.setNumThreads(settings.value.threads);
+        }
       }
 
       // The pot of the solved tree: the Setup one may have been edited since.

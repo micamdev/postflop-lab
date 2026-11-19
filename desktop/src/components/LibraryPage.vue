@@ -150,18 +150,7 @@
             </td>
             <template v-if="entry.meta">
               <td class="px-3 py-2 whitespace-nowrap">
-                <span class="inline-flex gap-0.5">
-                  <span
-                    v-for="card of entry.meta.board"
-                    :key="card"
-                    :class="[
-                      'flex items-center justify-center w-5 h-6 rounded text-xs font-bold text-white',
-                      suitBgClasses[card & 3],
-                    ]"
-                  >
-                    {{ cardText(card).rank }}
-                  </span>
-                </span>
+                <BoardChips :board="entry.meta.board" />
               </td>
               <td class="px-3 py-2 whitespace-nowrap text-muted">
                 {{ new Date(entry.meta.created_at * 1000).toLocaleString() }}
@@ -200,10 +189,10 @@
 </template>
 
 <script setup lang="ts">
+import BoardChips from "./ui/BoardChips.vue";
 import { computed, onMounted, reactive, ref, watch } from "vue";
 import { open, save } from "@tauri-apps/plugin-dialog";
 import { useStore } from "../store";
-import { cardText, suitBgClasses } from "../utils";
 import {
   FailedLoads,
   SortKey,

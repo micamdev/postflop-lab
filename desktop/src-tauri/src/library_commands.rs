@@ -252,14 +252,16 @@ pub fn library_load(
     })
 }
 
-#[tauri::command]
+// Async (off the main thread): they wait for a save in progress (the library's write lock),
+// which can take seconds for a large solution; the window must not freeze meanwhile.
+#[tauri::command(async)]
 pub fn library_rename(app: AppHandle, from: String, to: String) -> Result<String, String> {
-    library::rename(&library_dir(&app)?, &from, &to)
+    crate::guard::guard(move || library::rename(&library_dir(&app)?, &from, &to))
 }
 
-#[tauri::command]
+#[tauri::command(async)]
 pub fn library_delete(app: AppHandle, name: String) -> Result<(), String> {
-    library::delete(&library_dir(&app)?, &name)
+    crate::guard::guard(move || library::delete(&library_dir(&app)?, &name))
 }
 
 #[tauri::command(async)]
@@ -307,8 +309,7 @@ pub fn library_refresh_summary(
     crate::guard::guard(move || {
         let dir = library_dir(&app)?;
         // The open solution and its river cache stay loaded meanwhile.
-        let in_use = loaded_memory(&game_state, &cache_state);
-        let limit = crate::memory_limit::memory_limit(in_use);
+        let limit = crate::memory_limit::memory_limit(|| loaded_memory(&game_state, &cache_state));
         library::refresh_summary(&dir, &name, limit, compute_summary)
     })
 }

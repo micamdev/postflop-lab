@@ -1,5 +1,4 @@
 import { defineStore } from "pinia";
-import { sanitizeBetString } from "./utils";
 import type { NodeLock } from "./invokes";
 
 export type NavView = "setup" | "results" | "library";
@@ -138,23 +137,6 @@ export const useConfigStore = defineStore("config", {
     forceAllInThreshold: 20,
     mergingThreshold: 10,
   }),
-
-  getters: {
-    oopFlopBetSanitized: (s) => sanitizeBetString(s.oopFlopBet, false),
-    oopFlopRaiseSanitized: (s) => sanitizeBetString(s.oopFlopRaise, true),
-    oopTurnBetSanitized: (s) => sanitizeBetString(s.oopTurnBet, false),
-    oopTurnRaiseSanitized: (s) => sanitizeBetString(s.oopTurnRaise, true),
-    oopTurnDonkSanitized: (s) => sanitizeBetString(s.oopTurnDonk, false),
-    oopRiverBetSanitized: (s) => sanitizeBetString(s.oopRiverBet, false),
-    oopRiverRaiseSanitized: (s) => sanitizeBetString(s.oopRiverRaise, true),
-    oopRiverDonkSanitized: (s) => sanitizeBetString(s.oopRiverDonk, false),
-    ipFlopBetSanitized: (s) => sanitizeBetString(s.ipFlopBet, false),
-    ipFlopRaiseSanitized: (s) => sanitizeBetString(s.ipFlopRaise, true),
-    ipTurnBetSanitized: (s) => sanitizeBetString(s.ipTurnBet, false),
-    ipTurnRaiseSanitized: (s) => sanitizeBetString(s.ipTurnRaise, true),
-    ipRiverBetSanitized: (s) => sanitizeBetString(s.ipRiverBet, false),
-    ipRiverRaiseSanitized: (s) => sanitizeBetString(s.ipRiverRaise, true),
-  },
 });
 
 /** The setup of the tree in memory: the one the results, the saves and the solve target use. */

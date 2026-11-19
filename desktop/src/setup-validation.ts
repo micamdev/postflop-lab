@@ -3,10 +3,17 @@
 
 import type { useConfigStore } from "./store";
 import {
+  BET_FIELDS,
+  betFieldName,
+  isDonkField,
+  isRaiseField,
+} from "./bet-fields";
+import {
   MAX_AMOUNT,
   ROOT_LINE_STRING,
   INVALID_LINE_STRING,
   readableLineString,
+  sanitizeBetString,
 } from "./utils";
 
 type Config = ReturnType<typeof useConfigStore>;
@@ -38,34 +45,17 @@ export const setupErrors = (config: Config) => {
     basics.push(`Rake cap must not exceed ${3 * MAX_AMOUNT}`);
   }
 
-  const bets = (
-    list: {
-      name: string;
-      res: { s: string; valid: boolean };
-      isDonk?: boolean;
-    }[]
-  ) =>
-    list
-      .filter(({ res, isDonk }) => !res.valid && (!isDonk || config.donkOption))
-      .map(({ name, res }) => `${name}: ${res.s}`);
-  const oop = bets([
-    { name: "OOP flop bet", res: config.oopFlopBetSanitized },
-    { name: "OOP flop raise", res: config.oopFlopRaiseSanitized },
-    { name: "OOP turn bet", res: config.oopTurnBetSanitized },
-    { name: "OOP turn raise", res: config.oopTurnRaiseSanitized },
-    { name: "OOP turn donk", res: config.oopTurnDonkSanitized, isDonk: true },
-    { name: "OOP river bet", res: config.oopRiverBetSanitized },
-    { name: "OOP river raise", res: config.oopRiverRaiseSanitized },
-    { name: "OOP river donk", res: config.oopRiverDonkSanitized, isDonk: true },
-  ]);
-  const ip = bets([
-    { name: "IP flop bet", res: config.ipFlopBetSanitized },
-    { name: "IP flop raise", res: config.ipFlopRaiseSanitized },
-    { name: "IP turn bet", res: config.ipTurnBetSanitized },
-    { name: "IP turn raise", res: config.ipTurnRaiseSanitized },
-    { name: "IP river bet", res: config.ipRiverBetSanitized },
-    { name: "IP river raise", res: config.ipRiverRaiseSanitized },
-  ]);
+  // Each bet size field of a player, checked (donk sizes only with the donk option).
+  const bets = (player: "oop" | "ip") =>
+    BET_FIELDS.filter(
+      (field) =>
+        field.startsWith(player) && (!isDonkField(field) || config.donkOption)
+    ).flatMap((field) => {
+      const res = sanitizeBetString(config[field], isRaiseField(field));
+      return res.valid ? [] : [`${betFieldName(field)}: ${res.s}`];
+    });
+  const oop = bets("oop");
+  const ip = bets("ip");
 
   const misc: string[] = [];
   for (const [value, name] of [

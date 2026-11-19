@@ -221,6 +221,7 @@ import {
 } from "../../saved-items";
 import { RangeSource, useConfigStore, useStore } from "../../store";
 import { applyConfigValue, configToValue } from "../../tree-config-value";
+import { leaveTreeEdit } from "../../tree-edit-guard";
 import { RANGE_DRAG_TYPE, useRangeEditing } from "../../use-range-editing";
 import { setTreeSource } from "../../tree-source";
 import { useWindowWidth } from "../../use-window-width";
@@ -341,7 +342,8 @@ const onClick = (node: SavedNode) => {
 };
 
 const onDoubleClick = (node: SavedNode) => {
-  if (node.kind === "item" && tab.value === "configurations") useTree(node);
+  if (node.kind === "item" && tab.value === "configurations")
+    void useTree(node);
 };
 
 const onDragStart = (e: DragEvent, node: SavedNode) => {
@@ -363,8 +365,10 @@ const useRange = async (node: SavedNode, player: number) => {
   if (ok && isNarrow.value) isExpanded.value = false;
 };
 
-const useTree = (node: SavedNode) => {
+const useTree = async (node: SavedNode) => {
   if (node.kind !== "item") return;
+  // The loaded tree replaces an open tree lines edit: discard it first, or keep it.
+  if (!(await leaveTreeEdit(undefined, "load"))) return;
   applyConfigValue(config, node.value);
   setTreeSource(node.path, configToValue(config));
   if (isNarrow.value) isExpanded.value = false;

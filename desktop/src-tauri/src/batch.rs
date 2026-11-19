@@ -269,8 +269,9 @@ pub fn batch_solve(
             &request,
             // The open solution and its river cache stay loaded during the batch.
             || {
-                let in_use = crate::library_commands::loaded_memory(&game_state, &cache_state);
-                crate::memory_limit::memory_limit(in_use)
+                crate::memory_limit::memory_limit(|| {
+                    crate::library_commands::loaded_memory(&game_state, &cache_state)
+                })
             },
             &cancel,
             &pool,

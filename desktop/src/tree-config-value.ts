@@ -1,28 +1,20 @@
 // Tree configs as saved in the library of configurations (IndexedDB `configurations`).
 
 import { sanitizeBetString } from "./utils";
+import {
+  BET_FIELDS,
+  type BetFields,
+  isDonkField,
+  isRaiseField,
+} from "./bet-fields";
 
 /** The tree fields of the config store. */
-export interface TreeConfigState {
+export interface TreeConfigState extends BetFields {
   startingPot: number;
   effectiveStack: number;
   rakePercent: number;
   rakeCap: number;
   donkOption: boolean;
-  oopFlopBet: string;
-  oopFlopRaise: string;
-  oopTurnBet: string;
-  oopTurnRaise: string;
-  oopTurnDonk: string;
-  oopRiverBet: string;
-  oopRiverRaise: string;
-  oopRiverDonk: string;
-  ipFlopBet: string;
-  ipFlopRaise: string;
-  ipTurnBet: string;
-  ipTurnRaise: string;
-  ipRiverBet: string;
-  ipRiverRaise: string;
   addAllInThreshold: number;
   forceAllInThreshold: number;
   mergingThreshold: number;
@@ -36,43 +28,20 @@ export type ConfigValue = Omit<TreeConfigState, "donkOption"> & {
   donkOption: number;
 };
 
-const BET_FIELDS = [
-  "oopFlopBet",
-  "oopFlopRaise",
-  "oopTurnBet",
-  "oopTurnRaise",
-  "oopTurnDonk",
-  "oopRiverBet",
-  "oopRiverRaise",
-  "oopRiverDonk",
-  "ipFlopBet",
-  "ipFlopRaise",
-  "ipTurnBet",
-  "ipTurnRaise",
-  "ipRiverBet",
-  "ipRiverRaise",
-] as const;
-
 export const configToValue = (c: TreeConfigState): ConfigValue => ({
   startingPot: c.startingPot,
   effectiveStack: c.effectiveStack,
   rakePercent: c.rakePercent,
   rakeCap: c.rakeCap,
   donkOption: Number(c.donkOption),
-  oopFlopBet: c.oopFlopBet,
-  oopFlopRaise: c.oopFlopRaise,
-  oopTurnBet: c.oopTurnBet,
-  oopTurnRaise: c.oopTurnRaise,
-  oopTurnDonk: c.donkOption ? c.oopTurnDonk : "",
-  oopRiverBet: c.oopRiverBet,
-  oopRiverRaise: c.oopRiverRaise,
-  oopRiverDonk: c.donkOption ? c.oopRiverDonk : "",
-  ipFlopBet: c.ipFlopBet,
-  ipFlopRaise: c.ipFlopRaise,
-  ipTurnBet: c.ipTurnBet,
-  ipTurnRaise: c.ipTurnRaise,
-  ipRiverBet: c.ipRiverBet,
-  ipRiverRaise: c.ipRiverRaise,
+  // Same key order as before (saved values are compared as JSON); donk sizes only with the
+  // donk option.
+  ...(Object.fromEntries(
+    BET_FIELDS.map((field) => [
+      field,
+      isDonkField(field) && !c.donkOption ? "" : c[field],
+    ])
+  ) as BetFields),
   addAllInThreshold: c.addAllInThreshold,
   forceAllInThreshold: c.forceAllInThreshold,
   mergingThreshold: c.mergingThreshold,
@@ -98,7 +67,7 @@ export const applyConfigValue = (c: TreeConfigState, value: unknown): void => {
 
   for (const field of BET_FIELDS) {
     const str = String(v[field]);
-    const sanitized = sanitizeBetString(str, field.endsWith("Raise"));
+    const sanitized = sanitizeBetString(str, isRaiseField(field));
     c[field] = sanitized.valid ? sanitized.s : str;
   }
 };

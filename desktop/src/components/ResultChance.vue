@@ -50,6 +50,7 @@
 </template>
 
 <script setup lang="ts">
+import { actionText } from "../nav-spots";
 import { resolvedThemeColor } from "../theme";
 import { computed, ref, watch } from "vue";
 import {
@@ -145,8 +146,7 @@ const chartData = computed((): ChartData<"bar", number[]> | null => {
         const actionIndex = i >> 2;
         const suit = i & 3;
         const action = spot.actions[actionIndex];
-        let label = action.name;
-        if (action.amount !== "0") label += ` ${action.amount}`;
+        const label = actionText(action);
         return {
           data: Array.from({ length: 13 }, (_, rank) => {
             const card = cardId(rank, suit);

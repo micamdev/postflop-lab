@@ -1,6 +1,6 @@
 [package]
 name = "postflop-lab"
-version = "1.1.0"
+version = "1.1.1"
 description = "Postflop GTO solver for study"
 authors = ["Wataru Inariba", "Michael Maccio"]
 license = "AGPL-3.0-or-later"
