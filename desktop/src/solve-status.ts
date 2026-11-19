@@ -31,7 +31,8 @@ export const solutionStatus = (
   return { label: "Not solved", tone: "neutral" };
 };
 
-export type PrimaryAction = "solve" | "save" | "progress" | "resolve-locks";
+/** What the top bar offers: the solve progress, Save, a re-solve with locks, or nothing (Solve is in the Setup). */
+export type PrimaryAction = "none" | "save" | "progress" | "resolve-locks";
 
 export const primaryAction = (
   f: SolveFlags,
@@ -44,7 +45,7 @@ export const primaryAction = (
   // Its flow offers to save first.
   if (f.isSolverFinished && pendingLocks) return "resolve-locks";
   if (f.isSolverFinished && !f.isSolutionSaved && canSave) return "save";
-  return "solve";
+  return "none";
 };
 
 /** Solve progress in [0, 1]: iterations, or exploitability on a log scale. */

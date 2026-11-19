@@ -234,7 +234,7 @@
       </div>
       <div class="mt-2 text-xs text-muted">
         The tree is rebuilt from this solution's configuration and solved with
-        the solve settings (⚙: threads, target, iterations).
+        the solve settings (Setup › Solve: threads, target, iterations).
       </div>
     </div>
   </div>

@@ -21,7 +21,7 @@
     <template v-else>
       <p class="text-lg font-semibold">No solution yet</p>
       <p class="text-muted">
-        Set up a spot and press Solve, or open one from the Library.
+        Set up a spot and press Solve in the Setup, or open one from the Library.
       </p>
     </template>
   </div>

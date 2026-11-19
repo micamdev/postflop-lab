@@ -64,20 +64,20 @@ describe("primaryAction", () => {
     expect(primaryAction(flags({ isFinalizing: true }), true)).toBe("progress");
   });
 
-  test("save after an unsaved solve, solve otherwise", () => {
+  test("save after an unsaved solve, nothing otherwise (Solve is in the Setup)", () => {
     expect(primaryAction(flags({ isSolverFinished: true }), true)).toBe("save");
     expect(
       primaryAction(
         flags({ isSolverFinished: true, isSolutionSaved: true }),
         true
       )
-    ).toBe("solve");
-    expect(primaryAction(flags({ hasGame: false }), true)).toBe("solve");
+    ).toBe("none");
+    expect(primaryAction(flags({ hasGame: false }), true)).toBe("none");
   });
 
   test("primaryAction never offers an impossible save", () => {
     expect(primaryAction(flags({ isSolverFinished: true }), false)).toBe(
-      "solve"
+      "none"
     );
   });
 });

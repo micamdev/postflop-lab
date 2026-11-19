@@ -59,6 +59,9 @@
         v-else
         size="sm"
         :disabled="settingsError !== null"
+        :title="
+          settingsError ? `Solve settings (Setup › Solve): ${settingsError}` : ''
+        "
         @click="session.resume()"
       >
         Resume
@@ -81,16 +84,6 @@
     >
       Batch {{ batchProgressText }}
     </button>
-    <UiTooltip text="Solve settings">
-      <button
-        type="button"
-        class="w-8 h-8 rounded-md text-muted hover:text-ink hover:bg-panel2"
-        aria-label="Solve settings"
-        @click="isSettingsOpen = !isSettingsOpen"
-      >
-        ⚙
-      </button>
-    </UiTooltip>
     <UiTooltip text="About">
       <button
         type="button"
@@ -103,13 +96,11 @@
     </UiTooltip>
 
     <template v-if="action === 'save'">
-      <UiButton :disabled="!canSolve" @click="onSolve">▶ Solve</UiButton>
       <UiButton variant="primary" @click="store.isSaveDialogOpen = true">
         Save
       </UiButton>
     </template>
     <template v-else-if="action === 'resolve-locks'">
-      <UiButton :disabled="!canSolve" @click="onSolve">▶ Solve</UiButton>
       <UiButton
         v-if="savesBeside(session.flags, session.canSave)"
         @click="store.isSaveDialogOpen = true"
@@ -129,17 +120,8 @@
         {{ lockResolve.isBusy ? "Preparing…" : "Re-solve with locks" }}
       </UiButton>
     </template>
-    <UiButton
-      v-else-if="action === 'solve'"
-      variant="primary"
-      :disabled="!canSolve"
-      @click="onSolve"
-    >
-      ▶ Solve
-    </UiButton>
   </header>
 
-  <SolveSettingsPanel v-model:open="isSettingsOpen" />
   <SaveSolutionDialog
     v-if="store.isSaveDialogOpen"
     @close="onSaveDialogClose"
@@ -160,11 +142,9 @@ import {
 } from "../solve-status";
 import { validateSolveSettings } from "../solve-settings";
 import { cardText, suitBgClasses } from "../utils";
-import { ask } from "../library";
 import UiButton from "./ui/UiButton.vue";
 import UiSegmented from "./ui/UiSegmented.vue";
 import UiTooltip from "./ui/UiTooltip.vue";
-import SolveSettingsPanel from "./SolveSettingsPanel.vue";
 import SaveSolutionDialog from "./SaveSolutionDialog.vue";
 import { useLockResolve } from "../lock-resolve";
 import { hasPendingLocks } from "../lock-utils";
@@ -177,12 +157,9 @@ const savedConfig = useSavedConfigStore();
 const session = useSolverSession();
 const batch = useBatch();
 const batchProgressText = computed(() =>
-  batch.progress
-    ? `${batch.progress.index + 1}/${batch.progress.total}`
-    : "…"
+  batch.progress ? `${batch.progress.index + 1}/${batch.progress.total}` : "…"
 );
 
-const isSettingsOpen = ref(false);
 const lockResolve = useLockResolve();
 const isAboutOpen = ref(false);
 
@@ -221,30 +198,6 @@ const onSaveDialogClose = async () => {
   }
 };
 const settingsError = computed(() => validateSolveSettings(session.settings));
-
-const canSolve = computed(
-  () =>
-    !batch.isRunning &&
-    !store.isLibraryBusy &&
-    !store.isBunchingRunning &&
-    !session.isBuilding &&
-    !store.isSolveStarting &&
-    !store.isSolverRunning &&
-    !store.isSolverPaused &&
-    !store.isFinalizing
-);
-
-const onSolve = async () => {
-  if (store.isSolverFinished) {
-    const question = !store.isSolutionSaved
-      ? "The current solution is not saved. Solve a new one anyway?"
-      : store.solutionLocks.length > 0
-        ? "The current solution has node locks. Solve a new one without them?"
-        : "";
-    if (question && !(await ask(question))) return;
-  }
-  await session.solve();
-};
 
 // Live elapsed time while the solver runs.
 const now = ref(performance.now());
