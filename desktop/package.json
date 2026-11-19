@@ -11,6 +11,7 @@
     "tauri": "tauri",
     "lint": "eslint src --max-warnings 0",
     "test": "vitest run",
+    "e2e": "node e2e/smoke.mjs",
     "format": "prettier --write src/**/*.{ts,vue}"
   },
   "dependencies": {
