@@ -108,6 +108,8 @@ pub struct BatchRequest {
     /// The tree configuration as the front end saves it (the board is set per flop).
     pub tree_config: serde_json::Value,
     pub flops: Vec<BatchFlop>,
+    /// Size of the subset the flops come from (saved with each flop).
+    pub subset_size: u32,
     pub settings: BatchSettings,
     /// Save depth: "flop", "turn" or "river".
     pub depth: String,
@@ -146,6 +148,11 @@ pub fn run_batch(
     let mut result = BatchResult::default();
     let total = request.flops.len();
     for (index, flop) in request.flops.iter().enumerate() {
+        // Stopped while the previous flop was finalized or saved: do not start another.
+        if cancel.load(Ordering::Relaxed) {
+            result.cancelled = true;
+            break;
+        }
         let mut report = |iteration, exploitability| {
             progress(BatchProgress {
                 index,
@@ -210,9 +217,18 @@ fn save_flop(
         summary: compute_summary(&mut game),
         locks: Vec::new(),
         flop_weight: Some(flop.weight),
+        batch_size: Some(request.subset_size),
     };
     game.set_target_storage_mode(depth_from_name(&request.depth)?)?;
-    library::save_with_progress(dir, &flop.name, &game, &meta, false, |_| {}).map(|_| ())
+    library::save_with_progress(dir, &flop.name, &game, &meta, false, |_| {})
+        .map(|_| ())
+        .map_err(|e| {
+            if e == library::ERR_EXISTS {
+                "a solution with this name already exists".to_string()
+            } else {
+                e
+            }
+        })
 }
 
 /// Cancellation flag of the batch in progress, if any.
@@ -249,11 +265,7 @@ pub fn batch_solve(
             &dir,
             &ranges,
             &request,
-            // The memory query failed (0): let the solve try rather than refuse every flop.
-            || match crate::memory().0 {
-                0 => u64::MAX,
-                available => available,
-            },
+            batch_memory,
             &cancel,
             &pool,
             |p| {
@@ -266,6 +278,22 @@ pub fn batch_solve(
     });
     *crate::guard::lock(&control.0) = None;
     result
+}
+
+/// Memory a batch flop may use, as for a solve: the available memory, or 70% of the total on
+/// macOS (which reports little as available); unlimited if the query failed.
+fn batch_memory() -> u64 {
+    let (available, total) = crate::memory();
+    let limit = if cfg!(target_os = "macos") {
+        total / 10 * 7
+    } else {
+        available
+    };
+    if limit == 0 {
+        u64::MAX
+    } else {
+        limit
+    }
 }
 
 /// Stops the batch in progress (the flop being solved is not saved).
@@ -400,6 +428,7 @@ mod tests {
                     name: name.to_string(),
                 })
                 .collect(),
+            subset_size: 25,
             settings: settings(5.0),
             depth: "flop".to_string(),
         }
@@ -434,6 +463,7 @@ mod tests {
             .unwrap();
         assert_eq!(meta.board, flop("Td9d6h").to_vec());
         assert_eq!(meta.flop_weight, Some(100.0));
+        assert_eq!(meta.batch_size, Some(25));
         assert_eq!(meta.depth, "flop");
         assert_eq!(meta.tree_config["board"], serde_json::json!(flop("Td9d6h")));
         assert_eq!(meta.schema, crate::library::META_SCHEMA);
@@ -464,10 +494,9 @@ mod tests {
         );
         assert_eq!(result.solved, 1);
         assert_eq!(result.failed.len(), 1);
-        assert!(
-            result.failed[0].starts_with("taken:"),
-            "{:?}",
-            result.failed
+        assert_eq!(
+            result.failed,
+            ["taken: a solution with this name already exists"]
         );
     }
 

@@ -8,19 +8,25 @@ import type { WeightedFlop } from "./flop-subsets";
 export type BatchFlop = WeightedFlop & { name: string };
 
 /**
- * The flops of a batch for the spot `key`: those already saved for this spot (up to the
- * suits) are skipped, so a stopped batch resumes where it was. Each is saved as
+ * The flops of a batch of the subset of `size` for the spot `key`: those already saved by a
+ * batch of this subset for this spot (up to the suits) are skipped, so a stopped batch resumes
+ * where it was (a flop solved by hand, or in another subset, is solved again: its weight would
+ * not fit this subset). Each is saved as
  * "prefix AsKd7c", with " (2)", " (3)"... if the name is taken.
  */
 export const planBatch = (
   entries: LibraryEntry[],
   key: string,
   flops: WeightedFlop[],
+  size: number,
   prefix: string
 ): { toSolve: BatchFlop[]; skipped: number } => {
   const done = new Set(
     entries.flatMap((e) =>
-      e.meta && e.meta.board.length === 3 && configKey(e.meta) === key
+      e.meta &&
+      e.meta.board.length === 3 &&
+      e.meta.batch_size === size &&
+      configKey(e.meta) === key
         ? [canonicalFlopKey(e.meta.board)]
         : []
     )

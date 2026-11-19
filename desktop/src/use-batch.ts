@@ -8,6 +8,7 @@ import { snapshotSetup, useConfigStore, useStore } from "./store";
 import { useSolverSession } from "./solver-session";
 import { gameTreeArgs } from "./game-args";
 import { setupErrors } from "./setup-validation";
+import { validateSolveSettings } from "./solve-settings";
 import { representativeFlops } from "./flop-subsets";
 import { planBatch, BatchFlop } from "./batch-plan";
 import { configKey } from "./flop-report";
@@ -15,7 +16,13 @@ import * as invokes from "./invokes";
 
 /** What the batch would solve for the current Setup and library, or why it cannot. */
 export type BatchPreview =
-  | { ok: true; toSolve: BatchFlop[]; skipped: number; key: string }
+  | {
+      ok: true;
+      toSolve: BatchFlop[];
+      skipped: number;
+      key: string;
+      size: number;
+    }
   | { ok: false; error: string };
 
 export const useBatch = defineStore("batch", () => {
@@ -29,9 +36,14 @@ export const useBatch = defineStore("batch", () => {
   /** Config key of the last batch: its report can be opened from the Library. */
   const lastKey = ref<string | null>(null);
 
-  /** Another solve holds the solver (the batch would compete for the CPU). */
+  /**
+   * Another solve or operation holds the solver or the main game (the batch would compete
+   * for the CPU and the memory).
+   */
   const isSolverBusy = computed(
     () =>
+      store.isLibraryBusy ||
+      session.isBuilding ||
       store.isSolverRunning ||
       store.isSolverPaused ||
       store.isFinalizing ||
@@ -45,6 +57,8 @@ export const useBatch = defineStore("batch", () => {
     prefix: string,
     entries: invokes.LibraryEntry[]
   ): Promise<BatchPreview> => {
+    const settingsError = validateSolveSettings(session.settings);
+    if (settingsError) return { ok: false, error: settingsError };
     const first = Object.values(setupErrors(config)).flat()[0];
     if (first) return { ok: false, error: first };
     if (config.expectedBoardLength > 3) {
@@ -66,8 +80,14 @@ export const useBatch = defineStore("batch", () => {
       tree_config: { ...snapshotSetup() },
       locks: [],
     } as unknown as invokes.SolutionMeta);
-    const plan = planBatch(entries, key, representativeFlops(size), prefix);
-    return { ok: true, ...plan, key };
+    const plan = planBatch(
+      entries,
+      key,
+      representativeFlops(size),
+      size,
+      prefix
+    );
+    return { ok: true, ...plan, key, size };
   };
 
   /** Solves the flops of `plan` (from `preview`) and saves them at `depth`. */
@@ -92,6 +112,7 @@ export const useBatch = defineStore("batch", () => {
         args: gameTreeArgs(setup),
         treeConfig: { ...setup },
         flops: plan.toSolve,
+        subsetSize: plan.size,
         settings: {
           precision: session.settings.precision,
           targetExploitability: session.settings.targetExploitability,

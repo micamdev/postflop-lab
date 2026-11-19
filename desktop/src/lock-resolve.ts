@@ -7,6 +7,7 @@ import { useStore } from "./store";
 import * as invokes from "./invokes";
 import { choose } from "./library";
 import { useSolverSession } from "./solver-session";
+import { useBatch } from "./use-batch";
 import { validateSolveSettings } from "./solve-settings";
 
 type Line = { history: number[]; label: string };
@@ -30,6 +31,7 @@ export const useLockResolve = defineStore("lockResolve", () => {
       return "Locks are not available with the bunching effect.";
     }
     if (store.isSolveStarting) return "A solve is starting.";
+    if (useBatch().isRunning) return "A batch is solving flops.";
     const settingsError = validateSolveSettings(useSolverSession().settings);
     if (settingsError) return `Solve settings: ${settingsError}`;
     return "";

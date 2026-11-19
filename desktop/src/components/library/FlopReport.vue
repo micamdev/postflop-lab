@@ -107,11 +107,16 @@
           <tr class="border-t border-line bg-panel2/60 font-semibold">
             <td class="px-3 py-2">Average</td>
             <td class="px-3 py-2 text-muted font-normal">
-              {{
-                hasBatch
-                  ? "batch flops, weighted by frequency"
-                  : "weighted by frequency"
-              }}
+              <template v-if="subset">
+                {{ subset.size }}-flop subset, weighted
+                <span
+                  v-if="subset.solved < subset.size"
+                  class="text-red-400"
+                  title="Solve the rest of the subset (same size, same spot) for an average that stands for all flops"
+                  >({{ subset.solved }}/{{ subset.size }} solved)</span
+                >
+              </template>
+              <template v-else>weighted by frequency</template>
             </td>
             <td class="px-3 py-2">
               <div
@@ -163,7 +168,7 @@
               <span
                 v-if="!row.inAverage"
                 class="ml-1 text-xs"
-                title="Solved by hand: the average uses the batch flops, whose weights stand for all flops"
+                title="Not in the subset the average uses (solved by hand or in another subset)"
                 >· not in average</span
               >
             </td>
@@ -258,7 +263,7 @@ const busyText = ref("");
 
 const report = computed(() => buildReport(props.entries, key, cbetBy.value));
 const rows = computed(() => report.value.rows);
-const hasBatch = computed(() => rows.value.some((r) => r.isBatch));
+const subset = computed(() => report.value.subset);
 // Another node has other action columns: back to the flop order.
 watch(cbetBy, () => {
   sortKey.value = "flop";

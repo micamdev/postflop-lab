@@ -109,6 +109,7 @@ pub fn library_save(
             summary: compute_summary(&mut game),
             locks: crate::guard::lock(&locks_state.0).clone(),
             flop_weight: None,
+            batch_size: None,
         };
 
         game.set_target_storage_mode(depth_from_name(&depth)?)?;

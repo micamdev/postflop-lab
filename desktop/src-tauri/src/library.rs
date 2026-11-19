@@ -52,6 +52,10 @@ pub struct SolutionMeta {
     /// solved by hand, which reports weight by its number of suit-isomorphic flops).
     #[serde(default)]
     pub flop_weight: Option<f64>,
+    /// Size of the flop subset of the batch that solved it (schema 3; absent if solved by
+    /// hand): a report averages the flops of one subset.
+    #[serde(default)]
+    pub batch_size: Option<u32>,
 }
 
 /// Root summary, computed at save time so that aggregate reports never need to load the data.
@@ -461,6 +465,7 @@ pub(crate) mod tests {
             summary: SolutionSummary::default(),
             locks: Vec::new(),
             flop_weight: None,
+            batch_size: None,
         }
     }
 

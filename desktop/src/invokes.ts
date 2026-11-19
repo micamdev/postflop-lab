@@ -314,6 +314,8 @@ export type SolutionMeta = {
   locks?: NodeLock[];
   /** Weight of the flop in the subset it was batch-solved with (absent if solved by hand). */
   flop_weight?: number | null;
+  /** Size of the flop subset of the batch that solved it (absent if solved by hand). */
+  batch_size?: number | null;
 };
 
 export type LibraryEntry = {
@@ -462,6 +464,8 @@ export type BatchRequest = {
   /** The Setup as saved in the metadata (the board is set per flop). */
   treeConfig: Record<string, unknown>;
   flops: { board: number[]; weight: number; name: string }[];
+  /** Size of the subset the flops come from (saved with each flop). */
+  subsetSize: number;
   settings: {
     precision: string;
     targetExploitability: number;

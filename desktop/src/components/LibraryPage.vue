@@ -236,7 +236,7 @@ const batch = useBatch();
 const isBatchOpen = ref(false);
 // Each flop the batch saves shows up in the list (and in an open report).
 watch(
-  () => [batch.progress?.index, batch.isRunning],
+  [() => batch.progress?.index, () => batch.isRunning],
   () => void refresh()
 );
 /** A solution of the last batch's spot, to open its report from. */

@@ -52,8 +52,8 @@ export type ReportRow = {
   buckets: [number[], number[]] | null;
   /** Saved before schema 3: "Update older saves" can add the strategy and tranches. */
   isOlderSave: boolean;
-  /** Solved in a batch (its weight comes from the batch subset). */
-  isBatch: boolean;
+  /** Size of the subset of the batch that solved it; null if solved by hand. */
+  batchSize: number | null;
   /** Counted in the average (see `buildReport`). */
   inAverage: boolean;
   createdAt: number;
@@ -91,7 +91,7 @@ export const reportRows = (
         strategy,
         buckets: summary.equity_buckets ?? null,
         isOlderSave: meta.schema < 3,
-        isBatch: meta.flop_weight != null,
+        batchSize: meta.batch_size ?? null,
         inAverage: true,
         createdAt: meta.created_at,
       },
@@ -100,35 +100,55 @@ export const reportRows = (
 
 /**
  * The report rows: one per flop up to the suits (a flop solved twice, or AsKd7c and AhKc7d,
- * would count twice in the average), keeping a batch flop first, else the most recent; and,
- * when some flops come from a batch, only those in the average (a batch's weights stand for
- * all flops, a hand-solved flop's only for its own suits).
+ * would count twice in the average). When batches solved this spot, the average uses one
+ * subset, the largest: its weights stand for all flops, together and only together (a
+ * hand-solved flop's weight only stands for its own suits, another subset's for other flops).
+ * A flop is kept from that subset first, then from any batch, then the most recent.
+ * `subset` says which subset the average uses and how many of its flops are solved.
  */
 export const buildReport = (
   entries: LibraryEntry[],
   key: string,
   cbetBy: CbetBy
-): { rows: ReportRow[]; duplicates: number } => {
+): {
+  rows: ReportRow[];
+  duplicates: number;
+  subset: { size: number; solved: number } | null;
+} => {
   const all = reportRows(entries, key, cbetBy);
+  const sizes = all.flatMap((r) => (r.batchSize === null ? [] : [r.batchSize]));
+  const size = sizes.length > 0 ? Math.max(...sizes) : null;
+  const rank = (row: ReportRow) =>
+    row.batchSize === size && size !== null
+      ? 2
+      : row.batchSize !== null
+        ? 1
+        : 0;
   const best = new Map<string, ReportRow>();
   for (const row of all) {
     const flop = canonicalFlopKey(row.board);
     const kept = best.get(flop);
     if (
       !kept ||
-      (row.isBatch && !kept.isBatch) ||
-      (row.isBatch === kept.isBatch && row.createdAt > kept.createdAt)
+      rank(row) > rank(kept) ||
+      (rank(row) === rank(kept) && row.createdAt > kept.createdAt)
     ) {
       best.set(flop, row);
     }
   }
-  const rows = all.filter(
-    (row) => best.get(canonicalFlopKey(row.board)) === row
-  );
-  const hasBatch = rows.some((row) => row.isBatch);
+  const rows = all
+    .filter((row) => best.get(canonicalFlopKey(row.board)) === row)
+    .map((row) => ({
+      ...row,
+      inAverage: size === null || row.batchSize === size,
+    }));
   return {
-    rows: rows.map((row) => ({ ...row, inAverage: !hasBatch || row.isBatch })),
+    rows,
     duplicates: all.length - rows.length,
+    subset:
+      size === null
+        ? null
+        : { size, solved: rows.filter((r) => r.inAverage).length },
   };
 };
 
