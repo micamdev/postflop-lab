@@ -121,26 +121,38 @@ export const reportRows = (
 
 const ALL_FLOPS = 1755;
 
+/** A subset this full (solved flops over its size) counts as finished. */
+const NEARLY_DONE = 0.95;
+
+/** Whether a row belongs to subset `size`: hand-solved flops do to 1755 (same weight). */
+const inSubset = (row: ReportRow, size: number | null) =>
+  size !== null &&
+  (row.batchSize === size || (size === ALL_FLOPS && row.batchSize === null));
+
 /**
- * The batch subset the average uses: the most complete one (solved flops over its size), the
- * larger one on a tie. A barely started large batch does not push out a finished smaller one.
- * Null when no flop comes from a batch.
+ * The batch subset the average uses: the largest one at least 95% solved, else the most
+ * complete one (the larger on a tie). A barely started large batch does not push out a
+ * finished smaller one; a nearly finished one does. Null when no flop comes from a batch.
  */
 const subsetForAverage = (rows: ReportRow[]): number | null => {
-  const solved = new Map<number, Set<string>>();
-  for (const row of rows) {
-    if (row.batchSize === null) continue;
-    const flops = solved.get(row.batchSize) ?? new Set<string>();
-    flops.add(canonicalFlopKey(row.board));
-    solved.set(row.batchSize, flops);
-  }
+  const sizes = new Set(
+    rows.flatMap((row) => (row.batchSize === null ? [] : [row.batchSize]))
+  );
+  const share = (size: number) =>
+    new Set(
+      rows
+        .filter((row) => inSubset(row, size))
+        .map((row) => canonicalFlopKey(row.board))
+    ).size / size;
   let best: number | null = null;
-  let bestShare = -1;
-  for (const [size, flops] of solved) {
-    const share = flops.size / size;
-    if (share > bestShare || (share === bestShare && size > (best ?? 0))) {
+  let bestScore = -1;
+  for (const size of sizes) {
+    const s = share(size);
+    // Nearly finished subsets rank above all others, the larger first.
+    const score = s >= NEARLY_DONE ? 2 + size : s;
+    if (score > bestScore || (score === bestScore && size > (best ?? 0))) {
       best = size;
-      bestShare = share;
+      bestScore = score;
     }
   }
   return best;
@@ -151,7 +163,8 @@ const subsetForAverage = (rows: ReportRow[]): number | null => {
  * would count twice in the average). When batches solved this spot, the average uses one
  * subset (see `subsetForAverage`): its weights stand for all flops, together and only together (a
  * hand-solved flop's weight only stands for its own suits, another subset's for other flops).
- * A flop is kept from that subset first, then from any batch, then the most recent.
+ * A flop is kept from that subset first (with 1755, a hand-solved flop is in it), then from
+ * any batch, then the most recent.
  * `subset` says which subset the average uses and how many of its flops are solved.
  */
 export const buildReport = (
@@ -166,11 +179,7 @@ export const buildReport = (
   const all = reportRows(entries, key, cbetBy);
   const size = subsetForAverage(all);
   const rank = (row: ReportRow) =>
-    row.batchSize === size && size !== null
-      ? 2
-      : row.batchSize !== null
-        ? 1
-        : 0;
+    inSubset(row, size) ? 2 : row.batchSize !== null ? 1 : 0;
   const best = new Map<string, ReportRow>();
   for (const row of all) {
     const flop = canonicalFlopKey(row.board);
@@ -187,11 +196,7 @@ export const buildReport = (
     .filter((row) => best.get(canonicalFlopKey(row.board)) === row)
     .map((row) => ({
       ...row,
-      // Every flop solved (1755): a hand-solved flop's weight is the same as the subset's.
-      inAverage:
-        size === null ||
-        row.batchSize === size ||
-        (size === ALL_FLOPS && row.batchSize === null),
+      inAverage: size === null || inSubset(row, size),
     }));
   return {
     rows,
