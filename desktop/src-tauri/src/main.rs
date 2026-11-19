@@ -10,6 +10,7 @@ mod library;
 mod library_commands;
 mod lock_commands;
 mod locks;
+mod memory_limit;
 mod range;
 mod session;
 mod solver;

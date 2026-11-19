@@ -140,6 +140,11 @@ pub fn check_name(name: &str) -> Result<(), String> {
     }
 }
 
+/// Whether the library has a solution saved under `name` (as given, sanitized).
+pub fn exists(dir: &Path, name: &str) -> bool {
+    sanitize_name(name).is_ok_and(|name| file_path(dir, &name).exists())
+}
+
 fn file_path(dir: &Path, name: &str) -> PathBuf {
     dir.join(format!("{name}.{EXTENSION}"))
 }
@@ -680,12 +685,14 @@ mod schema_tests {
     fn v2_metadata_still_loads() {
         let mut value = serde_json::to_value(tests::meta(1)).unwrap();
         value.as_object_mut().unwrap().remove("flop_weight");
+        value.as_object_mut().unwrap().remove("batch_size");
         let summary = value["summary"].as_object_mut().unwrap();
         summary.remove("equity_buckets");
         summary.remove("ip_after_check");
         value["schema"] = serde_json::json!(2);
         let meta: SolutionMeta = serde_json::from_value(value).unwrap();
         assert_eq!(meta.flop_weight, None);
+        assert_eq!(meta.batch_size, None);
         assert_eq!(meta.summary.equity_buckets, None);
         assert_eq!(meta.summary.ip_after_check, None);
     }
