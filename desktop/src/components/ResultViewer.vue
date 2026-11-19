@@ -170,7 +170,7 @@
         <div
           v-for="player in COMPARE_PLAYERS.slice(0, 1)"
           :key="player"
-          class="flex flex-1 min-w-0 items-center justify-center"
+          class="flex flex-1 min-w-0 items-start justify-center"
         >
           <!-- A line in the player's colour on top: the middle column names OOP and IP. -->
           <ResultBasics
@@ -225,7 +225,7 @@
         <div
           v-for="player in COMPARE_PLAYERS.slice(1)"
           :key="player"
-          class="flex flex-1 min-w-0 items-center justify-center"
+          class="flex flex-1 min-w-0 items-start justify-center"
         >
           <!-- A line in the player's colour on top: the middle column names OOP and IP. -->
           <ResultBasics
@@ -366,8 +366,12 @@ const line = ref<{ history: number[]; label: string }>({
 
 /* Node lock */
 
-/** Side of the square grid in Strategy mode (the summary keeps at least 380 px). */
-const BASICS_SIDE = "min(100cqh, 100cqw - 380px)";
+/**
+ * Side of the square grid in Strategy, Equity and Breakdown: as tall as the area, but the
+ * summary keeps at least 45% of the width (and 380 px), so a tall window does not give a
+ * huge grid and a cut table.
+ */
+const BASICS_SIDE = "min(100cqh, 100cqw - max(380px, 45cqw))";
 /** Side of each square grid in Compare mode (statistics 240 px between them). */
 const COMPARE_SIDE = "min(100cqh, (100cqw - 240px) / 2)";
 const COMPARE_PLAYERS = ["oop", "ip"] as const;
