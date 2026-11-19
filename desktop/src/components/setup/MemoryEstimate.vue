@@ -15,13 +15,13 @@
               choice.ok && !choice.compression ? 'text-ink' : 'text-muted'
             "
           >
-            {{ formatBytes(state.need32) }} (32-bit)
+            {{ formatBytes(needs.need32) }} (32-bit)
           </span>
           ·
           <span
             :class="choice.ok && choice.compression ? 'text-ink' : 'text-muted'"
           >
-            {{ formatBytes(state.need16) }} (16-bit)
+            {{ formatBytes(needs.need16) }} (16-bit)
           </span>
         </p>
         <p
@@ -57,7 +57,7 @@
 import { computed, onUnmounted, ref, watch } from "vue";
 import { useConfigStore, useStore } from "../../store";
 import { memoryLimit, useSolverSession } from "../../solver-session";
-import { choosePrecision } from "../../solve-status";
+import { choosePrecision, memoryNeeds } from "../../solve-status";
 import { solveBlocker } from "../../setup-validation";
 import { gameTreeArgs } from "../../game-args";
 import { formatBytes } from "../../utils";
@@ -68,7 +68,12 @@ import UiPanel from "../ui/UiPanel.vue";
 type State =
   | { kind: "none"; reason: string }
   | { kind: "pending" }
-  | { kind: "ready"; need32: number; need16: number; available: number };
+  | {
+      kind: "ready";
+      /** 32-bit, 16-bit, and what the bunching effect adds. */
+      estimate: [number, number, number];
+      available: number;
+    };
 
 const config = useConfigStore();
 const store = useStore();
@@ -89,13 +94,11 @@ const estimate = latestOnly(async () => {
   }
   state.value = { kind: "pending" };
   try {
-    const [need32, need16] = await invokes.gameMemoryEstimate(
-      gameTreeArgs(config)
-    );
+    const estimate = await invokes.gameMemoryEstimate(gameTreeArgs(config));
     const available = await memoryLimit();
     // A newer setup was sent meanwhile: its answer wins.
     if (id !== requestId) return;
-    state.value = { kind: "ready", need32, need16, available };
+    state.value = { kind: "ready", estimate, available };
   } catch (e) {
     if (id === requestId) state.value = { kind: "none", reason: String(e) };
   }
@@ -110,12 +113,22 @@ watch(() => gameTreeArgs(config), schedule, { deep: true, immediate: true });
 watch(() => store.ranges.slice(0, 2), schedule, { deep: true });
 onUnmounted(() => clearTimeout(timer));
 
+/** What the solve needs: the bunching effect's tables count when it is used, as at Solve. */
+const needs = computed(() =>
+  state.value.kind === "ready"
+    ? memoryNeeds(
+        state.value.estimate,
+        store.isBunchingEnabled && store.bunchingFlop.length > 0
+      )
+    : { need32: 0, need16: 0 }
+);
+
 const choice = computed(() =>
   state.value.kind === "ready"
     ? choosePrecision(
         session.settings.precision,
-        state.value.need32,
-        state.value.need16,
+        needs.value.need32,
+        needs.value.need16,
         state.value.available,
         session.ignoreMemoryLimit
       )

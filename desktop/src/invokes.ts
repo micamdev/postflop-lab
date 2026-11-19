@@ -164,10 +164,11 @@ export const gameInit = async (args: GameTreeArgs): Promise<string | null> => {
   return await invoke("game_init", { args });
 };
 
-/** Memory needed to solve the setup [32-bit, 16-bit]; rejects with the reason. */
+/** Memory needed to solve the setup [32-bit, 16-bit, added by the bunching effect]; rejects
+ * with the reason. */
 export const gameMemoryEstimate = async (
   args: GameTreeArgs
-): Promise<[number, number]> => {
+): Promise<[number, number, number]> => {
   return await invoke("game_memory_estimate", { args });
 };
 
