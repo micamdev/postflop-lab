@@ -9,13 +9,13 @@ const releases = `${repo}/releases/latest`;
 const features = [
   {
     title: "Keep every spot you solve",
-    text: "Solutions are saved as files you own. Keep the whole tree, or stop at the turn and let rivers solve again in a second when you pick them. Search your library by name or board.",
+    text: "Solutions are saved as files you own. Keep the whole tree, or stop at the turn and let rivers re-solve on demand when you pick them. Search your library by name or board.",
     shot: "library",
     alt: "The library: saved solutions with their board, depth, exploitability and size",
   },
   {
     title: "Lock a strategy, solve the rest",
-    text: "Set how a player plays at any node, for one hand or the whole range, then solve again. See how the other player adapts to an opponent who over-folds or never raises.",
+    text: "Set the frequencies of any hands at a node, keep the rest of the node as it plays, then solve again. See how the other player adapts to an opponent who over-folds or never raises.",
     shot: "lock",
     alt: "The node lock editor over the strategy grid",
   },
@@ -49,7 +49,6 @@ const comparison = [
       <a href={repo} class="hidden text-ash transition-colors hover:text-chalk sm:inline">Source code</a>
       <a
         href={releases}
-        data-download
         class="rounded-md bg-chalk px-3.5 py-1.5 font-semibold text-graphite transition-colors hover:bg-white"
       >
         Download
@@ -72,7 +71,7 @@ const comparison = [
           <a
             href={releases}
             data-download
-            class="rounded-lg bg-check px-5 py-3 font-semibold text-white shadow-[0_8px_30px_-12px_rgba(63,174,110,0.7)] transition-[filter] hover:brightness-110"
+            class="rounded-lg bg-check px-5 py-3 font-semibold text-graphite shadow-[0_8px_30px_-12px_rgba(63,174,110,0.7)] transition-[filter] hover:brightness-110"
           >
             Download for Windows
           </a>
@@ -108,7 +107,7 @@ const comparison = [
               <h2 class="heading text-[clamp(1.7rem,3vw,2.3rem)]">{f.title}</h2>
               <p class="mt-4 max-w-[32rem] text-ash">{f.text}</p>
             </div>
-            <Shot name={f.shot} alt={f.alt} />
+            <Shot name={f.shot} alt={f.alt} sizes="(min-width: 1024px) 680px, 100vw" />
           </div>
         ))
       }
@@ -142,9 +141,9 @@ const comparison = [
                   {[before, now].map((yes) => (
                     <td class="py-3.5 text-center">
                       {yes ? (
-                        <span class="text-check" aria-label="Yes">✓</span>
+                        <><span class="text-check" aria-hidden="true">✓</span><span class="sr-only">Yes</span></>
                       ) : (
-                        <span class="text-ash/60" aria-label="No">–</span>
+                        <><span class="text-ash/60" aria-hidden="true">–</span><span class="sr-only">No</span></>
                       )}
                     </td>
                   ))}
@@ -168,7 +167,7 @@ const comparison = [
         <a
           href={releases}
           data-download
-          class="rounded-lg bg-check px-5 py-3 font-semibold text-white transition-[filter] hover:brightness-110"
+          class="rounded-lg bg-check px-5 py-3 font-semibold text-graphite transition-[filter] hover:brightness-110"
         >
           Download for Windows
         </a>

@@ -6,9 +6,16 @@ interface Props {
   name: string;
   alt: string;
   eager?: boolean;
+  /** Width the image is shown at (default: the page's content width). */
+  sizes?: string;
 }
 
-const { name, alt, eager = false } = Astro.props;
+const {
+  name,
+  alt,
+  eager = false,
+  sizes = "(min-width: 1152px) 1104px, 100vw",
+} = Astro.props;
 const images = import.meta.glob<{ default: ImageMetadata }>("../assets/shots/*.png", {
   eager: true,
 });
@@ -20,8 +27,8 @@ if (!image) throw new Error(`Missing screenshot: ${name}`);
   <Image
     src={image}
     alt={alt}
-    widths={[800, 1400, 2000]}
-    sizes="(min-width: 1152px) 1104px, 100vw"
+    widths={[700, 1100, 1600]}
+    sizes={sizes}
     loading={eager ? "eager" : "lazy"}
     class="block h-auto w-full"
   />
