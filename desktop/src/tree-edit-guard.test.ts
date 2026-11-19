@@ -32,7 +32,9 @@ describe("leaving the tree lines editor", () => {
 
   test("changed lines: Save keeps them, Discard drops them, Stay stays", async () => {
     const saved = edit(true);
-    expect(await leaveTreeEdit(async () => "save")).toBe(true);
+    const ask = vi.fn(async () => "save" as const);
+    expect(await leaveTreeEdit(ask)).toBe(true);
+    expect(ask).toHaveBeenCalledWith("save");
     expect(saved.save).toHaveBeenCalledOnce();
     expect(saved.discard).not.toHaveBeenCalled();
 
@@ -50,7 +52,16 @@ describe("leaving the tree lines editor", () => {
     edit(true, false);
     const ask = vi.fn(async () => "stay" as const);
     expect(await leaveTreeEdit(ask)).toBe(false);
-    expect(ask).toHaveBeenCalledWith(false);
+    expect(ask).toHaveBeenCalledWith("invalid");
+  });
+
+  test("a load replaces the lines: only Discard or Stay, even for a valid edit", async () => {
+    const { save, discard } = edit(true);
+    const ask = vi.fn(async () => "discard" as const);
+    expect(await leaveTreeEdit(ask, "load")).toBe(true);
+    expect(ask).toHaveBeenCalledWith("replaced");
+    expect(discard).toHaveBeenCalledOnce();
+    expect(save).not.toHaveBeenCalled();
   });
 
   test("a closed edit no longer asks", async () => {

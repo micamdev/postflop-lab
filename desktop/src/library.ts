@@ -73,8 +73,6 @@ export const loadSolution = async (name: string): Promise<string | null> => {
   if (store.isLibraryBusy || isLoading) return null;
   isLoading = true;
   try {
-    // An open tree lines edit is saved, dropped, or the load does not happen.
-    if (!(await leaveTreeEdit())) return null;
     // Refused loads (unreadable file, not enough memory) leave everything as it is.
     try {
       await invokes.libraryCheckLoad(name);
@@ -90,6 +88,8 @@ export const loadSolution = async (name: string): Promise<string | null> => {
     ) {
       return null;
     }
+    // Last question: the loaded solution replaces an open tree lines edit.
+    if (!(await leaveTreeEdit(undefined, "load"))) return null;
 
     store.isLibraryBusy = true;
     try {
