@@ -251,18 +251,7 @@
             @keydown.enter="emit('open', row.name)"
           >
             <td class="px-3 py-2 whitespace-nowrap">
-              <span class="inline-flex gap-0.5">
-                <span
-                  v-for="card of sortedBoard(row.board)"
-                  :key="card"
-                  :class="[
-                    'flex items-center justify-center w-5 h-6 rounded text-xs font-bold text-white',
-                    suitBgClasses[card & 3],
-                  ]"
-                >
-                  {{ cardText(card).rank }}
-                </span>
-              </span>
+              <BoardChips :board="row.board" sorted />
             </td>
             <td class="px-3 py-2 text-muted whitespace-nowrap">
               {{ row.texture }}
@@ -306,12 +295,13 @@
 </template>
 
 <script setup lang="ts">
+import BoardChips from "../ui/BoardChips.vue";
 import { computed, ref, watch } from "vue";
 import { save } from "@tauri-apps/plugin-dialog";
 import { writeTextFile } from "@tauri-apps/plugin-fs";
 import { useStore } from "../../store";
 import * as invokes from "../../invokes";
-import { cardText, suitBgClasses, toFixed1, toFixed2 } from "../../utils";
+import { toFixed1, toFixed2 } from "../../utils";
 import { stackedGradient } from "../../action-colors";
 import { themeColor } from "../../theme";
 import { potPercent, toSpotActions } from "../../nav-spots";
@@ -542,7 +532,6 @@ const bar = (strategy: Record<string, number>) =>
 const percent = (value: number | undefined) =>
   value === undefined || isNaN(value) ? "—" : toFixed1(value * 100) + "%";
 const evText = (value: number) => (isNaN(value) ? "—" : toFixed2(value));
-const sortedBoard = (board: number[]) => [...board].sort((a, b) => b - a);
 
 const exportCsv = async () => {
   const path = await save({
