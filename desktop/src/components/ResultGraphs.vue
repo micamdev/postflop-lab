@@ -44,7 +44,7 @@
     </div>
 
     <ResultTable
-      class="flex-1 min-w-[380px]"
+      class="flex-1 min-w-[480px]"
       table-mode="graphs"
       :graph-type="displayOptions.contentGraphs"
       :cards="cards"

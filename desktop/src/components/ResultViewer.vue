@@ -127,7 +127,7 @@
         />
 
         <ResultTable
-          class="flex-1 min-w-[380px]"
+          class="flex-1 min-w-[480px]"
           table-mode="basics"
           :cards="cards"
           :selected-spot="selectedSpot"
@@ -263,7 +263,7 @@
           :is-compare-mode="false"
         />
         <div
-          class="flex flex-col flex-1 min-w-[380px] bg-panel border-l border-line"
+          class="flex flex-col flex-1 min-w-[480px] bg-panel border-l border-line"
         >
           <NodeStrategyCards :items="strategyItems" :no-hands="noHandsAtNode" />
           <BreakdownTable
@@ -368,10 +368,10 @@ const line = ref<{ history: number[]; label: string }>({
 
 /**
  * Side of the square grid in Strategy, Equity and Breakdown: as tall as the area, but the
- * summary keeps at least 45% of the width (and 380 px), so a tall window does not give a
+ * summary keeps at least half the width (and 480 px), so a tall window does not give a
  * huge grid and a cut table.
  */
-const BASICS_SIDE = "min(100cqh, 100cqw - max(380px, 45cqw))";
+const BASICS_SIDE = "min(100cqh, 100cqw - max(480px, 50cqw))";
 /** Side of each square grid in Compare mode (statistics 240 px between them). */
 const COMPARE_SIDE = "min(100cqh, (100cqw - 240px) / 2)";
 const COMPARE_PLAYERS = ["oop", "ip"] as const;
