@@ -45,7 +45,11 @@
   <div v-else>
     <Suspense>
       <template #default>
-        <TreeEditor @save="saveEdit" @cancel="cancelEdit" />
+        <TreeEditor
+          @save="saveEdit"
+          @cancel="cancelEdit"
+          @state="editState = $event"
+        />
       </template>
       <template #fallback>
         <div>Loading...</div>
@@ -59,7 +63,8 @@ import { computed, onBeforeUnmount, ref, watch } from "vue";
 import { useStore, useConfigStore } from "../store";
 import { readableLineString } from "../utils";
 import { setupErrors } from "../setup-validation";
-import TreeEditor from "./TreeEditor.vue";
+import TreeEditor, { type TreeEditState } from "./TreeEditor.vue";
+import { openTreeEdit } from "../tree-edit-guard";
 import UiButton from "./ui/UiButton.vue";
 import UiPanel from "./ui/UiPanel.vue";
 
@@ -132,14 +137,41 @@ const saveEdit = (addedLines: string, removedLines: string) => {
   }
 };
 
-// Leaving the view (or loading a solution) ends an unsaved edit: its tree would be stale.
+// The open edit, for the guard that asks before leaving it (Back to setup, loading a
+// solution): Save, Discard or Stay when its lines changed.
+const editState = ref<TreeEditState | null>(null);
+let closeGuard: (() => void) | null = null;
+watch(isEditMode, (open) => {
+  closeGuard?.();
+  closeGuard = null;
+  editState.value = null;
+  if (!open) return;
+  closeGuard = openTreeEdit({
+    isDirty: () =>
+      editState.value !== null &&
+      (editState.value.added !== config.addedLines ||
+        editState.value.removed !== config.removedLines),
+    canSave: () => editState.value?.canSave ?? false,
+    save: () => {
+      if (editState.value) {
+        saveEdit(editState.value.added, editState.value.removed);
+      }
+    },
+    discard: () => cancelEdit(),
+  });
+});
+
+// Left without the guard (it already ended the edit otherwise): drop it, its tree would be
+// stale.
 onBeforeUnmount(() => {
+  closeGuard?.();
   if (isEditMode.value) cancelEdit();
 });
+// A loaded solution brings its own lines and board length: only close the editor.
 watch(
   () => store.solutionLoadCount,
   () => {
-    if (isEditMode.value) cancelEdit();
+    isEditMode.value = false;
   }
 );
 

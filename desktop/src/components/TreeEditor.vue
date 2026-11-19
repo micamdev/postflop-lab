@@ -192,7 +192,7 @@
 import { actionText, streetBets, toSpotActions } from "../nav-spots";
 import UiButton from "./ui/UiButton.vue";
 import UiPanel from "./ui/UiPanel.vue";
-import { computed, nextTick, ref } from "vue";
+import { computed, nextTick, ref, watch } from "vue";
 import { useConfigStore } from "../store";
 import { readableLineString } from "../utils";
 import { gameTreeArgs } from "../game-args";
@@ -201,9 +201,17 @@ import * as invokes from "../invokes";
 
 import { TrashIcon } from "@heroicons/vue/24/outline";
 
+/** What Save would write, and whether it may (no tree error, no invalid line). */
+export type TreeEditState = {
+  added: string;
+  removed: string;
+  canSave: boolean;
+};
+
 const emit = defineEmits<{
   (event: "save", addedLines: string, removedLines: string): void;
   (event: "cancel"): void;
+  (event: "state", state: TreeEditState): void;
 }>();
 
 const navDiv = ref(null as HTMLDivElement | null);
@@ -533,6 +541,18 @@ const removeSelectedNode = async () => {
   removedLines.value = await invokes.treeRemovedLines();
   invalidLines.value = await invokes.treeInvalidTerminals();
 };
+
+// The parent knows the edit's lines at any time (to ask before they are lost).
+watch(
+  [addedLines, removedLines, invalidLinesArray],
+  () =>
+    emit("state", {
+      added: addedLines.value,
+      removed: removedLines.value,
+      canSave: !isTreeError && invalidLinesArray.value.length === 0,
+    }),
+  { immediate: true }
+);
 
 const saveEdit = () => {
   emit("save", addedLines.value, removedLines.value);

@@ -12,6 +12,7 @@ import {
 import * as invokes from "./invokes";
 import { DAMAGED_FILE } from "./library-list";
 import { weightPercent } from "./utils";
+import { leaveTreeEdit } from "./tree-edit-guard";
 
 /** Asks a yes/no question in a native dialog. */
 export const ask = async (message: string): Promise<boolean> => {
@@ -87,6 +88,8 @@ export const loadSolution = async (name: string): Promise<string | null> => {
     ) {
       return null;
     }
+    // Last question: the loaded solution replaces an open tree lines edit.
+    if (!(await leaveTreeEdit(undefined, "load"))) return null;
 
     store.isLibraryBusy = true;
     try {
