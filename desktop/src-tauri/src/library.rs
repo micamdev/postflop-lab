@@ -18,7 +18,7 @@ pub const EXTENSION: &str = "plab";
 pub const ERR_EXISTS: &str = "exists";
 
 /// Version of the [`SolutionMeta`] schema.
-pub const META_SCHEMA: u32 = 2;
+pub const META_SCHEMA: u32 = 3;
 
 /// Largest metadata JSON a file can hold (the engine reads header fields up to 1 MiB).
 pub const MAX_MEMO_BYTES: usize = 1_000_000;
@@ -48,6 +48,10 @@ pub struct SolutionMeta {
     /// Locks the solution was solved with (schema 2; absent from schema 1 files).
     #[serde(default)]
     pub locks: Vec<crate::locks::NodeLock>,
+    /// Weight of the flop in the subset it was batch-solved with (schema 3; absent for a flop
+    /// solved by hand, which reports weight by its number of suit-isomorphic flops).
+    #[serde(default)]
+    pub flop_weight: Option<f64>,
 }
 
 /// Root summary, computed at save time so that aggregate reports never need to load the data.
@@ -63,6 +67,21 @@ pub struct SolutionSummary {
     pub root_actions: Vec<String>,
     /// Range-weighted frequency of each root action.
     pub root_frequencies: Vec<f64>,
+    /// Share of each range (OOP, IP) at the root in the equity tranches >= 90%, 75-90%,
+    /// 50-75% and < 50% (schema 3; absent before).
+    #[serde(default)]
+    pub equity_buckets: Option<[[f64; 4]; 2]>,
+    /// IP's strategy after OOP checks at the root, when OOP acts first and can check
+    /// (schema 3; absent before).
+    #[serde(default)]
+    pub ip_after_check: Option<NodeFrequencies>,
+}
+
+/// Actions of a node and the range-weighted frequency of each.
+#[derive(Serialize, Deserialize, Clone, Debug, PartialEq, Default)]
+pub struct NodeFrequencies {
+    pub actions: Vec<String>,
+    pub frequencies: Vec<f64>,
 }
 
 /// One file of the library, readable or not.
@@ -191,6 +210,11 @@ pub fn save_with_progress(
         return Err(ERR_EXISTS.to_string());
     }
     let memo = serde_json::to_string(meta).map_err(|e| e.to_string())?;
+    // An undefined number (NaN) is written as null, which does not read back: refuse rather
+    // than write a file the library would list as unreadable.
+    if serde_json::from_str::<SolutionMeta>(&memo).is_err() {
+        return Err("Cannot save: the metadata has undefined values".to_string());
+    }
     if memo.len() > MAX_MEMO_BYTES {
         return Err(
             "The tree configuration is too large to save (over 1 MB of metadata)".to_string(),
@@ -276,6 +300,22 @@ pub fn load(
         serde_json::from_str(&header.memo).map_err(|e| format!("Unreadable metadata: {e}"))?;
     let (game, _) = load_data_from_file::<PostFlopGame, _>(&path, Some(max_memory))?;
     Ok((game, meta))
+}
+
+/// Recomputes the summary of a saved solution with `summarize` (from the loaded game) and
+/// rewrites the file at the same depth, the rest of its metadata unchanged (older saves lack
+/// what reports need). Refused beyond `max_memory`, like a load.
+pub fn refresh_summary(
+    dir: &Path,
+    name: &str,
+    max_memory: u64,
+    summarize: impl FnOnce(&mut PostFlopGame) -> SolutionSummary,
+) -> Result<SolutionMeta, String> {
+    let (mut game, mut meta) = load(dir, name, max_memory)?;
+    meta.summary = summarize(&mut game);
+    meta.schema = META_SCHEMA;
+    save_with_progress(dir, name, &game, &meta, true, |_| {})?;
+    Ok(meta)
 }
 
 /// Renames a solution; returns the new file name.
@@ -420,6 +460,7 @@ pub(crate) mod tests {
             precision: "32".to_string(),
             summary: SolutionSummary::default(),
             locks: Vec::new(),
+            flop_weight: None,
         }
     }
 
@@ -445,6 +486,67 @@ pub(crate) mod tests {
         assert_eq!(loaded_meta, meta(10));
         assert_eq!(loaded.private_cards(0), game.private_cards(0));
         assert_eq!(root_strategy(&mut loaded), root_strategy(&mut game));
+    }
+
+    #[test]
+    fn refresh_summary_rewrites_only_the_summary() {
+        let dir = tempfile::tempdir().unwrap();
+        let mut game = small_game(true);
+        let mut old = meta(10);
+        old.schema = 2;
+        save(dir.path(), "spot", &game, &old, false).unwrap();
+
+        let summary = SolutionSummary {
+            root_player: "oop".to_string(),
+            ..Default::default()
+        };
+        let refreshed = refresh_summary(dir.path(), "spot", u64::MAX, |_| summary.clone()).unwrap();
+
+        let expected = SolutionMeta {
+            schema: META_SCHEMA,
+            summary,
+            ..old
+        };
+        assert_eq!(refreshed, expected);
+        assert_eq!(list(dir.path())[0].meta.as_ref(), Some(&expected));
+        let (mut loaded, _) = load(dir.path(), "spot", u64::MAX).unwrap();
+        assert_eq!(root_strategy(&mut loaded), root_strategy(&mut game));
+    }
+
+    #[test]
+    fn refresh_summary_keeps_a_partial_save_partial() {
+        let dir = tempfile::tempdir().unwrap();
+        // Loaded from a turn save: no river data.
+        let game = crate::session::tests::turn_only_game();
+        save(dir.path(), "turn", &game, &meta(1), false).unwrap();
+        let size = || list(dir.path())[0].file_size;
+        let before = size();
+        refresh_summary(dir.path(), "turn", u64::MAX, |_| SolutionSummary::default()).unwrap();
+        let after = size();
+        assert!(after.abs_diff(before) < before / 10, "{before} -> {after}");
+        let (loaded, _) = load(dir.path(), "turn", u64::MAX).unwrap();
+        assert_eq!(loaded.target_storage_mode(), BoardState::Turn);
+    }
+
+    #[test]
+    fn save_refuses_metadata_it_could_not_read_back() {
+        // NaN becomes null in JSON, which does not read back as a number: the file would be
+        // listed as unreadable.
+        let dir = tempfile::tempdir().unwrap();
+        let mut bad = meta(1);
+        bad.summary.equity = [f64::NAN, 0.5];
+        let err = save(dir.path(), "spot", &small_game(true), &bad, false).unwrap_err();
+        assert!(err.contains("metadata"), "{err}");
+        assert!(list(dir.path()).is_empty());
+    }
+
+    #[test]
+    fn refresh_summary_refuses_beyond_the_memory() {
+        let dir = tempfile::tempdir().unwrap();
+        save(dir.path(), "spot", &small_game(true), &meta(10), false).unwrap();
+        let err = refresh_summary(dir.path(), "spot", 1, |_| SolutionSummary::default());
+        assert!(err.unwrap_err().starts_with("Not enough memory"));
+        assert_eq!(list(dir.path())[0].meta.as_ref(), Some(&meta(10)));
     }
 
     #[test]
@@ -567,6 +669,20 @@ mod schema_tests {
         value["schema"] = serde_json::json!(1);
         let meta: SolutionMeta = serde_json::from_value(value).unwrap();
         assert!(meta.locks.is_empty());
+    }
+
+    #[test]
+    fn v2_metadata_still_loads() {
+        let mut value = serde_json::to_value(tests::meta(1)).unwrap();
+        value.as_object_mut().unwrap().remove("flop_weight");
+        let summary = value["summary"].as_object_mut().unwrap();
+        summary.remove("equity_buckets");
+        summary.remove("ip_after_check");
+        value["schema"] = serde_json::json!(2);
+        let meta: SolutionMeta = serde_json::from_value(value).unwrap();
+        assert_eq!(meta.flop_weight, None);
+        assert_eq!(meta.summary.equity_buckets, None);
+        assert_eq!(meta.summary.ip_after_check, None);
     }
 }
 

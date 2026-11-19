@@ -110,6 +110,7 @@ fn main() {
             library_save,
             library_check_load,
             library_load,
+            library_refresh_summary,
             library_rename,
             library_delete,
             library_import,

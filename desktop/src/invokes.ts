@@ -291,6 +291,10 @@ export type SolutionSummary = {
   root_player: string;
   root_actions: string[];
   root_frequencies: number[];
+  /** OOP and IP shares in the equity tranches >= 90%, 75-90%, 50-75%, < 50% (schema 3). */
+  equity_buckets?: [number[], number[]] | null;
+  /** IP's strategy after OOP checks at the root (schema 3; absent if OOP cannot check). */
+  ip_after_check?: { actions: string[]; frequencies: number[] } | null;
 };
 
 export type SolutionMeta = {
@@ -308,6 +312,8 @@ export type SolutionMeta = {
   summary: SolutionSummary;
   /** Locks the solution was solved with (absent from schema 1 files). */
   locks?: NodeLock[];
+  /** Weight of the flop in the subset it was batch-solved with (absent if solved by hand). */
+  flop_weight?: number | null;
 };
 
 export type LibraryEntry = {
@@ -353,6 +359,13 @@ export const librarySave = async (
 ): Promise<string> => {
   // The file name the library used (sanitized).
   return await invoke("library_save", { name, depth, overwrite, frontMeta });
+};
+
+/** Recomputes the summary of a saved solution (older saves); returns its new metadata. */
+export const libraryRefreshSummary = async (
+  name: string
+): Promise<SolutionMeta> => {
+  return await invoke("library_refresh_summary", { name });
 };
 
 export const libraryLoad = async (name: string): Promise<SolutionMeta> => {
