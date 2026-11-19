@@ -1,0 +1,78 @@
+@import "@fontsource-variable/archivo/wdth.css";
+@import "tailwindcss";
+
+/* The app's Graphite theme, and its action colors (the only color on the page: data). */
+@theme {
+  --color-graphite: #151517;
+  --color-slate: #1d1d20;
+  --color-slate-2: #242428;
+  --color-rule: #323238;
+  --color-chalk: #ececee;
+  --color-ash: #9a9aa3;
+  --color-lavender: #a9a2dc;
+  --color-check: #3fae6e;
+  --color-bet-small: #e0704f;
+  --color-bet-big: #c4473a;
+  --color-allin: #9e2f2b;
+  --color-cell: #26262a;
+
+  --font-sans: "Archivo Variable", system-ui, sans-serif;
+}
+
+html {
+  background: var(--color-graphite);
+  color: var(--color-chalk);
+  font-family: var(--font-sans);
+  font-size: 17px;
+  line-height: 1.6;
+  -webkit-font-smoothing: antialiased;
+  text-rendering: optimizeLegibility;
+}
+
+/* Headlines: Archivo widened, the page's one typographic voice. */
+.display {
+  font-stretch: 118%;
+  font-weight: 640;
+  letter-spacing: -0.02em;
+  line-height: 1.04;
+  text-wrap: balance;
+}
+
+.heading {
+  font-stretch: 118%;
+  font-weight: 620;
+  letter-spacing: -0.012em;
+  line-height: 1.15;
+  text-wrap: balance;
+}
+
+.tabular {
+  font-variant-numeric: tabular-nums;
+}
+
+:focus-visible {
+  outline: 2px solid var(--color-lavender);
+  outline-offset: 3px;
+  border-radius: 4px;
+}
+
+/* The page's one orchestrated moment: the range grid fills in on load. */
+@keyframes fill {
+  from {
+    clip-path: inset(0 100% 0 0);
+  }
+  to {
+    clip-path: inset(0 0 0 0);
+  }
+}
+
+.cell-bar {
+  animation: fill 700ms cubic-bezier(0.2, 0.7, 0.2, 1) both;
+  animation-delay: var(--delay);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .cell-bar {
+    animation: none;
+  }
+}
