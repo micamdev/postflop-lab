@@ -2,7 +2,7 @@
 // from the library metadata only (no solution is loaded).
 
 import type { LibraryEntry, SolutionMeta } from "./invokes";
-import { flopWeight, textureLabel } from "./flop-texture";
+import { canonicalFlopKey, flopWeight, textureLabel } from "./flop-texture";
 import { cardText } from "./utils";
 
 /** Whose first decision is the c-bet: IP after OOP checks, or OOP first. */
@@ -50,6 +50,13 @@ export type ReportRow = {
   strategy: Record<string, number> | null;
   /** OOP and IP equity tranches (>= 90%, 75-90%, 50-75%, < 50%); null if not saved. */
   buckets: [number[], number[]] | null;
+  /** Saved before schema 3: "Update older saves" can add the strategy and tranches. */
+  isOlderSave: boolean;
+  /** Solved in a batch (its weight comes from the batch subset). */
+  isBatch: boolean;
+  /** Counted in the average (see `buildReport`). */
+  inAverage: boolean;
+  createdAt: number;
 };
 
 const toStrategy = (actions: string[], frequencies: number[]) =>
@@ -83,9 +90,47 @@ export const reportRows = (
         ev: summary.ev[player],
         strategy,
         buckets: summary.equity_buckets ?? null,
+        isOlderSave: meta.schema < 3,
+        isBatch: meta.flop_weight != null,
+        inAverage: true,
+        createdAt: meta.created_at,
       },
     ];
   });
+
+/**
+ * The report rows: one per flop up to the suits (a flop solved twice, or AsKd7c and AhKc7d,
+ * would count twice in the average), keeping a batch flop first, else the most recent; and,
+ * when some flops come from a batch, only those in the average (a batch's weights stand for
+ * all flops, a hand-solved flop's only for its own suits).
+ */
+export const buildReport = (
+  entries: LibraryEntry[],
+  key: string,
+  cbetBy: CbetBy
+): { rows: ReportRow[]; duplicates: number } => {
+  const all = reportRows(entries, key, cbetBy);
+  const best = new Map<string, ReportRow>();
+  for (const row of all) {
+    const flop = canonicalFlopKey(row.board);
+    const kept = best.get(flop);
+    if (
+      !kept ||
+      (row.isBatch && !kept.isBatch) ||
+      (row.isBatch === kept.isBatch && row.createdAt > kept.createdAt)
+    ) {
+      best.set(flop, row);
+    }
+  }
+  const rows = all.filter(
+    (row) => best.get(canonicalFlopKey(row.board)) === row
+  );
+  const hasBatch = rows.some((row) => row.isBatch);
+  return {
+    rows: rows.map((row) => ({ ...row, inAverage: !hasBatch || row.isBatch })),
+    duplicates: all.length - rows.length,
+  };
+};
 
 const amountOf = (action: string) => Number(action.split(":")[1]) || 0;
 
@@ -99,7 +144,8 @@ export const reportActions = (rows: ReportRow[]): string[] => {
  * Average of the rows weighted by how often each flop occurs. A missing action counts 0;
  * rows without a strategy (or tranches) are left out of that average.
  */
-export const averageRow = (rows: ReportRow[]) => {
+export const averageRow = (allRows: ReportRow[]) => {
+  const rows = allRows.filter((r) => r.inAverage);
   const mean = (pick: (r: ReportRow) => number | null) => {
     let sum = 0;
     let total = 0;
@@ -198,7 +244,7 @@ export const reportCsv = (rows: ReportRow[], actions: string[]): string => {
   return [header, ...lines].map((line) => line.join(",")).join("\n");
 };
 
-/** Share of the `top` best equity tranches the c-bettor holds over the other player. */
+/** Share of the `top` best equity tranches IP holds over OOP (positive: IP has the edge). */
 const advantageValue = (
   buckets: [number[], number[]] | null,
   top: number

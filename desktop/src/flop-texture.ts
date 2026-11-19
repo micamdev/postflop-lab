@@ -71,17 +71,21 @@ const SUIT_PERMUTATIONS = (() => {
  * Number of flops equal to `board` up to the suits (24 for a rainbow flop, 4 for a monotone
  * one...): how often it occurs, relative to the other flops.
  */
-export const flopWeight = (board: number[]): number => {
-  const variants = new Set(
-    SUIT_PERMUTATIONS.map((perm) =>
-      board
-        .map((card) => (card & ~3) | perm[card & 3])
-        .sort((a, b) => a - b)
-        .join(",")
-    )
+export const flopWeight = (board: number[]): number =>
+  new Set(suitVariants(board)).size;
+
+/** The flop with each renaming of the suits, as sorted card lists ("4,21,51"). */
+const suitVariants = (board: number[]) =>
+  SUIT_PERMUTATIONS.map((perm) =>
+    board
+      .map((card) => (card & ~3) | perm[card & 3])
+      .sort((a, b) => a - b)
+      .join(",")
   );
-  return variants.size;
-};
+
+/** The same key for flops equal up to the suits (AsKd7c and AhKc7d). */
+export const canonicalFlopKey = (board: number[]): string =>
+  suitVariants(board).sort()[0];
 
 /** A texture filter of the report. */
 export type TextureFilter =

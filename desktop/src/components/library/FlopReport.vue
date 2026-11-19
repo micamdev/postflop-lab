@@ -1,7 +1,11 @@
 <template>
   <div class="flex flex-col h-full">
     <div class="flex items-center gap-3 mb-3">
-      <button class="text-sm text-muted hover:text-ink" @click="emit('back')">
+      <button
+        class="text-sm text-muted hover:text-ink disabled:opacity-40"
+        :disabled="isUpdating"
+        @click="emit('back')"
+      >
         ← Library
       </button>
       <h2 class="text-sm font-semibold">
@@ -9,6 +13,16 @@
         {{ rows.length === 1 ? "flop" : "flops" }}
         <span v-if="missingCount > 0" class="font-normal text-muted">
           ({{ missingCount }} without report data)
+        </span>
+        <span
+          v-if="report.duplicates > 0"
+          class="font-normal text-muted"
+          title="The same flop (up to the suits) solved more than once: one is shown, from a batch if any, else the most recent"
+        >
+          ({{ report.duplicates }} duplicate{{
+            report.duplicates === 1 ? "" : "s"
+          }}
+          hidden)
         </span>
       </h2>
       <div class="flex-1" />
@@ -93,7 +107,11 @@
           <tr class="border-t border-line bg-panel2/60 font-semibold">
             <td class="px-3 py-2">Average</td>
             <td class="px-3 py-2 text-muted font-normal">
-              weighted by frequency
+              {{
+                hasBatch
+                  ? "batch flops, weighted by frequency"
+                  : "weighted by frequency"
+              }}
             </td>
             <td class="px-3 py-2">
               <div
@@ -123,7 +141,7 @@
                 ? 'cursor-default'
                 : 'cursor-pointer hover:bg-panel2',
             ]"
-            :title="`Open “${row.name}”`"
+            :title="store.isLibraryBusy ? '' : `Open “${row.name}”`"
             @click="emit('open', row.name)"
           >
             <td class="px-3 py-2 whitespace-nowrap">
@@ -142,6 +160,12 @@
             </td>
             <td class="px-3 py-2 text-muted whitespace-nowrap">
               {{ row.texture }}
+              <span
+                v-if="!row.inAverage"
+                class="ml-1 text-xs"
+                title="Solved by hand: the average uses the batch flops, whose weights stand for all flops"
+                >· not in average</span
+              >
             </td>
             <td class="px-3 py-2">
               <div
@@ -170,7 +194,7 @@
 </template>
 
 <script setup lang="ts">
-import { computed, ref } from "vue";
+import { computed, ref, watch } from "vue";
 import { save } from "@tauri-apps/plugin-dialog";
 import { writeTextFile } from "@tauri-apps/plugin-fs";
 import { useStore } from "../../store";
@@ -184,11 +208,11 @@ import {
   actionLabel,
   advantageText,
   averageRow,
+  buildReport,
   configKey,
   defaultCbetBy,
   reportActions,
   reportCsv,
-  reportRows,
   sortReportRows,
 } from "../../flop-report";
 import UiButton from "../ui/UiButton.vue";
@@ -232,7 +256,15 @@ const descending = ref(true);
 const errorText = ref("");
 const busyText = ref("");
 
-const rows = computed(() => reportRows(props.entries, key, cbetBy.value));
+const report = computed(() => buildReport(props.entries, key, cbetBy.value));
+const rows = computed(() => report.value.rows);
+const hasBatch = computed(() => rows.value.some((r) => r.isBatch));
+// Another node has other action columns: back to the flop order.
+watch(cbetBy, () => {
+  sortKey.value = "flop";
+  descending.value = true;
+});
+const isUpdating = ref(false);
 const filtered = computed(() =>
   rows.value.filter((r) => matchesTexture(r.board, texture.value))
 );
@@ -244,7 +276,7 @@ const actions = computed(() => reportActions(rows.value));
 const average = computed(() => averageRow(filtered.value));
 /** Rows of older saves, without the strategy or the equity tranches. */
 const missingCount = computed(
-  () => rows.value.filter((r) => !r.strategy || !r.buckets).length
+  () => rows.value.filter((r) => r.isOlderSave).length
 );
 
 const player = computed(() => (cbetBy.value === "ip" ? "IP" : "OOP"));
@@ -315,7 +347,12 @@ const exportCsv = async () => {
     defaultPath: "flop report.csv",
     filters: [{ name: "CSV Files", extensions: ["csv"] }],
   });
-  if (path) await writeTextFile(path, reportCsv(shown.value, actions.value));
+  if (!path) return;
+  try {
+    await writeTextFile(path, reportCsv(shown.value, actions.value));
+  } catch (e) {
+    errorText.value = `Export failed: ${e}`;
+  }
 };
 
 /**
@@ -324,10 +361,9 @@ const exportCsv = async () => {
  */
 const updateOlder = async () => {
   if (store.isLibraryBusy) return;
-  const names = rows.value
-    .filter((r) => !r.strategy || !r.buckets)
-    .map((r) => r.name);
+  const names = rows.value.filter((r) => r.isOlderSave).map((r) => r.name);
   store.isLibraryBusy = true;
+  isUpdating.value = true;
   errorText.value = "";
   const failed: string[] = [];
   try {
@@ -341,6 +377,7 @@ const updateOlder = async () => {
     }
   } finally {
     store.isLibraryBusy = false;
+    isUpdating.value = false;
     busyText.value = "";
     emit("refresh");
   }

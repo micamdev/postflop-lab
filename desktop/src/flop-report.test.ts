@@ -3,6 +3,7 @@ import type { LibraryEntry, SolutionMeta } from "./invokes";
 import {
   advantageText,
   averageRow,
+  buildReport,
   configKey,
   defaultCbetBy,
   sortReportRows,
@@ -288,5 +289,64 @@ describe("sortReportRows", () => {
       "c",
       "b",
     ]);
+  });
+});
+
+describe("review follow-ups", () => {
+  const key = configKey(meta(AK7));
+
+  test("only saves older than schema 3 need an update", () => {
+    const { rows } = buildReport(
+      [
+        entry("old", meta(AK7, { schema: 2 }, { ip_after_check: undefined })),
+        // Schema 3, OOP never checks: nothing to update.
+        entry("never checks", meta(EIGHT76, {}, { ip_after_check: null })),
+      ],
+      key,
+      "ip"
+    );
+    expect(rows.map((r) => [r.name, r.isOlderSave])).toEqual([
+      ["old", true],
+      ["never checks", false],
+    ]);
+  });
+
+  test("one row per flop up to the suits: a batch row first, else the most recent", () => {
+    const AhKc7d = [50, 44, 21];
+    const report = buildReport(
+      [
+        entry("hand old", meta(AK7, { created_at: 1 })),
+        entry("hand new", meta(AhKc7d, { created_at: 3 })),
+        entry("batch", meta(AhKc7d, { created_at: 2, flop_weight: 400 })),
+        entry("876", meta(EIGHT76, { created_at: 5 })),
+        entry("876 again", meta(EIGHT76, { created_at: 6 })),
+      ],
+      key,
+      "ip"
+    );
+    expect(report.rows.map((r) => r.name)).toEqual(["batch", "876 again"]);
+    expect(report.duplicates).toBe(3);
+  });
+
+  test("with batch flops, the average is over them only", () => {
+    const { rows } = buildReport(
+      [
+        entry("batch", meta(AK7, { flop_weight: 400 })),
+        entry("hand", meta(EIGHT76, {}, { equity: [0, 0] })),
+      ],
+      key,
+      "ip"
+    );
+    expect(rows.map((r) => r.inAverage)).toEqual([true, false]);
+    expect(averageRow(rows).equity).toBeCloseTo(0.55);
+  });
+
+  test("without batch flops, every row is in the average", () => {
+    const { rows } = buildReport(
+      [entry("a", meta(AK7)), entry("b", meta(EIGHT76))],
+      key,
+      "ip"
+    );
+    expect(rows.every((r) => r.inAverage)).toBe(true);
   });
 });
