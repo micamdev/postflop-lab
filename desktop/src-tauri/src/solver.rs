@@ -445,7 +445,6 @@ pub fn compute_summary(game: &mut PostFlopGame) -> SolutionSummary {
                 summary.ip_after_check = node_frequencies(game).and_then(finite);
             }
             game.back_to_root();
-            game.cache_normalized_weights();
         }
         summary.root_actions = root.actions;
         summary.root_frequencies = root.frequencies;

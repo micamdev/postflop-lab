@@ -1,16 +1,16 @@
 //! Batch solving: the same spot solved on a list of flops, each saved in the library. Runs on
 //! its own games, not the main one, so the open solution stays usable.
 
-use crate::library::{self, SolutionMeta, META_SCHEMA};
+use crate::library;
 use crate::range::RangeManager;
-use crate::solver::{build_game_inputs, compute_summary, depth_from_name, GameTreeArgs};
+use crate::solver::{build_game_inputs, depth_from_name, GameTreeArgs};
 use postflop_solver::*;
 use rayon::ThreadPool;
 use serde::{Deserialize, Serialize};
 use std::path::Path;
 use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::{Arc, Mutex};
-use std::time::{Duration, Instant, SystemTime, UNIX_EPOCH};
+use std::time::{Duration, Instant};
 use tauri::{AppHandle, Emitter};
 
 /// Solve settings of a batch (as the Run Solver settings).
@@ -23,6 +23,9 @@ pub struct BatchSettings {
     pub target_exploitability: f32,
     pub max_iterations: u32,
 }
+
+/// Error of a flop whose name is already taken in the library.
+const ERR_NAME_TAKEN: &str = "a solution with this name already exists";
 
 /// Error when the batch was stopped.
 pub const ERR_CANCELLED: &str = "cancelled";
@@ -122,7 +125,6 @@ pub struct BatchProgress {
     pub total: usize,
     pub name: String,
     pub iteration: u32,
-    pub exploitability: f32,
 }
 
 /// Outcome of a batch: flops saved, flops that failed ("name: error"), whether it was stopped.
@@ -153,15 +155,21 @@ pub fn run_batch(
             result.cancelled = true;
             break;
         }
-        let mut report = |iteration, exploitability| {
+        let mut report = |iteration, _exploitability| {
             progress(BatchProgress {
                 index,
                 total,
                 name: flop.name.clone(),
                 iteration,
-                exploitability,
             })
         };
+        // A taken name is found now, not after minutes of solving.
+        if library::exists(dir, &flop.name) {
+            result
+                .failed
+                .push(format!("{}: {}", flop.name, ERR_NAME_TAKEN));
+            continue;
+        }
         report(0, f32::INFINITY);
         let outcome = solve_flop(
             ranges,
@@ -173,7 +181,14 @@ pub fn run_batch(
             pool,
             &mut report,
         )
-        .and_then(|solved| save_flop(dir, request, flop, solved));
+        // Stopped during the last iteration or the finalization: not saved either.
+        .and_then(|solved| {
+            if cancel.load(Ordering::Relaxed) {
+                Err(ERR_CANCELLED.to_string())
+            } else {
+                save_flop(dir, request, flop, solved)
+            }
+        });
         match outcome {
             Ok(()) => result.solved += 1,
             Err(e) if e == ERR_CANCELLED => {
@@ -194,37 +209,22 @@ fn save_flop(
     solved: SolvedFlop,
 ) -> Result<(), String> {
     let mut game = solved.game;
-    let range = &game.card_config().range;
-    let ranges = [range[0].to_string(), range[1].to_string()];
-    let meta = SolutionMeta {
-        schema: META_SCHEMA,
-        app_version: env!("CARGO_PKG_VERSION").to_string(),
-        created_at: SystemTime::now()
-            .duration_since(UNIX_EPOCH)
-            .map_or(0, |d| d.as_secs()),
-        board: flop.board.to_vec(),
-        ranges,
-        tree_config: tree_config_for(&request.tree_config, flop.board),
-        depth: request.depth.clone(),
-        exploitability: solved.exploitability,
-        iterations: solved.iterations,
-        precision: if game.is_compression_enabled() {
-            "16"
-        } else {
-            "32"
-        }
-        .to_string(),
-        summary: compute_summary(&mut game),
-        locks: Vec::new(),
-        flop_weight: Some(flop.weight),
-        batch_size: Some(request.subset_size),
-    };
+    let mut meta = crate::library_commands::solution_meta(
+        &mut game,
+        tree_config_for(&request.tree_config, flop.board),
+        &request.depth,
+        solved.exploitability,
+        solved.iterations,
+        Vec::new(),
+    );
+    meta.flop_weight = Some(flop.weight);
+    meta.batch_size = Some(request.subset_size);
     game.set_target_storage_mode(depth_from_name(&request.depth)?)?;
     library::save_with_progress(dir, &flop.name, &game, &meta, false, |_| {})
         .map(|_| ())
         .map_err(|e| {
             if e == library::ERR_EXISTS {
-                "a solution with this name already exists".to_string()
+                ERR_NAME_TAKEN.to_string()
             } else {
                 e
             }
@@ -242,6 +242,8 @@ pub fn batch_solve(
     app: AppHandle,
     range_state: tauri::State<Mutex<RangeManager>>,
     pool_state: tauri::State<Mutex<Arc<ThreadPool>>>,
+    game_state: tauri::State<Mutex<PostFlopGame>>,
+    cache_state: tauri::State<Mutex<crate::session::SubgameCache>>,
     control: tauri::State<BatchControl>,
     request: BatchRequest,
 ) -> Result<BatchResult, String> {
@@ -265,7 +267,11 @@ pub fn batch_solve(
             &dir,
             &ranges,
             &request,
-            batch_memory,
+            // The open solution and its river cache stay loaded during the batch.
+            || {
+                let in_use = crate::library_commands::loaded_memory(&game_state, &cache_state);
+                crate::memory_limit::memory_limit(in_use)
+            },
             &cancel,
             &pool,
             |p| {
@@ -278,22 +284,6 @@ pub fn batch_solve(
     });
     *crate::guard::lock(&control.0) = None;
     result
-}
-
-/// Memory a batch flop may use, as for a solve: the available memory, or 70% of the total on
-/// macOS (which reports little as available); unlimited if the query failed.
-fn batch_memory() -> u64 {
-    let (available, total) = crate::memory();
-    let limit = if cfg!(target_os = "macos") {
-        total / 10 * 7
-    } else {
-        available
-    };
-    if limit == 0 {
-        u64::MAX
-    } else {
-        limit
-    }
 }
 
 /// Stops the batch in progress (the flop being solved is not saved).
@@ -483,6 +473,7 @@ mod tests {
             &pool(),
             |_| {},
         );
+        let mut solved_flops = Vec::new();
         let result = run_batch(
             dir.path(),
             &setup_ranges("AA,KK", "QQ,JJ"),
@@ -490,14 +481,49 @@ mod tests {
             || u64::MAX,
             &AtomicBool::new(false),
             &pool(),
-            |_| {},
+            |p| {
+                if p.iteration > 0 {
+                    solved_flops.push(p.name.clone());
+                }
+            },
         );
+        // The taken name is found before solving: no time spent on it.
+        assert!(!solved_flops.contains(&"taken".to_string()));
         assert_eq!(result.solved, 1);
         assert_eq!(result.failed.len(), 1);
         assert_eq!(
             result.failed,
             ["taken: a solution with this name already exists"]
         );
+    }
+
+    #[test]
+    fn a_stop_during_the_last_iteration_saves_nothing() {
+        let dir = tempfile::tempdir().unwrap();
+        let cancel = AtomicBool::new(false);
+        let mut req = request(&[("a", "Td9d6h")]);
+        req.settings = BatchSettings {
+            target_exploitability: 0.0,
+            max_iterations: 20,
+            ..req.settings
+        };
+        let result = run_batch(
+            dir.path(),
+            &setup_ranges("AA,KK", "QQ,JJ"),
+            &req,
+            || u64::MAX,
+            &cancel,
+            &pool(),
+            // Stop pressed during the last iteration: the solve loop is already over.
+            |p| {
+                if p.iteration == 20 {
+                    cancel.store(true, Ordering::Relaxed);
+                }
+            },
+        );
+        assert!(result.cancelled);
+        assert_eq!(result.solved, 0);
+        assert!(crate::library::list(dir.path()).is_empty());
     }
 
     #[test]

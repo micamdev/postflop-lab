@@ -46,17 +46,9 @@ pub fn prepare_lock_solve(
     Ok(())
 }
 
-/// Memory the re-solve may use. On macOS, as in the Run Solver screen, the limit is 70% of the
-/// total memory; if the memory cannot be read, no limit is applied.
+/// Memory the re-solve may use (the game it replaces is freed: nothing counted as in use).
 fn max_prepare_memory() -> u64 {
-    let (available, total) = crate::memory();
-    if total == 0 {
-        u64::MAX
-    } else if cfg!(target_os = "macos") {
-        total / 10 * 7
-    } else {
-        available
-    }
+    crate::memory_limit::memory_limit(0)
 }
 
 /// Captures a lock on the node at `history` of the current solution, with `edits` applied.

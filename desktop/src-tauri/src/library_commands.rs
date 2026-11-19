@@ -78,39 +78,14 @@ pub fn library_save(
             return Err("Solutions computed with the bunching effect cannot be saved".to_string());
         }
 
-        let card_config = game.card_config().clone();
-        let mut board = card_config.flop.to_vec();
-        board.extend(
-            [card_config.turn, card_config.river]
-                .into_iter()
-                .filter(|&c| c != NOT_DEALT),
+        let meta = solution_meta(
+            &mut game,
+            front_meta.tree_config,
+            &depth,
+            front_meta.exploitability,
+            front_meta.iterations,
+            crate::guard::lock(&locks_state.0).clone(),
         );
-        let meta = SolutionMeta {
-            schema: META_SCHEMA,
-            app_version: env!("CARGO_PKG_VERSION").to_string(),
-            created_at: SystemTime::now()
-                .duration_since(UNIX_EPOCH)
-                .map_or(0, |d| d.as_secs()),
-            board,
-            ranges: [
-                card_config.range[0].to_string(),
-                card_config.range[1].to_string(),
-            ],
-            tree_config: front_meta.tree_config,
-            depth: depth.clone(),
-            exploitability: front_meta.exploitability,
-            iterations: front_meta.iterations,
-            precision: if game.is_compression_enabled() {
-                "16"
-            } else {
-                "32"
-            }
-            .to_string(),
-            summary: compute_summary(&mut game),
-            locks: crate::guard::lock(&locks_state.0).clone(),
-            flop_weight: None,
-            batch_size: None,
-        };
 
         game.set_target_storage_mode(depth_from_name(&depth)?)?;
         let mut last_emit = Instant::now();
@@ -129,10 +104,55 @@ pub fn library_save(
 /// front end must then forget the current tree and results.
 pub const ERR_GAME_FREED: &str = "game freed";
 
+/// The metadata saved with a solved game: board, ranges, precision and summary read from
+/// the game, the rest given (a batch then adds its flop weight and subset size).
+pub fn solution_meta(
+    game: &mut PostFlopGame,
+    tree_config: serde_json::Value,
+    depth: &str,
+    exploitability: f32,
+    iterations: u32,
+    locks: Vec<crate::locks::NodeLock>,
+) -> SolutionMeta {
+    let card_config = game.card_config().clone();
+    let mut board = card_config.flop.to_vec();
+    board.extend(
+        [card_config.turn, card_config.river]
+            .into_iter()
+            .filter(|&c| c != NOT_DEALT),
+    );
+    SolutionMeta {
+        schema: META_SCHEMA,
+        app_version: env!("CARGO_PKG_VERSION").to_string(),
+        created_at: SystemTime::now()
+            .duration_since(UNIX_EPOCH)
+            .map_or(0, |d| d.as_secs()),
+        board,
+        ranges: [
+            card_config.range[0].to_string(),
+            card_config.range[1].to_string(),
+        ],
+        tree_config,
+        depth: depth.to_string(),
+        exploitability,
+        iterations,
+        precision: if game.is_compression_enabled() {
+            "16"
+        } else {
+            "32"
+        }
+        .to_string(),
+        summary: compute_summary(game),
+        locks,
+        flop_weight: None,
+        batch_size: None,
+    }
+}
+
 /// Memory the current game frees when replaced (0 if it holds no solution). For a solved or
 /// loaded game this is the memory its stored data needs (`target_memory_usage`), which also
 /// fits partial saves; `memory_usage` would over-count those.
-fn current_game_memory(game: &PostFlopGame) -> u64 {
+pub fn current_game_memory(game: &PostFlopGame) -> u64 {
     if game.is_solved() || game.is_ready() {
         game.target_memory_usage()
     } else {
@@ -267,14 +287,24 @@ mod tests {
 /// Recomputes the summary of a saved solution (older saves lack what reports need) and returns
 /// its new metadata. The file is loaded in a separate game: the current one is untouched.
 #[tauri::command(async)]
-pub fn library_refresh_summary(app: AppHandle, name: String) -> Result<SolutionMeta, String> {
+pub fn library_refresh_summary(
+    app: AppHandle,
+    game_state: tauri::State<Mutex<PostFlopGame>>,
+    cache_state: tauri::State<Mutex<SubgameCache>>,
+    name: String,
+) -> Result<SolutionMeta, String> {
     crate::guard::guard(move || {
         let dir = library_dir(&app)?;
-        // The memory query failed (0): let the load try rather than refuse every file.
-        let available = match crate::memory().0 {
-            0 => u64::MAX,
-            available => available,
-        };
-        library::refresh_summary(&dir, &name, available, compute_summary)
+        // The open solution and its river cache stay loaded meanwhile.
+        let in_use = loaded_memory(&game_state, &cache_state);
+        let limit = crate::memory_limit::memory_limit(in_use);
+        library::refresh_summary(&dir, &name, limit, compute_summary)
     })
+}
+
+/// Memory taken by the open solution and its cached rivers (they stay loaded while a batch
+/// or a refresh builds other games).
+pub fn loaded_memory(game_state: &Mutex<PostFlopGame>, cache_state: &Mutex<SubgameCache>) -> u64 {
+    current_game_memory(&crate::guard::lock(game_state))
+        + crate::guard::lock(cache_state).memory_usage()
 }

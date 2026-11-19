@@ -479,7 +479,6 @@ export type BatchProgress = {
   total: number;
   name: string;
   iteration: number;
-  exploitability: number;
 };
 
 export type BatchResult = {
