@@ -11,7 +11,7 @@
     "createUpdaterArtifacts": true,
     "category": "Utility",
     "copyright": "Copyright (C) 2022 Wataru Inariba, 2026 Michael Maccio",
-    "targets": "all",
+    "targets": ["msi", "deb", "appimage"],
     "externalBin": [],
     "icon": [
       "icons/32x32.png",

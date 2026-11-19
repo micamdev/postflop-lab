@@ -1,7 +1,7 @@
 // In-app updates: a background check of the latest GitHub release at startup, then on the
 // user's request a download, the install and a restart (Tauri updater, signed packages).
 
-import { reactive } from "vue";
+import { markRaw, reactive } from "vue";
 import { check, type Update } from "@tauri-apps/plugin-updater";
 import { relaunch } from "@tauri-apps/plugin-process";
 
@@ -47,6 +47,13 @@ export const updateState = reactive({
   error: "",
 });
 
+/** Keeps the update found, ready to install. */
+export const rememberUpdate = (update: Update): void => {
+  // Not proxied: Update keeps its resource id in a private field a Vue proxy cannot read.
+  updateState.update = markRaw(update);
+  updateState.phase = "available";
+};
+
 /**
  * Looks for a newer release. Silent on failure (offline, GitHub unreachable): the app works
  * the same without it. Skipped in development (`tauri dev`, the end-to-end test).
@@ -55,10 +62,7 @@ export const checkForUpdate = async (): Promise<void> => {
   if (import.meta.env.DEV) return;
   try {
     const update = await check();
-    if (update) {
-      updateState.update = update;
-      updateState.phase = "available";
-    }
+    if (update) rememberUpdate(update);
   } catch (e) {
     console.warn("Update check failed:", e);
   }

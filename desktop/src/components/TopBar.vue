@@ -198,8 +198,8 @@ const updateText = computed(() =>
   })
 );
 const updateTooltip = computed(() => {
-  if (updateState.phase === "failed") return updateState.error;
   if (updateBlocked.value) return updateBlocked.value;
+  if (updateState.phase === "failed") return updateState.error;
   return "Download, install and restart Postflop Lab";
 });
 const onUpdate = async () => {

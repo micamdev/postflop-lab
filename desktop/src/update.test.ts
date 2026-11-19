@@ -1,5 +1,12 @@
 import { describe, expect, test } from "vitest";
-import { updateBlocker, updateButtonText } from "./update";
+import { Resource } from "@tauri-apps/api/core";
+import type { Update } from "@tauri-apps/plugin-updater";
+import {
+  rememberUpdate,
+  updateBlocker,
+  updateButtonText,
+  updateState,
+} from "./update";
 
 describe("updateButtonText", () => {
   test("each phase", () => {
@@ -44,5 +51,21 @@ describe("updateBlocker", () => {
     expect(
       updateBlocker({ solverBusy: false, batchRunning: false })
     ).toBeNull();
+  });
+});
+
+describe("updateState", () => {
+  test("the update keeps working inside the reactive state (private fields)", () => {
+    // Update extends Resource, whose rid is a private field: a Vue proxy breaks it.
+    class FakeUpdate extends Resource {
+      version = "1.1.0";
+      ridValue() {
+        return this.rid;
+      }
+    }
+    rememberUpdate(new FakeUpdate(7) as unknown as Update);
+    const kept = updateState.update as unknown as FakeUpdate;
+    expect(kept.ridValue()).toBe(7);
+    expect(updateState.phase).toBe("available");
   });
 });
