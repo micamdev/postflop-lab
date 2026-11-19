@@ -18,7 +18,9 @@
           ]"
           :style="{ backgroundColor: cardColor(item) }"
         >
-          <div class="text-xs truncate opacity-90">{{ label(item) }}</div>
+          <div class="text-xs truncate opacity-90" :title="label(item)">
+            {{ label(item) }}
+          </div>
           <div class="text-lg font-semibold leading-tight">
             {{ (item.frequency * 100).toFixed(1) }}%
           </div>
