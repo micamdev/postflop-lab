@@ -30,6 +30,15 @@
               {{ link.label }}
             </a>
           </div>
+          <p class="mt-4 text-xs text-muted">
+            Postflop Lab is free.
+            <a
+              href="https://ko-fi.com/micamapp"
+              target="_blank"
+              class="text-accent-ink hover:underline"
+              >Support it on Ko-fi</a
+            >.
+          </p>
         </div>
         <div
           class="flex items-end gap-4 px-6 py-3 border-t border-line text-xs text-muted"
