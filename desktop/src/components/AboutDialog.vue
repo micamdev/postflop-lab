@@ -2,10 +2,9 @@
   <DialogRoot :open="open" @update:open="(value) => emit('update:open', value)">
     <DialogPortal>
       <DialogOverlay class="fixed inset-0 z-40 bg-black/50" />
-      <!-- No link focused on open: it would look selected. -->
       <DialogContent
-        @open-auto-focus.prevent
         class="fixed left-1/2 top-1/3 z-50 w-[24rem] -translate-x-1/2 -translate-y-1/2 rounded-lg border border-line bg-panel shadow-2xl shadow-black/50 outline-none"
+        @open-auto-focus="focusDialog"
       >
         <div class="flex flex-col items-center px-6 pt-7 pb-5 text-center">
           <img
@@ -47,7 +46,7 @@
               by Wataru Inariba.
             </p>
             <p>© 2022 Wataru Inariba, 2026 Michael Maccio</p>
-            <p>License: AGPL-3.0</p>
+            <p>License: AGPL-3.0-or-later</p>
           </div>
           <DialogClose as-child>
             <UiButton size="sm">Close</UiButton>
@@ -73,6 +72,15 @@ import UiButton from "./ui/UiButton.vue";
 
 defineProps<{ open: boolean }>();
 const emit = defineEmits<{ (e: "update:open", value: boolean): void }>();
+
+/**
+ * The dialog itself gets the focus on open, not its first link (it would look selected).
+ * Focus stays inside, so Tab does not reach the app behind it.
+ */
+const focusDialog = (event: Event) => {
+  event.preventDefault();
+  (event.target as HTMLElement | null)?.focus();
+};
 
 const repo = "https://github.com/micamdev/postflop-lab";
 const links = [
