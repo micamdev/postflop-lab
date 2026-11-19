@@ -1,6 +1,6 @@
 <template>
   <UiPanel title="Solve">
-    <!-- Settings: a summary; the fields in a popover (open by itself when one is invalid). -->
+    <!-- Settings: a summary; the fields in a popover; an invalid one is named under it. -->
     <div class="flex items-start justify-between gap-2 text-xs text-muted">
       <span class="tabular-nums">{{ summary }}</span>
       <UiPopover v-model:open="isOpen">

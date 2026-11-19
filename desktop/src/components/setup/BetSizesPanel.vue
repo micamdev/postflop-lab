@@ -4,7 +4,7 @@
       <button
         type="button"
         class="px-1.5 rounded hover:bg-panel2 hover:text-ink normal-case tracking-normal font-normal disabled:opacity-40"
-        :disabled="locked"
+        :disabled="locked || sideErrors.oop"
         title="Copy OOP's sizes to IP"
         @click="copySizes('oop', 'ip')"
       >
@@ -13,7 +13,7 @@
       <button
         type="button"
         class="px-1.5 rounded hover:bg-panel2 hover:text-ink normal-case tracking-normal font-normal disabled:opacity-40"
-        :disabled="locked"
+        :disabled="locked || sideErrors.ip"
         title="Copy IP's sizes to OOP"
         @click="copySizes('ip', 'oop')"
       >
@@ -178,5 +178,10 @@ const copySizes = (from: "oop" | "ip", to: "oop" | "ip") => {
 const betErrors = computed(() => {
   const all = setupErrors(config);
   return [...all.oop, ...all.ip];
+});
+/** A side with an invalid size is not copied. */
+const sideErrors = computed(() => {
+  const all = setupErrors(config);
+  return { oop: all.oop.length > 0, ip: all.ip.length > 0 };
 });
 </script>

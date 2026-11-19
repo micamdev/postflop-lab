@@ -126,3 +126,21 @@ describe("cancel an edit", () => {
     expect(useStore().rangeSources[1]).toBeNull();
   });
 });
+
+describe("cancel after a solution was loaded", () => {
+  test("a snapshot from before the load is not restored", async () => {
+    const store = useStore();
+    const editing = useRangeEditing(0);
+    mocked.rangeToString.mockResolvedValue("AA");
+    const before = await editing.snapshot();
+
+    // A solution replaces the ranges meanwhile.
+    store.solutionLoadCount++;
+    store.rangeSources[0] = null;
+    mocked.rangeFromString.mockClear();
+
+    expect(await editing.restore(before)).toBe(false);
+    expect(mocked.rangeFromString).not.toHaveBeenCalled();
+    expect(store.rangeSources[0]).toBeNull();
+  });
+});

@@ -128,7 +128,7 @@
 </template>
 
 <script setup lang="ts">
-import { computed, ref } from "vue";
+import { computed, ref, watch } from "vue";
 import { useStore } from "../../store";
 import { ranks } from "../../utils";
 import { useRangeEditing } from "../../use-range-editing";
@@ -146,6 +146,15 @@ const startEdit = async () => {
   beforeEdit = await editing.snapshot();
   isEditing.value = true;
 };
+
+// A loaded solution replaces the ranges: the edit (and its Cancel) no longer applies.
+watch(
+  () => store.solutionLoadCount,
+  () => {
+    beforeEdit = null;
+    isEditing.value = false;
+  }
+);
 
 const cancelEdit = async () => {
   if (beforeEdit) await editing.restore(beforeEdit);
