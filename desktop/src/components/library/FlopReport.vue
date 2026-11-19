@@ -17,7 +17,7 @@
         <span
           v-if="report.duplicates > 0"
           class="font-normal text-muted"
-          title="The same flop (up to the suits) solved more than once: one is shown, from a batch if any, else the most recent"
+          title="The same flop (up to the suits) solved more than once: one is shown: from the subset of the average if any, else from a batch, else the most recent"
         >
           ({{ report.duplicates }} duplicate{{
             report.duplicates === 1 ? "" : "s"

@@ -1,5 +1,6 @@
 import { describe, expect, test } from "vitest";
 import type { LibraryEntry, SolutionMeta } from "./invokes";
+import { allFlops } from "./flop-subsets";
 import {
   advantageText,
   averageRow,
@@ -445,6 +446,65 @@ describe("audit follow-ups", () => {
       "ip"
     );
     expect(rows.every((r) => r.inAverage)).toBe(true);
+  });
+
+  test("a nearly finished larger subset (95%+) wins over a complete smaller one", () => {
+    const flops = allFlops().slice(0, 21);
+    const report = buildReport(
+      [
+        ...flops
+          .slice(0, 19)
+          .map((f, i) =>
+            entry(
+              `b20 ${i}`,
+              meta(f.board, { flop_weight: f.weight, batch_size: 20 })
+            )
+          ),
+        ...flops
+          .slice(19)
+          .map((f, i) =>
+            entry(
+              `b2 ${i}`,
+              meta(f.board, { flop_weight: f.weight, batch_size: 2 })
+            )
+          ),
+      ],
+      key,
+      "ip"
+    );
+    expect(report.subset).toEqual({ size: 20, solved: 19 });
+  });
+
+  test("with 1755, a hand-solved flop beats another subset's row and counts in the share", () => {
+    const flops = allFlops();
+    // 1600 batch flops + 100 hand-solved ones: 1700/1755 (96.9%), over a complete 2-flop batch.
+    const entries = [
+      ...flops
+        .slice(0, 1600)
+        .map((f, i) =>
+          entry(
+            `all ${i}`,
+            meta(f.board, { flop_weight: f.weight, batch_size: 1755 })
+          )
+        ),
+      ...flops
+        .slice(1600, 1700)
+        .map((f, i) => entry(`hand ${i}`, meta(f.board))),
+      ...flops
+        .slice(1690, 1692)
+        .map((f, i) =>
+          entry(
+            `b2 ${i}`,
+            meta(f.board, { flop_weight: f.weight, batch_size: 2 })
+          )
+        ),
+    ];
+    const report = buildReport(entries, key, "ip");
+    expect(report.subset).toEqual({ size: 1755, solved: 1700 });
+    // Flops 1690 and 1691: hand-solved and in the 2-flop batch; the hand row is kept.
+    const kept = report.rows.filter((r) => r.batchSize === 2);
+    expect(kept).toHaveLength(0);
+    expect(report.rows.every((r) => r.inAverage)).toBe(true);
   });
 
   test("the same spot whatever extra keys or spaces its tree config has", () => {

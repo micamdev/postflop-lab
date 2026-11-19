@@ -41,7 +41,8 @@ export const allFlops = (): WeightedFlop[] => {
   return cache;
 };
 
-const classOf = (board: number[]) => {
+/** Texture class of a flop: suits × pairing. */
+export const classOf = (board: number[]) => {
   const t = flopTexture(board);
   return `${t.suits}/${t.pairing}`;
 };
