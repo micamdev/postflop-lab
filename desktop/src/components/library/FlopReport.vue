@@ -298,7 +298,7 @@ import * as invokes from "../../invokes";
 import { cardText, suitBgClasses, toFixed1, toFixed2 } from "../../utils";
 import { stackedGradient } from "../../action-colors";
 import { themeColor } from "../../theme";
-import { toSpotActions } from "../../nav-spots";
+import { potPercent, toSpotActions } from "../../nav-spots";
 import { matchesTexture, TextureFilter } from "../../flop-texture";
 import {
   CbetBy,
@@ -470,6 +470,11 @@ const averageItems = computed(() => {
     return {
       name,
       amount: amount ?? "0",
+      // The c-bet node: the spot's starting pot, no bet yet.
+      percent: potPercent(name, amount ?? "0", {
+        pot: Number(props.source.meta.tree_config.startingPot) || 0,
+        bet: 0,
+      }),
       color: colors.value[a],
       frequency: strategy[a] ?? 0,
     };

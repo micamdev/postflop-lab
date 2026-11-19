@@ -46,6 +46,7 @@
 
 <script setup lang="ts">
 import type { StrategyItem } from "../../node-strategy";
+import { actionText } from "../../nav-spots";
 
 defineProps<{ items: StrategyItem[] | null; noHands: boolean }>();
 
@@ -58,6 +59,5 @@ const cardColor = (item: StrategyItem) =>
     ? `color-mix(in srgb, ${item.color} 82%, black)`
     : `color-mix(in srgb, ${item.color} 22%, rgb(var(--panel2)))`;
 
-const label = (item: StrategyItem) =>
-  item.amount === "0" ? item.name : `${item.name} ${item.amount}`;
+const label = actionText;
 </script>
