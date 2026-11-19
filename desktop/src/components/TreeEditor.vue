@@ -145,7 +145,7 @@
             type="button"
             class="text-muted hover:text-red-400"
             title="Undo this line"
-            @click="deleteAddedLine(index)"
+            @click="deleteLine('added', index)"
           >
             <TrashIcon class="w-4 h-4" />
           </button>
@@ -166,7 +166,7 @@
             type="button"
             class="text-muted hover:text-red-400"
             title="Undo this line"
-            @click="deleteRemovedLine(index)"
+            @click="deleteLine('removed', index)"
           >
             <TrashIcon class="w-4 h-4" />
           </button>
@@ -189,12 +189,12 @@
 </template>
 
 <script setup lang="ts">
+import { actionCode, readableLines } from "../tree-lines";
 import { actionText, streetBets, toSpotActions } from "../nav-spots";
 import UiButton from "./ui/UiButton.vue";
 import UiPanel from "./ui/UiPanel.vue";
 import { computed, nextTick, ref, watch } from "vue";
 import { useConfigStore } from "../store";
-import { readableLineString } from "../utils";
 import { gameTreeArgs } from "../game-args";
 import { Spot, SpotRoot, SpotChance, SpotPlayer } from "../result-types";
 import * as invokes from "../invokes";
@@ -285,47 +285,31 @@ const addedLines = ref(await invokes.treeAddedLines());
 const removedLines = ref(await invokes.treeRemovedLines());
 const invalidLines = ref(await invokes.treeInvalidTerminals());
 
-const addedLinesArray = computed(() =>
-  addedLines.value === ""
-    ? []
-    : addedLines.value.split(",").map(readableLineString)
-);
+const addedLinesArray = computed(() => readableLines(addedLines.value));
+const removedLinesArray = computed(() => readableLines(removedLines.value));
+const invalidLinesArray = computed(() => readableLines(invalidLines.value));
 
-const removedLinesArray = computed(() =>
-  removedLines.value === ""
-    ? []
-    : removedLines.value.split(",").map(readableLineString)
-);
-
-const invalidLinesArray = computed(() =>
-  invalidLines.value === ""
-    ? []
-    : invalidLines.value.split(",").map(readableLineString)
-);
-
-const encodeLine = (spotIndex: number) => {
-  const ret: string[] = [];
-  for (let i = 1; i < spotIndex; ++i) {
-    const spot = spots.value[i];
-    if (spot.type === "player") {
-      const action = spot.actions[spot.selectedIndex];
-      if (action.name === "Fold") {
-        ret.push("F");
-      } else if (action.name === "Check") {
-        ret.push("X");
-      } else if (action.name === "Call") {
-        ret.push("C");
-      } else if (action.name === "Bet") {
-        ret.push("B" + action.amount);
-      } else if (action.name === "Raise") {
-        ret.push("R" + action.amount);
-      } else if (action.name === "Allin") {
-        ret.push("A" + action.amount);
-      }
-    }
-  }
-  return ret;
+/** Reads the tree's lines again after a change. */
+const refreshLines = async () => {
+  addedLines.value = await invokes.treeAddedLines();
+  removedLines.value = await invokes.treeRemovedLines();
+  invalidLines.value = await invokes.treeInvalidTerminals();
 };
+
+/** The codes of the actions chosen before `spotIndex` ("X", "B30"…). */
+const encodeLine = (spotIndex: number) =>
+  spots.value
+    .slice(1, spotIndex)
+    .flatMap((spot) =>
+      spot.type === "player"
+        ? [
+            actionCode(
+              spot.actions[spot.selectedIndex].name,
+              spot.actions[spot.selectedIndex].amount
+            ),
+          ]
+        : []
+    );
 
 const selectSpot = async (
   spotIndex: number,
@@ -527,9 +511,7 @@ const addBetAction = async () => {
   const isRaise = totalBetAmount.value[0] !== totalBetAmount.value[1];
   await invokes.treeAddBetAction(betAmount.value, isRaise);
   await selectSpot(selectedSpotIndex.value, false, true, false);
-  addedLines.value = await invokes.treeAddedLines();
-  removedLines.value = await invokes.treeRemovedLines();
-  invalidLines.value = await invokes.treeInvalidTerminals();
+  await refreshLines();
 };
 
 const removeSelectedNode = async () => {
@@ -537,9 +519,7 @@ const removeSelectedNode = async () => {
   let prevIndex = selectedSpotIndex.value - 1;
   if (spots.value[prevIndex].type === "chance") --prevIndex;
   await selectSpot(prevIndex, false, true, true);
-  addedLines.value = await invokes.treeAddedLines();
-  removedLines.value = await invokes.treeRemovedLines();
-  invalidLines.value = await invokes.treeInvalidTerminals();
+  await refreshLines();
 };
 
 // The parent knows the edit's lines at any time (to ask before they are lost).
@@ -562,28 +542,15 @@ const cancelEdit = () => {
   emit("cancel");
 };
 
-const deleteAddedLine = async (index: number) => {
-  const addedLinesArray = addedLines.value.split(",");
-  const line = addedLinesArray[index];
-
-  await invokes.treeDeleteAddedLine(line);
+/** Undoes the `index`-th added or removed line. */
+const deleteLine = async (kind: "added" | "removed", index: number) => {
+  if (kind === "added") {
+    await invokes.treeDeleteAddedLine(addedLines.value.split(",")[index]);
+  } else {
+    await invokes.treeDeleteRemovedLine(removedLines.value.split(",")[index]);
+  }
   await selectSpot(selectedSpotIndex.value, false, true, false);
-
-  addedLines.value = await invokes.treeAddedLines();
-  removedLines.value = await invokes.treeRemovedLines();
-  invalidLines.value = await invokes.treeInvalidTerminals();
-};
-
-const deleteRemovedLine = async (index: number) => {
-  const removedLinesArray = removedLines.value.split(",");
-  const line = removedLinesArray[index];
-
-  await invokes.treeDeleteRemovedLine(line);
-  await selectSpot(selectedSpotIndex.value, false, true, false);
-
-  addedLines.value = await invokes.treeAddedLines();
-  removedLines.value = await invokes.treeRemovedLines();
-  invalidLines.value = await invokes.treeInvalidTerminals();
+  await refreshLines();
 };
 
 await selectSpot(0, true, false, true);
