@@ -3,7 +3,5 @@
   "name": "postflop-lab-site",
   "compatibility_date": "2026-11-19",
   "assets": { "directory": "./dist", "not_found_handling": "404-page" },
-  "routes": [{ "pattern": "postflop.mica.app", "custom_domain": true }],
-  // Preview of each PR's site (Cloudflare Workers Builds runs `wrangler preview` off main).
-  "previews": {}
+  "routes": [{ "pattern": "postflop.mica.app", "custom_domain": true }]
 }
