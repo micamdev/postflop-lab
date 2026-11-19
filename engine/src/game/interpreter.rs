@@ -237,6 +237,77 @@ impl PostFlopGame {
         self.node().player()
     }
 
+    /// Returns whether a card can be dealt at the current position with the stored data.
+    ///
+    /// This is `false` past the storage mode of a truncated save: at any chance node when only
+    /// the flop is stored, and at the river deal when only the flop and the turn are stored.
+    /// [`play`] panics in that case, so check this first when the storage mode may be truncated.
+    ///
+    /// [`play`]: #method.play
+    #[inline]
+    pub fn can_deal_card(&self) -> bool {
+        let turn_dealt = self.turn != NOT_DEALT;
+        !(self.storage_mode == BoardState::Flop
+            || (turn_dealt && self.storage_mode == BoardState::Turn))
+    }
+
+    /// Returns the turn card whose subtree actually stores the strategy for `card`, at the turn
+    /// chance node.
+    ///
+    /// Suit isomorphism merges strategically identical turn cards (e.g. the same rank in two
+    /// suits absent from the flop and the ranges): they share one subtree, stored under a
+    /// representative card. `card` itself is returned when it is not merged.
+    ///
+    /// Returns `Err` when the current node is not the turn chance node, the turn cannot be dealt
+    /// there (a save that stops at the flop) or `card` cannot be dealt there.
+    pub fn turn_representative(&self, card: Card) -> Result<Card, String> {
+        if self.state < State::MemoryAllocated || !self.is_chance_node() || self.turn != NOT_DEALT {
+            return Err("Not at the turn chance node".to_string());
+        }
+        self.chance_representative(card)
+    }
+
+    /// Returns the card standing for `card` at the current chance node (turn or river), in the
+    /// frame of the stored tree: after a mirrored turn, suits are swapped first, as [`play`]
+    /// does; then a card merged by suit isomorphism maps to its representative.
+    ///
+    /// Returns `Err` when the current node is not a chance node that can be dealt or `card` cannot
+    /// be dealt there.
+    ///
+    /// [`play`]: PostFlopGame::play
+    pub fn chance_representative(&self, card: Card) -> Result<Card, String> {
+        if self.state < State::MemoryAllocated || !self.is_chance_node() || !self.can_deal_card() {
+            return Err("Not at a chance node that can be dealt".to_string());
+        }
+        if card >= 52 || self.possible_cards() & (1u64 << card) == 0 {
+            return Err("This card cannot be dealt here".to_string());
+        }
+        let card = match self.turn_swapped_suit {
+            Some((suit1, suit2)) if card & 3 == suit1 => card - suit1 + suit2,
+            Some((suit1, suit2)) if card & 3 == suit2 => card + suit1 - suit2,
+            _ => card,
+        };
+        if self.available_actions().contains(&Action::Chance(card)) {
+            return Ok(card);
+        }
+        let node = self.node();
+        let isomorphism = self.isomorphic_chances(&node);
+        let isomorphic_cards = if node.turn == NOT_DEALT {
+            &self.isomorphism_card_turn
+        } else {
+            &self.isomorphism_card_river[node.turn as usize & 3]
+        };
+        let actions = self.available_actions();
+        for (i, &repr_index) in isomorphism.iter().enumerate() {
+            if isomorphic_cards[i] == card {
+                if let Action::Chance(repr_card) = actions[repr_index as usize] {
+                    return Ok(repr_card);
+                }
+            }
+        }
+        Err("No representative found for this card".to_string())
+    }
+
     /// Returns the current board.
     ///
     /// The returned vector is of length 3, 4, or 5. The flop cards, the turn card, and the river
@@ -266,11 +337,13 @@ impl PostFlopGame {
     ///   - If the current node is not a chance node, plays the `action`-th action of
     ///     [`available_actions`].
     ///
-    /// Panics if the memory is not yet allocated or the current node is a terminal node.
+    /// Panics if the memory is not yet allocated, the current node is a terminal node, or the
+    /// current node is a chance node past the storage mode (see [`can_deal_card`]).
     ///
     /// **Time complexity:** *O*(#(OOP private hands) + #(IP private hands))
     ///
     /// [`available_actions`]: #method.available_actions
+    /// [`can_deal_card`]: #method.can_deal_card
     pub fn play(&mut self, action: usize) {
         if self.state < State::MemoryAllocated {
             panic!("Memory is not allocated");
@@ -282,12 +355,11 @@ impl PostFlopGame {
 
         // chance node
         if self.is_chance_node() {
-            let is_turn = self.turn == NOT_DEALT;
-            if self.storage_mode == BoardState::Flop
-                || (!is_turn && self.storage_mode == BoardState::Turn)
-            {
+            if !self.can_deal_card() {
                 panic!("Storage mode is not compatible");
             }
+
+            let is_turn = self.turn == NOT_DEALT;
 
             let actual_card = if action == usize::MAX {
                 self.possible_cards().trailing_zeros() as Card
@@ -994,7 +1066,7 @@ impl PostFlopGame {
 
     /// Returns the reference to the current node.
     #[inline]
-    fn node(&self) -> MutexGuardLike<PostFlopNode> {
+    fn node(&self) -> MutexGuardLike<'_, PostFlopNode> {
         self.node_arena[self.node_history.last().cloned().unwrap_or(0)].lock()
     }
 

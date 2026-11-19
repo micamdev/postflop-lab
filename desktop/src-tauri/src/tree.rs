@@ -81,104 +81,32 @@ pub fn default_action_tree() -> ActionTree {
     ActionTree::new(tree_config).unwrap()
 }
 
+/// Builds the tree to edit from the setup; `board_len` (3 to 5) is the street it starts on.
+/// Returns false if the setup does not make a valid tree.
 #[tauri::command]
 pub fn tree_new(
     tree_state: tauri::State<Mutex<ActionTree>>,
-    board_len: i32,
-    starting_pot: i32,
-    effective_stack: i32,
-    donk_option: bool,
-    oop_flop_bet: String,
-    oop_flop_raise: String,
-    oop_turn_bet: String,
-    oop_turn_raise: String,
-    oop_turn_donk: String,
-    oop_river_bet: String,
-    oop_river_raise: String,
-    oop_river_donk: String,
-    ip_flop_bet: String,
-    ip_flop_raise: String,
-    ip_turn_bet: String,
-    ip_turn_raise: String,
-    ip_river_bet: String,
-    ip_river_raise: String,
-    add_allin_threshold: f64,
-    force_allin_threshold: f64,
-    merging_threshold: f64,
-    added_lines: String,
-    removed_lines: String,
+    args: crate::solver::GameTreeArgs,
+    board_len: usize,
 ) -> bool {
-    let initial_state = match board_len {
-        len if len <= 3 => BoardState::Flop,
+    let state = match board_len {
+        3 => BoardState::Flop,
         4 => BoardState::Turn,
         5 => BoardState::River,
-        _ => panic!("Invalid board length"),
+        _ => return false,
     };
-
-    let config = TreeConfig {
-        initial_state,
-        starting_pot,
-        effective_stack,
-        rake_rate: 0.0,
-        rake_cap: 0.0,
-        flop_bet_sizes: [
-            BetSizeOptions::try_from((oop_flop_bet.as_str(), oop_flop_raise.as_str())).unwrap(),
-            BetSizeOptions::try_from((ip_flop_bet.as_str(), ip_flop_raise.as_str())).unwrap(),
-        ],
-        turn_bet_sizes: [
-            BetSizeOptions::try_from((oop_turn_bet.as_str(), oop_turn_raise.as_str())).unwrap(),
-            BetSizeOptions::try_from((ip_turn_bet.as_str(), ip_turn_raise.as_str())).unwrap(),
-        ],
-        river_bet_sizes: [
-            BetSizeOptions::try_from((oop_river_bet.as_str(), oop_river_raise.as_str())).unwrap(),
-            BetSizeOptions::try_from((ip_river_bet.as_str(), ip_river_raise.as_str())).unwrap(),
-        ],
-        turn_donk_sizes: match donk_option {
-            false => None,
-            true => DonkSizeOptions::try_from(oop_turn_donk.as_str()).ok(),
-        },
-        river_donk_sizes: match donk_option {
-            false => None,
-            true => DonkSizeOptions::try_from(oop_river_donk.as_str()).ok(),
-        },
-        add_allin_threshold,
-        force_allin_threshold,
-        merging_threshold,
-    };
-
-    let mut tree = ActionTree::new(config).unwrap();
-
-    if !added_lines.is_empty() {
-        for line in added_lines.split(',') {
-            let line = line
-                .split(&['-', '|'][..])
-                .map(decode_action)
-                .collect::<Vec<_>>();
-            if tree.add_line(&line).is_err() {
-                return false;
-            }
+    match crate::solver::build_action_tree(&args, state) {
+        Ok(tree) => {
+            *crate::guard::lock(&tree_state) = tree;
+            true
         }
+        Err(_) => false,
     }
-
-    if !removed_lines.is_empty() {
-        for line in removed_lines.split(',') {
-            let line = line
-                .split(&['-', '|'][..])
-                .map(decode_action)
-                .collect::<Vec<_>>();
-            if tree.remove_line(&line).is_err() {
-                return false;
-            }
-        }
-    }
-
-    *tree_state.lock().unwrap() = tree;
-    true
 }
 
 #[tauri::command]
 pub fn tree_added_lines(tree_state: tauri::State<Mutex<ActionTree>>) -> String {
-    let tree = tree_state.lock().unwrap();
+    let tree = crate::guard::lock(&tree_state);
     tree.added_lines()
         .iter()
         .map(|l| encode_line(l))
@@ -188,7 +116,7 @@ pub fn tree_added_lines(tree_state: tauri::State<Mutex<ActionTree>>) -> String {
 
 #[tauri::command]
 pub fn tree_removed_lines(tree_state: tauri::State<Mutex<ActionTree>>) -> String {
-    let tree = tree_state.lock().unwrap();
+    let tree = crate::guard::lock(&tree_state);
     tree.removed_lines()
         .iter()
         .map(|l| encode_line(l))
@@ -198,7 +126,7 @@ pub fn tree_removed_lines(tree_state: tauri::State<Mutex<ActionTree>>) -> String
 
 #[tauri::command]
 pub fn tree_invalid_terminals(tree_state: tauri::State<Mutex<ActionTree>>) -> String {
-    let tree = tree_state.lock().unwrap();
+    let tree = crate::guard::lock(&tree_state);
     tree.invalid_terminals()
         .iter()
         .map(|l| encode_line(l))
@@ -208,7 +136,7 @@ pub fn tree_invalid_terminals(tree_state: tauri::State<Mutex<ActionTree>>) -> St
 
 #[tauri::command]
 pub fn tree_actions(tree_state: tauri::State<Mutex<ActionTree>>) -> Vec<String> {
-    let tree = tree_state.lock().unwrap();
+    let tree = crate::guard::lock(&tree_state);
     tree.available_actions()
         .iter()
         .cloned()
@@ -218,25 +146,25 @@ pub fn tree_actions(tree_state: tauri::State<Mutex<ActionTree>>) -> Vec<String> 
 
 #[tauri::command]
 pub fn tree_is_terminal_node(tree_state: tauri::State<Mutex<ActionTree>>) -> bool {
-    let tree = tree_state.lock().unwrap();
+    let tree = crate::guard::lock(&tree_state);
     tree.is_terminal_node()
 }
 
 #[tauri::command]
 pub fn tree_is_chance_node(tree_state: tauri::State<Mutex<ActionTree>>) -> bool {
-    let tree = tree_state.lock().unwrap();
+    let tree = crate::guard::lock(&tree_state);
     tree.is_chance_node()
 }
 
 #[tauri::command]
 pub fn tree_back_to_root(tree_state: tauri::State<Mutex<ActionTree>>) {
-    let mut tree = tree_state.lock().unwrap();
+    let mut tree = crate::guard::lock(&tree_state);
     tree.back_to_root();
 }
 
 #[tauri::command]
 pub fn tree_apply_history(tree_state: tauri::State<Mutex<ActionTree>>, line: Vec<String>) {
-    let mut tree = tree_state.lock().unwrap();
+    let mut tree = crate::guard::lock(&tree_state);
     let line = line
         .iter()
         .map(|l| decode_action(l.as_str()))
@@ -246,7 +174,7 @@ pub fn tree_apply_history(tree_state: tauri::State<Mutex<ActionTree>>, line: Vec
 
 #[tauri::command]
 pub fn tree_play(tree_state: tauri::State<Mutex<ActionTree>>, action: String) -> i32 {
-    let mut tree = tree_state.lock().unwrap();
+    let mut tree = crate::guard::lock(&tree_state);
     let action = decode_action(&action);
     let available_actions = tree.available_actions();
     if let Some(index) = available_actions.iter().position(|&a| a == action) {
@@ -259,7 +187,7 @@ pub fn tree_play(tree_state: tauri::State<Mutex<ActionTree>>, action: String) ->
 
 #[tauri::command]
 pub fn tree_total_bet_amount(tree_state: tauri::State<Mutex<ActionTree>>) -> [i32; 2] {
-    let tree = tree_state.lock().unwrap();
+    let tree = crate::guard::lock(&tree_state);
     tree.total_bet_amount()
 }
 
@@ -269,7 +197,7 @@ pub fn tree_add_bet_action(
     amount: i32,
     is_raise: bool,
 ) {
-    let mut tree = tree_state.lock().unwrap();
+    let mut tree = crate::guard::lock(&tree_state);
     let action = match is_raise {
         false => Action::Bet(amount),
         true => Action::Raise(amount),
@@ -279,13 +207,13 @@ pub fn tree_add_bet_action(
 
 #[tauri::command]
 pub fn tree_remove_current_node(tree_state: tauri::State<Mutex<ActionTree>>) {
-    let mut tree = tree_state.lock().unwrap();
+    let mut tree = crate::guard::lock(&tree_state);
     tree.remove_current_node().unwrap();
 }
 
 #[tauri::command]
 pub fn tree_delete_added_line(tree_state: tauri::State<Mutex<ActionTree>>, line: String) {
-    let mut tree = tree_state.lock().unwrap();
+    let mut tree = crate::guard::lock(&tree_state);
     let line = line
         .split(&['-', '|'][..])
         .map(decode_action)
@@ -295,7 +223,7 @@ pub fn tree_delete_added_line(tree_state: tauri::State<Mutex<ActionTree>>, line:
 
 #[tauri::command]
 pub fn tree_delete_removed_line(tree_state: tauri::State<Mutex<ActionTree>>, line: String) {
-    let mut tree = tree_state.lock().unwrap();
+    let mut tree = crate::guard::lock(&tree_state);
     let line = line
         .split(&['-', '|'][..])
         .map(decode_action)

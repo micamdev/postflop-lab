@@ -1,0 +1,137 @@
+<style>
+  .app { --check:#3fae6e; --bg:#151517; --panel:#1d1d20; --panel2:#242428; --border:#323238; --text:#ececee; --muted:#9a9aa3; --accent:#2fb5a1; --empty:#26262a; --oop:#5b8def; --ip:#e0a03c;
+         font: 13px "Inter", system-ui, sans-serif; background: var(--bg); color: var(--text); border-radius:10px; overflow:hidden; min-width:1280px; }
+  .bar { display:flex; align-items:center; gap:14px; height:40px; padding:0 14px; background:var(--panel); border-bottom:1px solid var(--border); }
+  .seg { display:inline-flex; background:var(--panel2); border:1px solid var(--border); border-radius:7px; padding:2px; }
+  .seg span { padding:4px 11px; border-radius:5px; color:var(--muted); font-weight:500; }
+  .seg span.on { background:var(--accent); color:#fff; }
+  .grow { flex:1; }
+  .btn { padding:6px 16px; border-radius:7px; font-weight:600; background:var(--accent); color:#fff; }
+  .ghost { padding:4px 9px; border-radius:6px; color:var(--muted); border:1px solid var(--border); font-size:12px; white-space:nowrap; }
+  .ghost.on { color:var(--text); border-color:var(--accent); }
+  .name { font-weight:600; } .pill { font-size:11px; padding:2px 8px; border-radius:20px; background:rgba(224,160,60,.15); color:#e0a03c; font-weight:600; }
+  .body { display:flex; gap:12px; padding:12px; align-items:stretch; }
+  .panel { background:var(--panel); border:1px solid var(--border); border-radius:8px; padding:10px 12px; }
+  .ttl { font-size:11px; color:var(--muted); letter-spacing:.07em; font-weight:600; }
+  /* explorer */
+  .exp { width:250px; flex:none; display:flex; flex-direction:column; gap:4px; }
+  .search { background:var(--bg); border:1px solid var(--border); border-radius:6px; padding:5px 9px; color:var(--muted); margin:6px 0; }
+  .tree div { padding:4px 6px; border-radius:5px; display:flex; align-items:center; gap:6px; white-space:nowrap; }
+  .tree .f { color:var(--text); } .tree .f::before { content:"▸"; color:var(--muted); font-size:10px; width:8px; }
+  .tree .f.open::before { content:"▾"; }
+  .tree .r { color:var(--muted); } .tree .r::before { content:""; width:8px; }
+  .tree .r.hl { background:rgba(47,181,161,.16); color:var(--text); }
+  .tag { margin-left:auto; font-size:10px; font-weight:700; padding:1px 5px; border-radius:4px; }
+  .tag.o { background:rgba(91,141,239,.2); color:var(--oop); } .tag.i { background:rgba(224,160,60,.2); color:var(--ip); }
+  .use { display:flex; gap:6px; margin-top:4px; padding-left:22px; }
+  .use span { font-size:11px; padding:2px 8px; border-radius:5px; border:1px solid var(--border); }
+  .use .o { color:var(--oop); border-color:rgba(91,141,239,.5); } .use .i { color:var(--ip); border-color:rgba(224,160,60,.5); }
+  /* ranges */
+  .rng { flex:1; display:flex; flex-direction:column; gap:8px; }
+  .rh { display:flex; align-items:center; gap:8px; }
+  .who { font-weight:700; font-size:12px; padding:2px 7px; border-radius:5px; }
+  .who.o { background:rgba(91,141,239,.18); color:var(--oop); } .who.i { background:rgba(224,160,60,.18); color:var(--ip); }
+  .path { color:var(--muted); font-size:12px; } .path b { color:var(--text); font-weight:600; }
+  .grid { display:grid; grid-template-columns:repeat(13,1fr); gap:2px; }
+  .grid div { height:27px; border-radius:2px; background:var(--empty); font-size:10px; color:var(--muted); padding:2px 3px; position:relative; overflow:hidden; }
+  .grid div.on { color:#fff; font-weight:600; }
+  .grid.o div.on { background:rgba(91,141,239,.85); } .grid.i div.on { background:rgba(224,160,60,.85); }
+  .grid div.part::after { content:""; position:absolute; left:0; right:0; bottom:0; height:45%; background:var(--empty); }
+  .meta { display:flex; justify-content:space-between; color:var(--muted); font-size:12px; }
+  .edit { display:flex; gap:6px; align-items:center; }
+  .txt { flex:1; background:var(--bg); border:1px solid var(--border); border-radius:5px; padding:4px 8px; color:var(--muted); font-size:12px; white-space:nowrap; overflow:hidden; }
+  /* right */
+  .right { width:290px; flex:none; display:flex; flex-direction:column; gap:12px; }
+  .board { display:flex; gap:4px; }
+  .card { width:36px; height:46px; border-radius:5px; display:flex; align-items:center; justify-content:center; font-weight:700; font-size:18px; color:#fff; }
+  .h { background:#d8455b; } .d { background:#3d7fd6; } .c { background:#3e9e5c; } .x { background:var(--panel2); border:1px dashed var(--border); color:var(--muted); font-size:15px; }
+  .kv { display:grid; grid-template-columns:auto 1fr; gap:6px 12px; align-items:center; margin-top:8px; }
+  .kv em { font-style:normal; color:var(--muted); }
+  .in { background:var(--panel2); border:1px solid var(--border); border-radius:5px; padding:3px 8px; width:60px; }
+  table.t { border-collapse:collapse; width:100%; font-size:12px; margin-top:6px; }
+  table.t td, table.t th { padding:4px 3px; border-bottom:1px solid var(--border); text-align:left; }
+  table.t th { color:var(--muted); font-weight:600; font-size:11px; }
+  .chip { display:inline-block; background:var(--panel2); border:1px solid var(--border); border-radius:4px; padding:1px 5px; margin:1px; font-size:11px; }
+  .note { font-size:12px; color:var(--muted); margin-top:6px; }
+  .q { font: 13px system-ui; line-height:1.5; margin:18px 0 0; }
+</style>
+
+<h2>Setup en une page, sans modale (v2)</h2>
+<p class="subtitle">À gauche, l'explorateur de tes ranges et spots (dossiers dans dossiers). Au centre, les deux ranges en grand, éditables sur place. À droite, board, stacks et tailles de mise. Format pleine fenêtre (≈ 1700 px comme ton écran).</p>
+
+<div class="app">
+  <div class="bar">
+    <span class="name">BTN vs BB · SRP 100bb</span><span class="pill">● Not solved</span>
+    <div class="seg"><span class="on">Setup</span><span>Results</span><span>Library</span></div>
+    <div class="grow"></div>
+    <span class="ghost">⚙ Solve settings</span><span class="btn">▶ Solve</span>
+  </div>
+  <div class="body">
+    <div class="panel exp">
+      <div class="seg" style="align-self:flex-start"><span class="on">Ranges</span><span>Spots</span></div>
+      <div class="search">🔍 Search…</div>
+      <div class="tree">
+        <div class="f open">100bb</div>
+        <div class="f open" style="padding-left:18px">SRP</div>
+        <div class="r" style="padding-left:34px">BTN open <span class="tag i">IP</span></div>
+        <div class="r hl" style="padding-left:34px">BB vs BTN call <span class="tag o">OOP</span></div>
+        <div class="use" style="padding-left:40px"><span class="o">→ OOP</span><span class="i">→ IP</span><span style="color:var(--muted)">Edit</span></div>
+        <div class="r" style="padding-left:34px">CO open</div>
+        <div class="r" style="padding-left:34px">BB vs CO call</div>
+        <div class="f" style="padding-left:18px">3bet pots</div>
+        <div class="f" style="padding-left:18px">Blind vs blind</div>
+        <div class="f">200bb</div>
+        <div class="f">Exploits</div>
+      </div>
+      <div class="grow"></div>
+      <div class="note" style="display:flex;justify-content:space-between"><span>＋ Folder</span><span>Save current…</span></div>
+    </div>
+
+    <div class="panel rng">
+      <div class="rh"><span class="who o">OOP</span><span class="path">100bb › SRP › <b>BB vs BTN call</b></span><div class="grow"></div><span class="ghost">Edit</span></div>
+      <div class="grid o" id="g1"></div>
+      <div class="meta"><span>123 combos · 9.3%</span><span>vs IP 188 combos</span></div>
+    </div>
+
+    <div class="panel rng">
+      <div class="rh"><span class="who i">IP</span><span class="path">100bb › SRP › <b>BTN open</b></span><div class="grow"></div><span class="ghost on">Done</span></div>
+      <div class="grid i" id="g2"></div>
+      <div class="edit"><span class="txt">QQ-22, AKs-A2s, KQs-K9s, QJs-Q9s, …</span><span class="ghost">Weight 100%</span><span class="ghost">Clear</span><span class="ghost">Save</span></div>
+    </div>
+
+    <div class="right">
+      <div class="panel">
+        <span class="ttl">BOARD</span>
+        <div class="board" style="margin-top:8px"><div class="card h">J</div><div class="card d">9</div><div class="card c">4</div><div class="card x">+</div><div class="card x">+</div></div>
+        <div class="note">Click to pick · Random flop</div>
+      </div>
+      <div class="panel">
+        <span class="ttl">STACKS</span>
+        <div class="kv"><em>Pot</em><span class="in">5.5</span><em>Stack</em><span class="in">97.5</span><em>SPR</em><span>17.7</span></div>
+      </div>
+      <div class="panel">
+        <span class="ttl">BET SIZES</span>
+        <table class="t">
+          <tr><th></th><th>Flop</th><th>Turn</th><th>River</th></tr>
+          <tr><td>OOP bet</td><td><span class="chip">33%</span></td><td><span class="chip">75%</span></td><td><span class="chip">75%</span></td></tr>
+          <tr><td>OOP raise</td><td><span class="chip">3x</span></td><td><span class="chip">3x</span></td><td><span class="chip">3x</span></td></tr>
+          <tr><td>IP bet</td><td><span class="chip">33%</span><span class="chip">75%</span></td><td><span class="chip">75%</span></td><td><span class="chip">75%</span></td></tr>
+          <tr><td>IP raise</td><td><span class="chip">3x</span></td><td><span class="chip">3x</span></td><td><span class="chip">3x</span></td></tr>
+        </table>
+        <div class="note">Donk bets · Edit tree ›</div>
+      </div>
+      <div class="panel" style="font-size:12px;color:var(--muted)">Memory ≈ 1.2 GB · 8 threads · 32-bit</div>
+    </div>
+  </div>
+</div>
+
+<p class="q">Dans l'explorateur, un clic sur une range l'affiche ; « → OOP » / « → IP » l'assigne (ou glisser-déposer sur la grille). L'onglet « Spots » liste les spots complets de la même façon. Les étiquettes OOP/IP montrent ce qui est utilisé.</p>
+
+<script>
+const R = "AKQJT98765432";
+const hand = (i, j) => i === j ? R[i] + R[j] : i < j ? R[i] + R[j] + "s" : R[j] + R[i] + "o";
+const inR = (i, j, k) => (i === j && i < 9 + k) || (i < j && i < 4 + k && j < 9 + k) || (i > j && j < 3 + k && i < 4 + k);
+const part = (i, j) => (i * 5 + j * 3) % 9 === 0;
+const g = (id, k) => { let h = ""; for (let i = 0; i < 13; i++) for (let j = 0; j < 13; j++) { const on = inR(i, j, k); h += `<div class="${on ? "on" : ""} ${on && part(i, j) ? "part" : ""}">${hand(i, j)}</div>`; } document.getElementById(id).innerHTML = h; };
+g("g1", 0); g("g2", 3);
+</script>

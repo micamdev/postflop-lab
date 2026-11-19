@@ -1,6 +1,10 @@
 <template>
   <div class="flex w-full h-full">
-    <div v-if="!results.isEmpty" class="flex flex-col h-full" style="flex: 4">
+    <div
+      v-if="!results.isEmpty"
+      class="flex flex-col h-full shrink-0"
+      :style="{ width: leftWidth }"
+    >
       <div class="w-full px-4 pt-4 pb-2" style="flex: 7">
         <div class="relative h-full">
           <LineChart
@@ -31,12 +35,16 @@
       </div>
     </div>
 
-    <div v-else class="flex h-full items-center justify-center" style="flex: 4">
+    <div
+      v-else
+      class="flex h-full shrink-0 items-center justify-center"
+      :style="{ width: leftWidth }"
+    >
       Graphs not available
     </div>
 
     <ResultTable
-      style="flex: 3"
+      class="flex-1 min-w-[480px]"
       table-mode="graphs"
       :graph-type="displayOptions.contentGraphs"
       :cards="cards"
@@ -44,11 +52,15 @@
       :results="results"
       :display-player="displayPlayer"
       :scroll-target="tableScrollTarget"
-    />
+    >
+      <template #top><slot name="table-top" /></template>
+    </ResultTable>
   </div>
 </template>
 
 <script setup lang="ts">
+import { resolvedThemeColor } from "../theme";
+import { stackedGradient } from "../action-colors";
 import { computed, ref } from "vue";
 import { cardText, cardPairOrder, toFixed1, toFixedAdaptive } from "../utils";
 import {
@@ -91,8 +103,9 @@ Chart.defaults.font.size = 14;
 Chart.defaults.font.family =
   "system-ui, 'Noto Sans', 'Open Sans', Roboto, sans-serif";
 
-const sky500 = "#0ea5e9";
-const lime500 = "#84cc16";
+// Player colours (Graphite theme): OOP blue, IP orange.
+const oopColor = resolvedThemeColor("oop");
+const ipColor = resolvedThemeColor("ip");
 const xTicks = 10000;
 
 const props = defineProps<{
@@ -102,6 +115,8 @@ const props = defineProps<{
   results: Results;
   displayOptions: DisplayOptions;
   displayPlayer: "oop" | "ip";
+  /** Width of the chart area (the grid's in Strategy, so the summary does not move). */
+  leftWidth: string;
 }>();
 
 const chartWidth = ref(0);
@@ -136,9 +151,8 @@ const tupleData = computed(() => {
     } else if (content === "ev") {
       values = results.ev[player];
     } else {
-      values = results.eqr[player]
-        .map((x) => x ?? Number.NaN)
-        .map((x) => (isFinite(x) ? x : Number.NaN));
+      // Undefined EQRs are already NaN (invokes).
+      values = results.eqr[player];
     }
 
     let allTuples: number[][];
@@ -222,8 +236,8 @@ const chartData = computed((): ChartData<"line", Point[]> => {
         label: oopLabel,
         data: data[0],
         borderWidth: props.displayPlayer === "oop" ? 4 : 2,
-        borderColor: sky500,
-        backgroundColor: sky500,
+        borderColor: oopColor,
+        backgroundColor: oopColor,
         pointStyle: false,
         stepped: "middle",
       },
@@ -231,8 +245,8 @@ const chartData = computed((): ChartData<"line", Point[]> => {
         label: ipLabel,
         data: data[1],
         borderWidth: props.displayPlayer === "ip" ? 4 : 2,
-        borderColor: lime500,
-        backgroundColor: lime500,
+        borderColor: ipColor,
+        backgroundColor: ipColor,
         pointStyle: false,
         stepped: "middle",
       },
@@ -243,8 +257,11 @@ const chartData = computed((): ChartData<"line", Point[]> => {
 const chartOptions = computed((): ChartOptions<"line"> => {
   const content = props.displayOptions.contentGraphs;
   const styleY = content === "ev" ? "decimal" : "percent";
-  const formatX = { style: "percent", minimumFractionDigits: 0 };
-  const formatY = {
+  const formatX: Intl.NumberFormatOptions = {
+    style: "percent",
+    minimumFractionDigits: 0,
+  };
+  const formatY: Intl.NumberFormatOptions = {
     style: styleY,
     useGrouping: false,
     minimumFractionDigits: 0,
@@ -265,6 +282,7 @@ const chartOptions = computed((): ChartOptions<"line"> => {
         },
       },
       y: {
+        type: "linear",
         min: content === "eq" ? 0 : undefined,
         max: content === "eq" ? 1 : undefined,
         suggestedMin: content === "ev" ? 0 : undefined,
@@ -284,7 +302,7 @@ const chartOptions = computed((): ChartOptions<"line"> => {
       legend: {
         labels: {
           font: { size: 16 },
-          color: "rgba(0, 0, 0, 0.9)",
+          color: resolvedThemeColor("ink", 0.9),
           boxHeight: 12,
         },
       },
@@ -297,7 +315,7 @@ const chartOptions = computed((): ChartOptions<"line"> => {
             return "";
           },
           label(context) {
-            const value = context.parsed.y;
+            const value = context.parsed.y ?? 0;
             const cardPair = (context.raw as { label: number }).label;
             if (props.displayPlayer === ["oop", "ip"][context.datasetIndex]) {
               tableScrollTarget.value = cardPair;
@@ -346,7 +364,7 @@ const verticalLinePlugin: Plugin<"line"> = {
     ctx.moveTo(x, chart.scales.y.top);
     ctx.lineTo(x, chart.scales.y.bottom);
     ctx.lineWidth = 1;
-    ctx.strokeStyle = "rgba(0, 0, 0, 0.9)";
+    ctx.strokeStyle = resolvedThemeColor("ink", 0.9);
     ctx.stroke();
     ctx.restore();
   },
@@ -361,15 +379,16 @@ const strategyItems = computed(() => {
   );
 
   return tupleData.value[playerIndex.value].map((tuple) => {
-    let bgImage = "linear-gradient(to top";
-    let pos = 0;
-    for (let i = numActions - 1; i >= 0; --i) {
-      const width = tuple[i + 3] * 100;
-      const color = actionColors[i];
-      bgImage += `, ${color} ${pos}% ${pos + width}%`;
-      pos += width;
-    }
-    bgImage += ")";
+    // Last action at the bottom, as in the grid and the table.
+    const frequencies = Array.from(
+      { length: numActions },
+      (_, i) => tuple[numActions - i + 2]
+    );
+    const bgImage = stackedGradient(
+      frequencies,
+      [...actionColors].reverse(),
+      "top"
+    );
     return { cards: tuple[0], weight: tuple[1], bgImage };
   });
 });

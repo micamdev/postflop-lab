@@ -4,18 +4,18 @@
       <td
         v-for="col in 13"
         :key="col"
-        class="relative w-2.5 border-[0.5px] border-black"
+        class="relative w-2.5 border-[0.5px] border-line"
       >
         <div
           :class="
             'absolute w-full h-full left-0 top-0 ' +
-            (row === col ? 'bg-neutral-700' : 'bg-neutral-800')
+            (row === col ? 'bg-panel2' : 'bg-cell')
           "
         >
           <div
             class="absolute w-full h-full left-0 top-0 bg-bottom bg-no-repeat"
             :style="{
-              'background-image': `linear-gradient(${yellow500} 0% 100%)`,
+              'background-image': `linear-gradient(${weightColor} 0% 100%)`,
               'background-size': `100% ${cellValue(row, col)}%`,
             }"
           ></div>
@@ -26,9 +26,10 @@
 </template>
 
 <script setup lang="ts">
+import { themeColor } from "../theme";
 import { useStore } from "../store";
 
-const yellow500 = "#eab308";
+const weightColor = themeColor("weight");
 
 const props = defineProps<{ player: number }>();
 const store = useStore();

@@ -1,264 +1,204 @@
 <template>
-  <!-- Error -->
+  <p v-if="isTreeError" class="text-sm text-red-400">
+    The tree could not be built (a broken saved tree?).
+  </p>
 
-  <div v-if="isTreeError">
-    Error: Failed to build tree (loaded broken tree?)
-  </div>
-
-  <!-- Navigation -->
-
-  <div
-    v-if="!isTreeError"
-    ref="navDiv"
-    class="flex h-[10.5rem] gap-1 p-1 overflow-x-auto whitespace-nowrap snug"
-  >
+  <template v-else>
+    <!-- Navigation, as in the results: click a spot, then an action. -->
     <div
-      v-for="spot in spots"
-      :key="spot.index"
-      :class="
-        'flex flex-col h-full px-1 py-0.5 justify-start ' +
-        'rounded-lg shadow-md border-[3px] transition group ' +
-        (spot.type === 'chance'
-          ? 'hover:border-red-600 '
-          : 'hover:border-blue-600 ') +
-        (spot.index === selectedSpotIndex
-          ? 'border-blue-600 cursor-default'
-          : 'border-gray-400 cursor-pointer')
-      "
-      @click="selectSpot(spot.index, false, false, true)"
+      ref="navDiv"
+      class="flex h-[8.5rem] gap-2 pb-2 overflow-x-auto whitespace-nowrap snug"
     >
-      <!-- Root or Chance -->
-      <template v-if="spot.type === 'root' || spot.type === 'chance'">
+      <div
+        v-for="spot in spots"
+        :key="spot.index"
+        :class="[
+          'flex flex-col shrink-0 h-full min-w-[7.5rem] px-1.5 py-1 rounded-lg border bg-panel transition-colors group',
+          spot.index === selectedSpotIndex
+            ? 'border-accent ring-1 ring-accent cursor-default'
+            : 'border-line hover:border-accent cursor-pointer',
+        ]"
+        @click="selectSpot(spot.index, false, false, true)"
+      >
         <div
-          class="px-1.5 pt-1 pb-0.5 font-semibold group-hover:opacity-100 opacity-70"
+          class="px-1 pt-0.5 pb-1 text-[11px] font-bold tracking-wider text-muted"
         >
           {{ spot.player.toUpperCase() }}
         </div>
-        <div
-          class="flex flex-col flex-grow px-3 items-center justify-evenly font-semibold"
-        >
-          <div class="group-hover:opacity-100 opacity-70">
-            <div>Pot {{ spot.pot }}</div>
-            <div>Stack {{ spot.stack }}</div>
-          </div>
-        </div>
-      </template>
 
-      <!-- Player -->
-      <template v-if="spot.type === 'player'">
+        <!-- Root or chance -->
         <div
-          :class="
-            'px-1.5 py-1 font-semibold group-hover:opacity-100 ' +
-            (spot.index === selectedSpotIndex ? '' : 'opacity-70')
-          "
+          v-if="spot.type === 'root' || spot.type === 'chance'"
+          class="flex flex-col flex-grow px-2 justify-center text-xs text-muted tabular-nums"
         >
-          {{ spot.player.toUpperCase() }}
+          <div>Pot {{ spot.pot }}</div>
+          <div>Stack {{ spot.stack }}</div>
         </div>
-        <div class="flex-grow overflow-y-auto">
+
+        <!-- Player -->
+        <div
+          v-else-if="spot.type === 'player'"
+          class="flex-grow overflow-y-auto"
+        >
           <button
             v-for="action of spot.actions"
             :key="action.index"
-            :class="
-              'flex w-full px-1.5 rounded-md transition-colors hover:bg-blue-100 ' +
-              (action.isSelected ? 'bg-blue-100 ' : '')
-            "
+            :class="[
+              'flex items-center w-full gap-1.5 px-1.5 py-px rounded-md text-sm transition-colors hover:bg-panel2',
+              action.isSelected ? 'bg-panel2 font-semibold' : '',
+            ]"
             @click.stop="play(spot.index, action.index)"
           >
-            <span class="inline-block relative w-4 mr-0.5">
-              <span v-if="action.isSelected">
-                <CheckIcon class="absolute top-[0.1875rem] -left-0.5 w-4 h-4" />
-              </span>
-            </span>
-            <span
-              :class="
-                'pr-0.5 font-semibold group-hover:opacity-100 ' +
-                (action.isSelected || spot.index === selectedSpotIndex
-                  ? ''
-                  : 'opacity-70')
-              "
-            >
-              {{ action.name }}
-              {{ action.amount === "0" ? "" : action.amount }}
-            </span>
+            {{ action.name }}
+            {{ action.amount === "0" ? "" : action.amount }}
           </button>
           <div
             v-if="spot.actions.length === 0"
-            :class="
-              'flex w-full px-1.5 font-semibold group-hover:opacity-100 ' +
-              (spot.index === selectedSpotIndex ? '' : 'opacity-70')
-            "
+            class="px-1.5 text-xs text-muted"
           >
-            (No actions)
+            No actions
           </div>
         </div>
-      </template>
 
-      <!-- Terminal -->
-      <template v-else-if="spot.type === 'terminal'">
+        <!-- Terminal -->
         <div
-          :class="
-            'px-1.5 pt-1 pb-0.5 font-semibold group-hover:opacity-100 ' +
-            (spot.index === selectedSpotIndex ? '' : 'opacity-70')
-          "
+          v-else-if="spot.type === 'terminal'"
+          class="flex flex-col flex-grow px-2 justify-center text-xs text-muted"
         >
-          {{ spot.player.toUpperCase() }}
-        </div>
-        <div
-          :class="
-            'flex flex-col flex-grow items-center justify-evenly font-semibold group-hover:opacity-100 ' +
-            (spot.index === selectedSpotIndex ? '' : 'opacity-70')
-          "
-        >
-          <div v-if="spot.equityOop === 0 || spot.equityOop === 1" class="px-3">
-            {{ ["IP", "OOP"][spot.equityOop] }} Wins
+          <div v-if="spot.equityOop === 0 || spot.equityOop === 1">
+            {{ ["IP", "OOP"][spot.equityOop] }} wins
           </div>
-          <div class="px-3">Pot {{ spot.pot }}</div>
+          <div class="tabular-nums">Pot {{ spot.pot }}</div>
         </div>
-      </template>
-    </div>
-  </div>
-
-  <!-- Invalid lines error -->
-
-  <div
-    v-if="!isTreeError && invalidLinesArray.length > 0"
-    class="flex mt-4 font-semibold text-red-500"
-  >
-    <div class="underline">
-      Invalid Terminal{{ invalidLinesArray.length > 1 ? "s" : "" }}:
-    </div>
-    <div class="ml-2">
-      <div v-for="invalidLine in invalidLinesArray" :key="invalidLine">
-        {{ invalidLine }}
       </div>
     </div>
-  </div>
 
-  <div v-if="!isTreeError" class="flex mx-6 my-6 justify-center">
-    <hr class="border-gray-400 w-full" />
-  </div>
+    <ul v-if="invalidLinesArray.length > 0" class="mt-2 text-xs text-red-400">
+      <li v-for="invalidLine in invalidLinesArray" :key="invalidLine">
+        Invalid terminal: {{ invalidLine }}
+      </li>
+    </ul>
 
-  <!-- Edit -->
-
-  <div v-if="!isTreeError" class="flex gap-3">
-    <button
-      class="button-base button-blue"
-      :disabled="
-        isSelectedTerminal ||
-        isAfterAllin ||
-        betAmount < minAmount ||
-        betAmount > maxAmount ||
-        betAmount % 1 !== 0 ||
-        existingAmounts.includes(betAmount)
-      "
-      @click="addBetAction"
-    >
-      Add Bet Action
-    </button>
-
-    <button
-      class="button-base button-red"
-      :disabled="selectedSpotIndex === 1"
-      @click="removeSelectedNode"
-    >
-      Remove Selected Node
-    </button>
-
-    <div class="pl-3">
-      Bet amount:
-      <input
-        v-model="betAmount"
-        type="number"
-        :class="
-          'w-24 ml-2 px-2 py-1 rounded-lg text-sm text-center ' +
-          (betAmount < minAmount || betAmount > maxAmount || betAmount % 1 !== 0
-            ? 'input-error'
-            : '')
-        "
-        :min="minAmount"
-        :max="maxAmount"
-        @keydown.enter="addBetAction"
-      />
-      <span v-if="!isSelectedTerminal && !isAfterAllin" class="ml-2">
-        ({{ (amountRate * 100).toFixed(1) }}% of the pot)
-      </span>
-    </div>
-  </div>
-
-  <div class="flex mx-6 my-6 justify-center">
-    <hr class="border-gray-400 w-full" />
-  </div>
-
-  <!-- Save/Cancel -->
-
-  <div class="flex my-6 gap-3">
-    <button
-      class="button-base button-blue"
-      :disabled="isTreeError || invalidLinesArray.length > 0"
-      @click="saveEdit"
-    >
-      Save Edit
-    </button>
-
-    <button class="button-base button-red" @click="cancelEdit">
-      Cancel Edit
-    </button>
-  </div>
-
-  <!-- Lines -->
-
-  <div
-    v-if="
-      !isTreeError &&
-      (addedLinesArray.length > 0 || removedLinesArray.length > 0)
-    "
-  >
-    <div v-if="addedLinesArray.length > 0" class="flex">
-      <div class="font-semibold underline w-[7.75rem]">
-        Added line{{ addedLinesArray.length > 1 ? "s" : "" }}:
+    <!-- Edit the selected spot -->
+    <UiPanel title="Selected spot" class="mt-3 max-w-3xl">
+      <div class="flex flex-wrap items-center gap-2 text-sm">
+        <span class="text-muted">Bet</span>
+        <input
+          v-model="betAmount"
+          type="number"
+          :class="[
+            'ui-input w-24 text-center',
+            betAmount < minAmount ||
+            betAmount > maxAmount ||
+            betAmount % 1 !== 0
+              ? '!border-red-500'
+              : '',
+          ]"
+          :min="minAmount"
+          :max="maxAmount"
+          @keydown.enter="addBetAction"
+        />
+        <span
+          v-if="!isSelectedTerminal && !isAfterAllin"
+          class="text-xs text-muted"
+        >
+          {{ (amountRate * 100).toFixed(1) }}% of the pot
+        </span>
+        <UiButton
+          :disabled="
+            isSelectedTerminal ||
+            isAfterAllin ||
+            betAmount < minAmount ||
+            betAmount > maxAmount ||
+            betAmount % 1 !== 0 ||
+            existingAmounts.includes(betAmount)
+          "
+          @click="addBetAction"
+        >
+          Add bet
+        </UiButton>
+        <div class="flex-1" />
+        <UiButton
+          variant="danger"
+          :disabled="selectedSpotIndex === 1"
+          title="Remove the action that leads to the selected spot, and the lines after it"
+          @click="removeSelectedNode"
+        >
+          Remove this line
+        </UiButton>
       </div>
-      <div class="flex flex-col">
+    </UiPanel>
+
+    <!-- Lines edited so far -->
+    <UiPanel
+      v-if="addedLinesArray.length > 0 || removedLinesArray.length > 0"
+      title="Lines edited by hand"
+      class="mt-3 max-w-3xl"
+    >
+      <div v-if="addedLinesArray.length > 0" class="text-sm">
+        <div class="mb-1 text-xs text-muted">Added</div>
         <div
           v-for="(addedLine, index) in addedLinesArray"
           :key="addedLine"
-          class="flex items-center"
+          class="flex items-center gap-2"
         >
-          <button class="mr-2" @click="deleteAddedLine(index)">
-            <TrashIcon class="w-5 h-5 text-gray-600" />
+          <button
+            type="button"
+            class="text-muted hover:text-red-400"
+            title="Undo this line"
+            @click="deleteAddedLine(index)"
+          >
+            <TrashIcon class="w-4 h-4" />
           </button>
           <span>{{ addedLine }}</span>
         </div>
       </div>
-    </div>
-
-    <div v-if="removedLinesArray.length > 0" class="flex mt-2">
-      <div class="font-semibold underline w-[7.75rem]">
-        Removed line{{ removedLinesArray.length > 1 ? "s" : "" }}:
-      </div>
-      <div class="flex flex-col">
+      <div
+        v-if="removedLinesArray.length > 0"
+        :class="['text-sm', addedLinesArray.length > 0 ? 'mt-3' : '']"
+      >
+        <div class="mb-1 text-xs text-muted">Removed</div>
         <div
           v-for="(removedLine, index) in removedLinesArray"
           :key="removedLine"
-          class="flex items-center"
+          class="flex items-center gap-2"
         >
-          <button class="mr-2" @click="deleteRemovedLine(index)">
-            <TrashIcon class="w-5 h-5 text-gray-600" />
+          <button
+            type="button"
+            class="text-muted hover:text-red-400"
+            title="Undo this line"
+            @click="deleteRemovedLine(index)"
+          >
+            <TrashIcon class="w-4 h-4" />
           </button>
           <span>{{ removedLine }}</span>
         </div>
       </div>
-    </div>
+    </UiPanel>
+  </template>
+
+  <div class="flex gap-2 mt-4">
+    <UiButton
+      variant="primary"
+      :disabled="isTreeError || invalidLinesArray.length > 0"
+      @click="saveEdit"
+    >
+      Save edits
+    </UiButton>
+    <UiButton @click="cancelEdit">Cancel</UiButton>
   </div>
 </template>
 
 <script setup lang="ts">
+import UiButton from "./ui/UiButton.vue";
+import UiPanel from "./ui/UiPanel.vue";
 import { computed, nextTick, ref } from "vue";
 import { useConfigStore } from "../store";
-import { convertBetString, readableLineString } from "../utils";
+import { readableLineString } from "../utils";
+import { gameTreeArgs } from "../game-args";
 import { Spot, SpotRoot, SpotChance, SpotPlayer } from "../result-types";
 import * as invokes from "../invokes";
 
-import { CheckIcon } from "@heroicons/vue/20/solid";
 import { TrashIcon } from "@heroicons/vue/24/outline";
 
 const emit = defineEmits<{
@@ -273,31 +213,7 @@ let isLocked = false;
 
 const boardLength = config.expectedBoardLength;
 
-const isTreeError = !(await invokes.treeNew(
-  boardLength,
-  config.startingPot,
-  config.effectiveStack,
-  config.donkOption,
-  convertBetString(config.oopFlopBet),
-  convertBetString(config.oopFlopRaise),
-  convertBetString(config.oopTurnBet),
-  convertBetString(config.oopTurnRaise),
-  config.donkOption ? convertBetString(config.oopTurnDonk) : "",
-  convertBetString(config.oopRiverBet),
-  convertBetString(config.oopRiverRaise),
-  config.donkOption ? convertBetString(config.oopRiverDonk) : "",
-  convertBetString(config.ipFlopBet),
-  convertBetString(config.ipFlopRaise),
-  convertBetString(config.ipTurnBet),
-  convertBetString(config.ipTurnRaise),
-  convertBetString(config.ipRiverBet),
-  convertBetString(config.ipRiverRaise),
-  config.addAllInThreshold / 100,
-  config.forceAllInThreshold / 100,
-  config.mergingThreshold / 100,
-  config.addedLines,
-  config.removedLines
-));
+const isTreeError = !(await invokes.treeNew(gameTreeArgs(config), boardLength));
 
 const rootSpot: SpotRoot = {
   type: "root",
@@ -536,8 +452,7 @@ const pushResultsChance = async () => {
   type SpotTurn = SpotRoot | SpotChance;
   const prevSpot = spots.value[selectedSpotIndex.value - 1] as SpotPlayer;
   const turnSpot = spots.value.find((spot) => spot.player === "turn") as
-    | SpotTurn
-    | undefined;
+    SpotTurn | undefined;
 
   const nextActions = await invokes.treeActions();
 
@@ -567,7 +482,7 @@ const pushResultsChance = async () => {
           index: i,
           name,
           amount,
-          rate: -1,
+
           isSelected: false,
           color: "#000",
         };

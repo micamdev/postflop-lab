@@ -1,5 +1,28 @@
-import { invoke } from "@tauri-apps/api";
+import { withNaN } from "./invokes-numbers";
+import { invoke as tauriInvoke, type InvokeArgs } from "@tauri-apps/api/core";
 import { Results, ChanceReports } from "./result-types";
+import type { GameTreeArgs } from "./game-args";
+
+/** Prefix of the error a Rust command returns after an internal error (a panic): the game may
+ * have been reset (see guard.rs). */
+export const ERR_INTERNAL = "Internal error";
+
+let onInternalError: (message: string) => void = () => {};
+
+/** Sets what the app does after an internal error (drop the results, show the message). */
+export const setInternalErrorHandler = (handler: (message: string) => void) => {
+  onInternalError = handler;
+};
+
+// Every command goes through here: internal errors are reported, then rejected as usual.
+const invoke = async <T>(cmd: string, args?: InvokeArgs): Promise<T> => {
+  try {
+    return await tauriInvoke<T>(cmd, args);
+  } catch (e) {
+    if (String(e).startsWith(ERR_INTERNAL)) onInternalError(String(e));
+    throw e;
+  }
+};
 
 export const osName = async (): Promise<"windows" | "macos" | "linux"> => {
   return await invoke("os_name");
@@ -57,56 +80,12 @@ export const rangeRawData = async (player: number): Promise<number[]> => {
 
 /* Action Tree */
 
+/** Builds the tree to edit from the setup, starting on the street of `boardLen` (3 to 5). */
 export const treeNew = async (
-  boardLen: number,
-  startingPot: number,
-  effectiveStack: number,
-  donkOption: boolean,
-  oopFlopBet: string,
-  oopFlopRaise: string,
-  oopTurnBet: string,
-  oopTurnRaise: string,
-  oopTurnDonk: string,
-  oopRiverBet: string,
-  oopRiverRaise: string,
-  oopRiverDonk: string,
-  ipFlopBet: string,
-  ipFlopRaise: string,
-  ipTurnBet: string,
-  ipTurnRaise: string,
-  ipRiverBet: string,
-  ipRiverRaise: string,
-  addAllinThreshold: number,
-  forceAllinThreshold: number,
-  mergingThreshold: number,
-  addedLines: string,
-  removedLines: string
+  args: GameTreeArgs,
+  boardLen: number
 ): Promise<boolean> => {
-  return await invoke("tree_new", {
-    boardLen,
-    startingPot,
-    effectiveStack,
-    donkOption,
-    oopFlopBet,
-    oopFlopRaise,
-    oopTurnBet,
-    oopTurnRaise,
-    oopTurnDonk,
-    oopRiverBet,
-    oopRiverRaise,
-    oopRiverDonk,
-    ipFlopBet,
-    ipFlopRaise,
-    ipTurnBet,
-    ipTurnRaise,
-    ipRiverBet,
-    ipRiverRaise,
-    addAllinThreshold,
-    forceAllinThreshold,
-    mergingThreshold,
-    addedLines,
-    removedLines,
-  });
+  return await invoke("tree_new", { args, boardLen });
 };
 
 export const treeAddedLines = async (): Promise<string> => {
@@ -181,60 +160,15 @@ export const bunchingProgress = async (): Promise<number[]> => {
 
 /* Game */
 
-export const gameInit = async (
-  board: number[],
-  startingPot: number,
-  effectiveStack: number,
-  rakeRate: number,
-  rakeCap: number,
-  donkOption: boolean,
-  oopFlopBet: string,
-  oopFlopRaise: string,
-  oopTurnBet: string,
-  oopTurnRaise: string,
-  oopTurnDonk: string,
-  oopRiverBet: string,
-  oopRiverRaise: string,
-  oopRiverDonk: string,
-  ipFlopBet: string,
-  ipFlopRaise: string,
-  ipTurnBet: string,
-  ipTurnRaise: string,
-  ipRiverBet: string,
-  ipRiverRaise: string,
-  addAllinThreshold: number,
-  forceAllinThreshold: number,
-  mergingThreshold: number,
-  addedLines: string,
-  removedLines: string
-): Promise<string | null> => {
-  return await invoke("game_init", {
-    board,
-    startingPot,
-    effectiveStack,
-    rakeRate,
-    rakeCap,
-    donkOption,
-    oopFlopBet,
-    oopFlopRaise,
-    oopTurnBet,
-    oopTurnRaise,
-    oopTurnDonk,
-    oopRiverBet,
-    oopRiverRaise,
-    oopRiverDonk,
-    ipFlopBet,
-    ipFlopRaise,
-    ipTurnBet,
-    ipTurnRaise,
-    ipRiverBet,
-    ipRiverRaise,
-    addAllinThreshold,
-    forceAllinThreshold,
-    mergingThreshold,
-    addedLines,
-    removedLines,
-  });
+export const gameInit = async (args: GameTreeArgs): Promise<string | null> => {
+  return await invoke("game_init", { args });
+};
+
+/** Memory needed to solve the setup [32-bit, 16-bit]; rejects with the reason. */
+export const gameMemoryEstimate = async (
+  args: GameTreeArgs
+): Promise<[number, number]> => {
+  return await invoke("game_memory_estimate", { args });
 };
 
 export const gamePrivateCards = async (): Promise<number[][]> => {
@@ -310,11 +244,11 @@ export const gameGetResults = async (): Promise<Results> => {
     eqrBase: results.eqr_base,
     weights: results.weights,
     normalizer: results.normalizer,
-    equity: results.equity,
-    ev: results.ev,
-    eqr: results.eqr,
+    equity: withNaN(results.equity),
+    ev: withNaN(results.ev),
+    eqr: withNaN(results.eqr),
     strategy: results.strategy,
-    actionEv: results.action_ev,
+    actionEv: withNaN([results.action_ev])[0],
   };
 };
 
@@ -342,9 +276,226 @@ export const gameGetChanceReports = async (
     numActions,
     status: reports.status,
     combos: reports.combos,
-    equity: reports.equity,
-    ev: reports.ev,
-    eqr: reports.eqr,
+    equity: withNaN(reports.equity),
+    ev: withNaN(reports.ev),
+    eqr: withNaN(reports.eqr),
     strategy: reports.strategy,
   };
+};
+
+/* Solution library */
+
+export type SolutionSummary = {
+  equity: number[];
+  ev: number[];
+  root_player: string;
+  root_actions: string[];
+  root_frequencies: number[];
+  /** OOP and IP shares in the equity tranches >= 90%, 75-90%, 50-75%, < 50% (schema 3). */
+  equity_buckets?: [number[], number[]] | null;
+  /** IP's strategy after OOP checks at the root (schema 3; absent if OOP cannot check). */
+  ip_after_check?: { actions: string[]; frequencies: number[] } | null;
+};
+
+export type SolutionMeta = {
+  schema: number;
+  app_version: string;
+  /** Seconds since the Unix epoch. */
+  created_at: number;
+  board: number[];
+  ranges: string[];
+  tree_config: Record<string, unknown>;
+  depth: "river" | "turn" | "flop";
+  exploitability: number;
+  iterations: number;
+  precision: "32" | "16";
+  summary: SolutionSummary;
+  /** Locks the solution was solved with (absent from schema 1 files). */
+  locks?: NodeLock[];
+  /** Weight of the flop in the subset it was batch-solved with (absent if solved by hand). */
+  flop_weight?: number | null;
+  /** Size of the flop subset of the batch that solved it (absent if solved by hand). */
+  batch_size?: number | null;
+};
+
+export type LibraryEntry = {
+  name: string;
+  file_size: number;
+  meta: SolutionMeta | null;
+  error: string | null;
+};
+
+/** Error of save, rename and import when the target name is taken. */
+export const ERR_EXISTS = "exists";
+
+/** Error prefix of libraryLoad when the current game was already freed. */
+export const ERR_GAME_FREED = "game freed";
+
+/** Rejects with a message if the solution cannot be loaded; touches nothing. */
+export const libraryCheckLoad = async (name: string) => {
+  await invoke("library_check_load", { name });
+};
+
+export const gameStorageMode = async (): Promise<"river" | "turn" | "flop"> => {
+  return await invoke("game_storage_mode");
+};
+
+export const libraryList = async (): Promise<LibraryEntry[]> => {
+  return await invoke("library_list");
+};
+
+/** For each depth the tree allows: [depth, memory needed to reload in bytes]. */
+export const librarySaveEstimate = async (): Promise<[string, number][]> => {
+  return await invoke("library_save_estimate");
+};
+
+export const librarySave = async (
+  name: string,
+  depth: string,
+  overwrite: boolean,
+  frontMeta: {
+    treeConfig: Record<string, unknown>;
+    iterations: number;
+    exploitability: number;
+  }
+): Promise<string> => {
+  // The file name the library used (sanitized).
+  return await invoke("library_save", { name, depth, overwrite, frontMeta });
+};
+
+/** Recomputes the summary of a saved solution (older saves); returns its new metadata. */
+export const libraryRefreshSummary = async (
+  name: string
+): Promise<SolutionMeta> => {
+  return await invoke("library_refresh_summary", { name });
+};
+
+export const libraryLoad = async (name: string): Promise<SolutionMeta> => {
+  return await invoke("library_load", { name });
+};
+
+/** Returns the new file name (sanitized by the library). */
+export const libraryRename = async (
+  from: string,
+  to: string
+): Promise<string> => {
+  return await invoke("library_rename", { from, to });
+};
+
+export const libraryDelete = async (name: string) => {
+  await invoke("library_delete", { name });
+};
+
+export const libraryImport = async (
+  path: string,
+  overwrite: boolean
+): Promise<string> => {
+  return await invoke("library_import", { path, overwrite });
+};
+
+export const libraryExport = async (name: string, path: string) => {
+  await invoke("library_export", { name, path });
+};
+
+export const libraryOpenFolder = async () => {
+  await invoke("library_open_folder");
+};
+
+/* On-demand river re-solve */
+
+/** Re-solves the river `card` at `history` (a river past the saved depth). */
+export const gameResolveSubgame = async (
+  history: number[],
+  card: number,
+  reachedExploitability: number | null
+): Promise<"solve" | "empty"> => {
+  return await invoke("game_resolve_subgame", {
+    history,
+    card,
+    reachedExploitability,
+  });
+};
+
+export const gameCancelSubgame = async () => {
+  await invoke("game_cancel_subgame");
+};
+
+/* Node lock */
+
+/** A lock on one player node: the full strategy of every hand at the node. */
+export type NodeLock = {
+  /** Line to the node, as played (actions and cards). */
+  history: number[];
+  /** Same line with the turn replaced by its representative: same key, same node. */
+  key: number[];
+  player: "oop" | "ip";
+  actions: string[];
+  /** Frequency of each action, per combo (e.g. "9s6s"); each sums to 1. */
+  hands: Record<string, number[]>;
+  /** Combos edited by the user; the others keep the strategy at capture time. */
+  edited: string[];
+  /** Readable line to the node (display only). */
+  label: string;
+};
+
+/** Captures a lock on the node at `history`, with `edits` (combo → frequencies) applied. */
+export const gameCaptureLock = async (
+  history: number[],
+  edits: Record<string, number[]>
+): Promise<NodeLock> => {
+  return await invoke("game_capture_lock", { history, edits });
+};
+
+/**
+ * Replaces the current solution by its tree, rebuilt with `locks` placed (memory allocated).
+ * Returns whether the 16-bit precision is used. On error the current solution is untouched.
+ */
+export const gamePrepareLockSolve = async (
+  locks: NodeLock[]
+): Promise<boolean> => {
+  return await invoke("game_prepare_lock_solve", { locks });
+};
+
+/* Batch solving */
+
+export type BatchRequest = {
+  /** The Setup's tree arguments (the board is set per flop). */
+  args: GameTreeArgs;
+  /** The Setup as saved in the metadata (the board is set per flop). */
+  treeConfig: Record<string, unknown>;
+  flops: { board: number[]; weight: number; name: string }[];
+  /** Size of the subset the flops come from (saved with each flop). */
+  subsetSize: number;
+  settings: {
+    precision: string;
+    targetExploitability: number;
+    maxIterations: number;
+  };
+  depth: string;
+};
+
+export type BatchProgress = {
+  index: number;
+  total: number;
+  name: string;
+  iteration: number;
+};
+
+export type BatchResult = {
+  solved: number;
+  /** "name: error" for each flop that failed. */
+  failed: string[];
+  cancelled: boolean;
+};
+
+/** Solves the Setup's spot on each flop and saves them; "batch-progress" events meanwhile. */
+export const batchSolve = async (
+  request: BatchRequest
+): Promise<BatchResult> => {
+  return await invoke("batch_solve", { request });
+};
+
+/** Stops the batch in progress (the flop being solved is not saved). */
+export const batchCancel = async (): Promise<void> => {
+  await invoke("batch_cancel");
 };

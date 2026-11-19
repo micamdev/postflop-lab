@@ -27,7 +27,7 @@ pub enum DataType {
 }
 
 /// A trait for data that can be saved into a file.
-pub trait FileData: Decode + Encode {
+pub trait FileData: Decode<()> + Encode {
     #[doc(hidden)]
     fn data_type() -> DataType;
     #[doc(hidden)]
@@ -139,9 +139,91 @@ pub fn save_data_to_file<T: FileData, P: AsRef<Path>>(
     save_data_into_std_write(data, memo, &mut writer, compression_level)
 }
 
-fn decode_from_std_read<D: Decode, R: Read>(reader: &mut R, err_msg: &str) -> Result<D, String> {
+fn decode_from_std_read<D: Decode<()>, R: Read>(
+    reader: &mut R,
+    err_msg: &str,
+) -> Result<D, String> {
     bincode::decode_from_std_read(reader, bincode::config::standard())
         .map_err(|e| format!("{}: {}", err_msg, e))
+}
+
+/// Maximum size of a header field, the memo included. A corrupt or foreign file cannot make the
+/// header decoder allocate more than this.
+const HEADER_FIELD_LIMIT: usize = 1 << 20;
+
+fn decode_header_field<D: Decode<()>, R: Read>(reader: &mut R, err_msg: &str) -> Result<D, String> {
+    let config = bincode::config::standard().with_limit::<HEADER_FIELD_LIMIT>();
+    bincode::decode_from_std_read(reader, config).map_err(|e| format!("{}: {}", err_msg, e))
+}
+
+/// The header of a saved file: everything before the data.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct FileHeader {
+    /// Whether the data is compressed with zstd.
+    pub compression: bool,
+    /// The memory needed to load the data (in bytes).
+    pub estimated_memory_usage: u64,
+    /// The memo string saved with the data.
+    pub memo: String,
+}
+
+/// Reads and validates the header; the reader is left at the start of the data.
+fn read_header<T: FileData, R: Read>(
+    reader: &mut R,
+    max_memory_usage: Option<u64>,
+) -> Result<FileHeader, String> {
+    let magic: u32 = decode_header_field(reader, "Failed to read magic number")?;
+    if magic != MAGIC {
+        return Err("Magic number is invalid".to_string());
+    }
+
+    let version: u8 = decode_header_field(reader, "Failed to read version number")?;
+    if version != VERSION {
+        return Err("Version number is invalid".to_string());
+    }
+
+    let compression_type: u8 = decode_header_field(reader, "Failed to read compression type")?;
+    if compression_type > 1 {
+        return Err("Compression type is invalid".to_string());
+    }
+
+    let data_type: u8 = decode_header_field(reader, "Failed to read data type")?;
+    if data_type != T::data_type() as u8 {
+        return Err("Data type is invalid".to_string());
+    }
+
+    let estimated_memory_usage: u64 = decode_header_field(reader, "Failed to read memory usage")?;
+    if let Some(max_memory_usage) = max_memory_usage {
+        if estimated_memory_usage > max_memory_usage {
+            return Err("Estimated memory usage is too large".to_string());
+        }
+    }
+
+    let memo: String = decode_header_field(reader, "Failed to read memo")?;
+
+    Ok(FileHeader {
+        compression: compression_type == 1,
+        estimated_memory_usage,
+        memo,
+    })
+}
+
+/// Reads the header of a saved file from a standard reader, without reading the data.
+///
+/// This is cheap even for very large files: use it to list saved files.
+pub fn load_header_from_std_read<T: FileData, R: Read>(
+    reader: &mut R,
+) -> Result<FileHeader, String> {
+    read_header::<T, R>(reader, None)
+}
+
+/// Reads the header of a saved file, without reading the data.
+///
+/// This is cheap even for very large files: use it to list saved files.
+pub fn load_header_from_file<T: FileData, P: AsRef<Path>>(path: P) -> Result<FileHeader, String> {
+    let file = File::open(path).map_err(|e| format!("Failed to open file: {}", e))?;
+    let mut reader = BufReader::new(file);
+    load_header_from_std_read::<T, _>(&mut reader)
 }
 
 /// Loads data from a standard reader.
@@ -164,52 +246,72 @@ pub fn load_data_from_std_read<T: FileData, R: Read>(
     reader: &mut R,
     max_memory_usage: Option<u64>,
 ) -> Result<(T, String), String> {
-    let magic: u32 = decode_from_std_read(reader, "Failed to read magic number")?;
-    if magic != MAGIC {
-        return Err("Magic number is invalid".to_string());
-    }
-
-    let version: u8 = decode_from_std_read(reader, "Failed to read version number")?;
-    if version != VERSION {
-        return Err("Version number is invalid".to_string());
-    }
-
-    let compression_type: u8 = decode_from_std_read(reader, "Failed to read compression type")?;
-    if compression_type > 1 {
-        return Err("Compression type is invalid".to_string());
-    }
+    let FileHeader {
+        compression, memo, ..
+    } = read_header::<T, R>(reader, max_memory_usage)?;
 
     #[cfg(not(feature = "zstd"))]
-    if compression_type == 1 {
+    if compression {
         return Err("Compression is not supported".to_string());
     }
 
-    let data_type: u8 = decode_from_std_read(reader, "Failed to read data type")?;
-    if data_type != T::data_type() as u8 {
-        return Err("Data type is invalid".to_string());
-    }
-
-    let estimated_memory_usage: u64 = decode_from_std_read(reader, "Failed to read memory usage")?;
-    if let Some(max_memory_usage) = max_memory_usage {
-        if estimated_memory_usage > max_memory_usage {
-            return Err("Estimated memory usage is too large".to_string());
-        }
-    }
-
-    let memo: String = decode_from_std_read(reader, "Failed to read memo")?;
-
+    // The header estimate is only a number stated by the file: the data is decoded with a
+    // limit derived from `max_memory_usage` too, so a corrupt length inside the data cannot
+    // trigger an allocation larger than the memory the caller allows.
     #[cfg(not(feature = "zstd"))]
-    let data: T = decode_from_std_read(reader, "Failed to read data")?;
+    let data: T = decode_bounded(reader, max_memory_usage, "Failed to read data")?;
     #[cfg(feature = "zstd")]
-    let data: T = if compression_type == 0 {
-        decode_from_std_read(reader, "Failed to read data")?
+    let data: T = if !compression {
+        decode_bounded(reader, max_memory_usage, "Failed to read data")?
     } else {
         let mut zstd_decoder = zstd::stream::Decoder::new(reader)
             .map_err(|e| format!("Failed to create zstd decoder: {}", e))?;
-        decode_from_std_read(&mut zstd_decoder, "Failed to read data")?
+        decode_bounded(&mut zstd_decoder, max_memory_usage, "Failed to read data")?
     };
 
     Ok((data, memo))
+}
+
+/// Exponents of the bincode limits `decode_bounded` can use. Bincode takes the limit as a const
+/// parameter, so each one is a separate copy of the decoder: a few coarse steps, not every power
+/// of two. Beyond the last one (or on 32-bit targets), the address space is the limit.
+#[cfg(target_pointer_width = "64")]
+const DECODE_LIMIT_EXPS: [u32; 5] = [27, 30, 33, 36, 39];
+#[cfg(not(target_pointer_width = "64"))]
+const DECODE_LIMIT_EXPS: [u32; 2] = [27, 30];
+
+/// The smallest decode limit (as an exponent of two) of at least twice `max_memory_usage`;
+/// `None` means no limit.
+fn decode_limit_exp(max_memory_usage: u64) -> Option<u32> {
+    let wanted = max_memory_usage.saturating_mul(2);
+    DECODE_LIMIT_EXPS
+        .into_iter()
+        .find(|&exp| (1u64 << exp) >= wanted)
+}
+
+/// Decodes with a bincode limit of at least twice `max_memory_usage` (see `decode_limit_exp`);
+/// without `max_memory_usage`, no limit.
+fn decode_bounded<D: Decode<()>, R: Read>(
+    reader: &mut R,
+    max_memory_usage: Option<u64>,
+    err_msg: &str,
+) -> Result<D, String> {
+    let Some(max_memory_usage) = max_memory_usage else {
+        return decode_from_std_read(reader, err_msg);
+    };
+    let standard = bincode::config::standard();
+    let result = match decode_limit_exp(max_memory_usage) {
+        Some(27) => bincode::decode_from_std_read(reader, standard.with_limit::<{ 1 << 27 }>()),
+        Some(30) => bincode::decode_from_std_read(reader, standard.with_limit::<{ 1 << 30 }>()),
+        #[cfg(target_pointer_width = "64")]
+        Some(33) => bincode::decode_from_std_read(reader, standard.with_limit::<{ 1 << 33 }>()),
+        #[cfg(target_pointer_width = "64")]
+        Some(36) => bincode::decode_from_std_read(reader, standard.with_limit::<{ 1 << 36 }>()),
+        #[cfg(target_pointer_width = "64")]
+        Some(39) => bincode::decode_from_std_read(reader, standard.with_limit::<{ 1 << 39 }>()),
+        _ => bincode::decode_from_std_read(reader, standard),
+    };
+    result.map_err(|e| format!("{}: {}", err_msg, e))
 }
 
 /// Loads data from a file.
@@ -374,5 +476,147 @@ mod tests {
         assert!((root_equity_ip - 0.5).abs() < 1e-5);
         assert!((root_ev_oop - 45.0).abs() < 1e-4);
         assert!((root_ev_ip - 15.0).abs() < 1e-4);
+    }
+
+    fn tmp_path(name: &str) -> std::path::PathBuf {
+        std::env::temp_dir().join(format!("postflop-lab-test-{}-{}", std::process::id(), name))
+    }
+
+    fn small_solved_game() -> PostFlopGame {
+        let card_config = CardConfig {
+            range: [Range::ones(); 2],
+            flop: flop_from_str("Td9d6h").unwrap(),
+            turn: card_from_str("Qc").unwrap(),
+            river: card_from_str("2s").unwrap(),
+        };
+        let tree_config = TreeConfig {
+            initial_state: BoardState::River,
+            starting_pot: 60,
+            effective_stack: 970,
+            river_bet_sizes: [("50%", "").try_into().unwrap(), Default::default()],
+            ..Default::default()
+        };
+        let action_tree = ActionTree::new(tree_config).unwrap();
+        let mut game = PostFlopGame::with_config(card_config, action_tree).unwrap();
+        game.allocate_memory(false);
+        finalize(&mut game);
+        game
+    }
+
+    #[test]
+    fn header_roundtrip() {
+        let game = small_solved_game();
+        let path = tmp_path("header.plab");
+        save_data_to_file(&game, "{\"k\":1}", &path, None).unwrap();
+        let header = load_header_from_file::<PostFlopGame, _>(&path).unwrap();
+        std::fs::remove_file(&path).unwrap();
+        assert_eq!(header.memo, "{\"k\":1}");
+        assert!(!header.compression);
+        assert_eq!(header.estimated_memory_usage, game.target_memory_usage());
+    }
+
+    #[test]
+    #[cfg(feature = "zstd")]
+    fn header_roundtrip_compressed() {
+        let game = small_solved_game();
+        let path = tmp_path("header-zstd.plab");
+        save_data_to_file(&game, "memo", &path, Some(3)).unwrap();
+        let header = load_header_from_file::<PostFlopGame, _>(&path).unwrap();
+        let (_, memo) = load_data_from_file::<PostFlopGame, _>(&path, None).unwrap();
+        std::fs::remove_file(&path).unwrap();
+        assert!(header.compression);
+        assert_eq!(header.memo, "memo");
+        assert_eq!(memo, "memo");
+    }
+
+    #[test]
+    fn header_rejects_foreign_file() {
+        let path = tmp_path("foreign.plab");
+        let bytes: Vec<u8> = (0..100u32).map(|i| (i * 37 + 11) as u8).collect();
+        std::fs::write(&path, bytes).unwrap();
+        let result = load_header_from_file::<PostFlopGame, _>(&path);
+        std::fs::remove_file(&path).unwrap();
+        assert!(result.is_err());
+    }
+
+    #[test]
+    fn header_rejects_truncated() {
+        let game = small_solved_game();
+        let path = tmp_path("truncated.plab");
+        save_data_to_file(
+            &game,
+            "a memo long enough to be cut in the middle",
+            &path,
+            None,
+        )
+        .unwrap();
+        let bytes = std::fs::read(&path).unwrap();
+        std::fs::write(&path, &bytes[..20]).unwrap();
+        let result = load_header_from_file::<PostFlopGame, _>(&path);
+        std::fs::remove_file(&path).unwrap();
+        assert!(result.is_err());
+    }
+
+    #[test]
+    fn memo_length_is_bounded() {
+        // Valid header fields, then a memo claiming 4 GiB.
+        let mut bytes = Vec::new();
+        let config = bincode::config::standard();
+        bincode::encode_into_std_write(MAGIC, &mut bytes, config).unwrap();
+        bincode::encode_into_std_write(VERSION, &mut bytes, config).unwrap();
+        bincode::encode_into_std_write(0u8, &mut bytes, config).unwrap();
+        bincode::encode_into_std_write(DataType::Game as u8, &mut bytes, config).unwrap();
+        bincode::encode_into_std_write(0u64, &mut bytes, config).unwrap();
+        bincode::encode_into_std_write(1u64 << 32, &mut bytes, config).unwrap();
+        let path = tmp_path("huge-memo.plab");
+        std::fs::write(&path, bytes).unwrap();
+        let result = load_header_from_file::<PostFlopGame, _>(&path);
+        std::fs::remove_file(&path).unwrap();
+        let err = result.unwrap_err();
+        assert!(err.contains("memo"), "{err}");
+        assert!(err.contains("LimitExceeded"), "{err}");
+    }
+
+    #[test]
+    fn bunching_flag() {
+        let game = small_solved_game();
+        assert!(!game.is_bunching_enabled());
+    }
+
+    #[test]
+    fn bounded_decode_rejects_huge_length() {
+        // A byte vector claiming 1 TiB, as a corrupt storage length would.
+        let mut bytes = Vec::new();
+        bincode::encode_into_std_write(1u64 << 40, &mut bytes, bincode::config::standard())
+            .unwrap();
+        let result: Result<Vec<u8>, String> =
+            decode_bounded(&mut bytes.as_slice(), Some(1 << 20), "Failed to read data");
+        let err = result.unwrap_err();
+        assert!(err.contains("LimitExceeded"), "{err}");
+    }
+
+    #[test]
+    fn load_with_estimated_limit_succeeds() {
+        // The body limit derived from max_memory_usage must not reject a valid file.
+        let game = small_solved_game();
+        let path = tmp_path("exact-limit.plab");
+        save_data_to_file(&game, "", &path, None).unwrap();
+        let limit = game.target_memory_usage();
+        let result = load_data_from_file::<PostFlopGame, _>(&path, Some(limit));
+        std::fs::remove_file(&path).unwrap();
+        assert!(result.is_ok(), "{:?}", result.err());
+    }
+
+    #[test]
+    fn decode_limit_is_a_coarse_step_at_least_twice_the_budget() {
+        assert_eq!(decode_limit_exp(0), Some(27));
+        assert_eq!(decode_limit_exp(1 << 26), Some(27));
+        assert_eq!(decode_limit_exp((1 << 26) + 1), Some(30));
+        if cfg!(target_pointer_width = "64") {
+            assert_eq!(decode_limit_exp(3 << 30), Some(33));
+            assert_eq!(decode_limit_exp(1 << 38), Some(39));
+            assert_eq!(decode_limit_exp((1 << 38) + 1), None);
+        }
+        assert_eq!(decode_limit_exp(u64::MAX), None);
     }
 }

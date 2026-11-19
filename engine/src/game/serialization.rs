@@ -77,7 +77,7 @@ impl PostFlopGame {
 
         let mut num_storage = [0; 4];
 
-        while num_storage.iter().any(|&x| x == 0) {
+        while num_storage.contains(&0) {
             node_index -= 1;
             let node = self.node_arena[node_index].lock();
             if num_storage[0] == 0 && !node.is_terminal() && !node.is_chance() {
@@ -103,10 +103,10 @@ impl PostFlopGame {
 static VERSION_STR: &str = "2023-03-19";
 
 thread_local! {
-    static PTR_BASE: Cell<[*const u8; 2]> = Cell::new([ptr::null(); 2]);
-    static CHANCE_BASE: Cell<*const u8> = Cell::new(ptr::null());
-    static PTR_BASE_MUT: Cell<[*mut u8; 3]> = Cell::new([ptr::null_mut(); 3]);
-    static CHANCE_BASE_MUT: Cell<*mut u8> = Cell::new(ptr::null_mut());
+    static PTR_BASE: Cell<[*const u8; 2]> = const { Cell::new([ptr::null(); 2]) };
+    static CHANCE_BASE: Cell<*const u8> = const { Cell::new(ptr::null()) };
+    static PTR_BASE_MUT: Cell<[*mut u8; 3]> = const { Cell::new([ptr::null_mut(); 3]) };
+    static CHANCE_BASE_MUT: Cell<*mut u8> = const { Cell::new(ptr::null_mut()) };
 }
 
 impl Encode for PostFlopGame {
@@ -174,8 +174,8 @@ impl Encode for PostFlopGame {
     }
 }
 
-impl Decode for PostFlopGame {
-    fn decode<D: Decoder>(decoder: &mut D) -> Result<Self, DecodeError> {
+impl<Context> Decode<Context> for PostFlopGame {
+    fn decode<D: Decoder<Context = Context>>(decoder: &mut D) -> Result<Self, DecodeError> {
         // version check
         let version = String::decode(decoder)?;
         if version != VERSION_STR {
@@ -292,8 +292,8 @@ impl Encode for PostFlopNode {
     }
 }
 
-impl Decode for PostFlopNode {
-    fn decode<D: Decoder>(decoder: &mut D) -> Result<Self, DecodeError> {
+impl<Context> Decode<Context> for PostFlopNode {
+    fn decode<D: Decoder<Context = Context>>(decoder: &mut D) -> Result<Self, DecodeError> {
         // node instance
         let mut node = Self {
             prev_action: Decode::decode(decoder)?,

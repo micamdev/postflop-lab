@@ -2,7 +2,7 @@
   <div v-if="editingPlayer === -1">
     <div class="flex">
       <div
-        class="flex pl-2.5 pr-3 py-1 text-cyan-600 bg-cyan-50 border-2 border-cyan-600 rounded-md font-semibold"
+        class="flex pl-2.5 pr-3 py-1 text-accent-ink bg-panel2 border-2 border-accent rounded-md font-semibold"
       >
         <InformationCircleIcon class="inline w-5 h-5 mt-[0.1875rem] mr-1.5" />
         <div>
@@ -25,7 +25,7 @@
 
       <div class="flex">
         <Tippy
-          class="inline-block cursor-help text-gray-600"
+          class="inline-block cursor-help text-muted"
           max-width="500px"
           trigger="mouseenter click"
           placement="bottom"
@@ -89,23 +89,23 @@
             }}%)
           </div>
           <div class="flex mt-3 w-full justify-center gap-3">
-            <button class="button-base button-blue" @click="invertRange(i - 1)">
+            <UiButton variant="ghost" @click="invertRange(i - 1)">
               Invert
-            </button>
-            <button class="button-base button-blue" @click="clearRange(i - 1)">
+            </UiButton>
+            <UiButton variant="ghost" @click="clearRange(i - 1)">
               Clear
-            </button>
+            </UiButton>
           </div>
         </div>
       </div>
 
       <div class="flex mt-8 gap-3 items-center">
-        <button
-          class="button-base button-blue"
+        <UiButton
+          variant="ghost"
           :disabled="
             numCombos.every((x) => x === 0) ||
-            store.isBunchingRunning ||
-            store.isSolverRunning ||
+            solverBusy ||
+            batch.isRunning ||
             numThreads < 1 ||
             numThreads > 64 ||
             numThreads % 1 !== 0
@@ -113,27 +113,28 @@
           @click="runPrecomputation"
         >
           Run Precomputation
-        </button>
-        <button
-          class="button-base button-red"
+        </UiButton>
+        <UiButton
+          variant="danger"
           :disabled="!hasBunchingRun"
           @click="clearPrecomputation"
         >
           Clear
-        </button>
-        <button
+        </UiButton>
+        <UiButton
           v-if="!isBunchingPaused"
-          class="button-base button-green"
+          variant="ghost"
           :disabled="!store.isBunchingRunning"
           @click="() => (pauseFlag = true)"
         >
           Pause
-        </button>
-        <button
+        </UiButton>
+        <UiButton
           v-else
-          class="button-base button-green"
+          variant="ghost"
           :disabled="
-            store.isSolverRunning ||
+            solverBusy ||
+            batch.isRunning ||
             numThreads < 1 ||
             numThreads > 64 ||
             numThreads % 1 !== 0
@@ -141,7 +142,7 @@
           @click="resumePrecomputation"
         >
           Resume
-        </button>
+        </UiButton>
 
         <span class="pl-3">
           Number of threads:
@@ -180,11 +181,10 @@
         <span v-if="store.bunchingFlop.length > 0">
           [Flop:
           <span
-            v-for="item in store.bunchingFlop.map(cardText)"
-            :key="item.rank + item.suit"
-            :class="'inline-block mx-px ' + item.colorClass"
-            >{{ item.rank + item.suit }}</span
-          >]
+            v-for="card in store.bunchingFlop"
+            :key="card"
+            :class="'inline-block mx-px ' + suitTextClasses[card & 3]"
+            >{{ cardText(card).rank + cardText(card).suit }}</span>]
         </span>
       </div>
     </div>
@@ -200,10 +200,21 @@
 </template>
 
 <script setup lang="ts">
-import { ref } from "vue";
+import UiButton from "./ui/UiButton.vue";
+import { onUnmounted, ref, watch } from "vue";
 import { useStore, useConfigStore } from "../store";
-import { trimRegex, rangeRegex, cardText } from "../utils";
+import {
+  trimRegex,
+  rangeRegex,
+  cardText,
+  suitTextClasses,
+  weightPercent,
+} from "../utils";
 import * as invokes from "../invokes";
+import { useBatch } from "../use-batch";
+import { useSolverBusy } from "../solver-busy";
+import { useSolverSession } from "../solver-session";
+import { threadsError } from "../solve-settings";
 
 import RangeEditor from "./RangeEditor.vue";
 import RangeMiniViewer from "./RangeMiniViewer.vue";
@@ -214,11 +225,20 @@ import {
 } from "@heroicons/vue/20/solid";
 
 const store = useStore();
+const solverBusy = useSolverBusy();
+const batch = useBatch();
 const configStore = useConfigStore();
 
 const numThreads = ref(navigator.hardwareConcurrency || 1);
 
 const editingPlayer = ref(-1);
+// The explorer offers "→ Fold" and "Save current › Fold range" while a fold range is edited.
+// Only on the Bunching page: this component stays mounted (hidden) on the other Setup pages.
+watch([editingPlayer, () => store.sideView], ([player, view]) => {
+  store.editedFoldRange =
+    player === -1 || view !== "bunching" ? null : player + 2;
+});
+onUnmounted(() => (store.editedFoldRange = null));
 const rangeTexts = ref(["", "", "", ""]);
 const isRangeTextError = ref([false, false, false, false]);
 const numCombos = ref([0, 0, 0, 0]);
@@ -237,7 +257,7 @@ let startTime = 0;
 const onUpdate = async (player: number) => {
   const weights = await invokes.rangeGetWeights(player + 2);
   for (let i = 0; i < 13 * 13; ++i) {
-    store.ranges[player + 2][i] = weights[i] * 100;
+    store.ranges[player + 2][i] = weightPercent(weights[i]);
   }
   isRangeTextError.value[player] = false;
 };
@@ -249,7 +269,6 @@ const onUpdateLocal = async (player: number) => {
 
 const editRange = async (player: number) => {
   rangeTextCopy.value = await invokes.rangeToString(player + 2);
-  store.headers["bunching"].push(`Fold Range ${player + 1}`);
   editingPlayer.value = player;
 };
 
@@ -299,7 +318,7 @@ const runPrecomputation = async () => {
     return;
   }
 
-  statusText.value = "Phase 1/3 - Preparing...";
+  statusText.value = "Phase 1/3 - Preparing…";
   flopCopy.value = configStore.board.slice(0, 3);
   hasBunchingRun.value = true;
   elapsedTimeMs.value = 0;
@@ -322,48 +341,62 @@ const resumePrecomputation = async () => {
   store.isBunchingRunning = true;
   isBunchingPaused.value = false;
   startTime = performance.now();
-  await invokes.setNumThreads(numThreads.value);
+  // Whatever happens (an error, an internal error in Rust), the run ends: Solve and the
+  // precomputation buttons come back.
+  try {
+    await invokes.setNumThreads(numThreads.value);
 
-  while (true) {
-    if (terminateFlag.value) {
-      await invokes.bunchingClear();
-      store.bunchingFlop = [];
-      statusText.value = "No bunching data";
-      hasBunchingRun.value = false;
-      break;
+    while (true) {
+      if (terminateFlag.value) {
+        await invokes.bunchingClear();
+        store.bunchingFlop = [];
+        statusText.value = "No bunching data";
+        hasBunchingRun.value = false;
+        break;
+      }
+
+      if (pauseFlag.value) {
+        isBunchingPaused.value = true;
+        break;
+      }
+
+      const [phase, percent] = await invokes.bunchingProgress();
+
+      if (phase === 3 && percent === 100) {
+        store.bunchingFlop = flopCopy.value;
+        statusText.value = "Bunching data ready!";
+        break;
+      }
+
+      statusText.value = `Phase ${phase}/3 - ${percent}% completed…`;
     }
 
-    if (pauseFlag.value) {
-      isBunchingPaused.value = true;
-      break;
+    elapsedTimeMs.value += performance.now() - startTime;
+
+    if (!terminateFlag.value && !pauseFlag.value) {
+      statusText.value += ` (Time: ${(elapsedTimeMs.value / 1000).toFixed(2)}s)`;
     }
-
-    const [phase, percent] = await invokes.bunchingProgress();
-
-    if (phase === 3 && percent === 100) {
-      store.bunchingFlop = flopCopy.value;
-      statusText.value = "Bunching data ready!";
-      break;
+  } catch (e) {
+    // The data may be gone (cleared by Rust after an internal error): start over.
+    store.bunchingFlop = [];
+    hasBunchingRun.value = false;
+    isBunchingPaused.value = false;
+    statusText.value = `Error: ${String(e)}`;
+  } finally {
+    store.isBunchingRunning = false;
+    terminateFlag.value = false;
+    pauseFlag.value = false;
+    // Back to the solve thread setting (river re-solves use the same thread pool).
+    const threads = useSolverSession().settings.threads;
+    if (threadsError(threads) === null) {
+      await invokes.setNumThreads(threads).catch(() => {});
     }
-
-    statusText.value = `Phase ${phase}/3 - ${percent}% completed...`;
   }
-
-  elapsedTimeMs.value += performance.now() - startTime;
-
-  if (!terminateFlag.value && !pauseFlag.value) {
-    statusText.value += ` (Time: ${(elapsedTimeMs.value / 1000).toFixed(2)}s)`;
-  }
-
-  store.isBunchingRunning = false;
-  terminateFlag.value = false;
-  pauseFlag.value = false;
 };
 
 const saveEdit = async () => {
   isRangeTextError.value[editingPlayer.value] = false;
   await onUpdateLocal(editingPlayer.value);
-  store.headers["bunching"].pop();
   editingPlayer.value = -1;
 };
 
@@ -371,7 +404,6 @@ const cancelEdit = async () => {
   rangeTexts.value[editingPlayer.value] = rangeTextCopy.value;
   await invokes.rangeFromString(editingPlayer.value + 2, rangeTextCopy.value);
   await onUpdate(editingPlayer.value);
-  store.headers["bunching"].pop();
   editingPlayer.value = -1;
 };
 </script>

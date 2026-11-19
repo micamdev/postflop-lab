@@ -1,0 +1,107 @@
+name: Release
+# A tag v* builds a draft release. A manual run (no tag) builds the same files as workflow
+# artifacts, to test the build without publishing.
+on:
+  push:
+    tags:
+      - 'v*'
+  workflow_dispatch:
+
+permissions:
+  contents: write # create the draft release and upload assets
+
+jobs:
+  release:
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - platform: windows-latest
+            target: x86_64-pc-windows-msvc
+          # Tauri 2 builds against libwebkit2gtk-4.1.
+          - platform: ubuntu-24.04
+            target: x86_64-unknown-linux-gnu
+    runs-on: ${{ matrix.platform }}
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      # Fail in seconds, not after the build, when the tag and the app version differ.
+      - name: Check the tag matches the app version
+        if: startsWith(github.ref, 'refs/tags/')
+        shell: bash
+        run: |
+          # tauri.conf.json reads its version from package.json; Cargo.toml has its own.
+          version=$(node -p "require('./desktop/package.json').version")
+          crate=$(sed -n 's/^version = "\(.*\)"/\1/p' desktop/src-tauri/Cargo.toml | head -1)
+          if [ "${GITHUB_REF_NAME}" != "v${version}" ] || [ "${crate}" != "${version}" ]; then
+            echo "Tag ${GITHUB_REF_NAME}, package.json ${version} and Cargo.toml ${crate} differ" >&2
+            exit 1
+          fi
+
+      # Version read from "packageManager" in desktop/package.json.
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v4
+        with:
+          package_json_file: desktop/package.json
+
+      - name: Setup node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: pnpm
+          cache-dependency-path: desktop/pnpm-lock.yaml
+
+      # Reads rust-toolchain.toml.
+      - name: Setup Rust
+        uses: actions-rust-lang/setup-rust-toolchain@v1
+        with:
+          target: ${{ matrix.target }}
+          # Warnings are gated by CI; a release build should not fail on one.
+          rustflags: ""
+
+      - name: Install dependencies (Linux)
+        if: matrix.platform == 'ubuntu-24.04'
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y libgtk-3-dev libwebkit2gtk-4.1-dev librsvg2-dev libayatana-appindicator3-dev
+
+      - name: Install app dependencies
+        working-directory: desktop
+        run: pnpm install --frozen-lockfile
+
+      - name: Build the app
+        working-directory: desktop
+        run: pnpm tauri build --target ${{ matrix.target }}
+
+      - name: Upload artifacts (Windows)
+        if: matrix.platform == 'windows-latest' && startsWith(github.ref, 'refs/tags/')
+        uses: softprops/action-gh-release@v2
+        with:
+          draft: true
+          files: |
+            target/x86_64-pc-windows-msvc/release/postflop-lab.exe
+            target/x86_64-pc-windows-msvc/release/bundle/msi/*.msi
+
+      - name: Upload artifacts (Linux)
+        if: matrix.platform == 'ubuntu-24.04' && startsWith(github.ref, 'refs/tags/')
+        uses: softprops/action-gh-release@v2
+        with:
+          draft: true
+          files: |
+            target/x86_64-unknown-linux-gnu/release/bundle/deb/*.deb
+            target/x86_64-unknown-linux-gnu/release/bundle/appimage/*.AppImage
+
+      # Manual run: the files as workflow artifacts (no release).
+      - name: Upload workflow artifacts (manual run)
+        if: ${{ !startsWith(github.ref, 'refs/tags/') }}
+        uses: actions/upload-artifact@v4
+        with:
+          name: postflop-lab-${{ matrix.target }}
+          if-no-files-found: error
+          path: |
+            target/${{ matrix.target }}/release/postflop-lab.exe
+            target/${{ matrix.target }}/release/bundle/msi/*.msi
+            target/${{ matrix.target }}/release/bundle/deb/*.deb
+            target/${{ matrix.target }}/release/bundle/appimage/*.AppImage

@@ -68,8 +68,8 @@ export const cardPairCellIndex = (card1: number, card2: number) => {
     index: isSuited
       ? 3 - hs
       : hr === lr
-      ? 6 - ((ls * (5 - ls)) / 2 + hs)
-      : 11 - (3 * hs + ls - +(hs < ls)),
+        ? 6 - ((ls * (5 - ls)) / 2 + hs)
+        : 11 - (3 * hs + ls - +(hs < ls)),
   };
 };
 
@@ -98,20 +98,78 @@ export const average = (values: number[], weights: number[]): number => {
   return sum / totalWeight;
 };
 
-export const toFixed1 = (value: number) => {
-  if (!isFinite(value)) return (value < 0 ? "-" : "") + "∞";
-  if (-0.05 < value && value < 0.05) return "0.0";
-  return value.toFixed(1);
+/** Equity tranches, highest first: a hand with equity e is in the first one with e >= bound. */
+export const EQUITY_BUCKET_BOUNDS = [0.9, 0.75, 0.5, 0];
+
+/**
+ * Share of a range (weighted like the average equity) in each equity tranche: >= 90%,
+ * 75-90%, 50-75%, < 50%. The shares sum to 1; all NaN for an empty range.
+ */
+export const equityBuckets = (
+  equity: number[],
+  weights: number[]
+): number[] => {
+  const sums = EQUITY_BUCKET_BOUNDS.map(() => 0);
+  let total = 0;
+  for (let i = 0; i < equity.length; ++i) {
+    const w = weights[i];
+    if (!w) continue;
+    const bucket = EQUITY_BUCKET_BOUNDS.findIndex(
+      (bound) => equity[i] >= bound
+    );
+    sums[bucket === -1 ? sums.length - 1 : bucket] += w;
+    total += w;
+  }
+  return total > 0 ? sums.map((s) => s / total) : sums.map(() => Number.NaN);
 };
 
-export const toFixed2 = (value: number) => {
-  if (-0.005 < value && value < 0.005) return "0.00";
-  return value.toFixed(2);
+/**
+ * Who holds more of the equity tranche `i` (shares from `equityBuckets`): 0 for OOP, 1 for
+ * IP, null within 1 point (nobody has the edge) or without data. The 90%+ tranche is the
+ * nut advantage; the flop report also adds the two first tranches (75%+, best hands).
+ */
+export const bucketLeader = (
+  oop: number[],
+  ip: number[],
+  i: number
+): 0 | 1 | null => {
+  const [a, b] = [oop[i], ip[i]];
+  if (isNaN(a) || isNaN(b) || Math.abs(a - b) < 0.01) return null;
+  return a > b ? 0 : 1;
 };
 
-export const toFixed3 = (value: number) => {
-  if (-0.0005 < value && value < 0.0005) return "0.000";
-  return value.toFixed(3);
+/** "-" for an undefined value, "∞" / "-∞" for an infinite one, else null. */
+const nonFinite = (value: number) =>
+  Number.isNaN(value)
+    ? "-"
+    : !isFinite(value)
+      ? value < 0
+        ? "-∞"
+        : "∞"
+      : null;
+
+/** `value` with `digits` decimals, without "-0.0" for values that round to zero. */
+const fixed = (value: number, digits: number) => {
+  const special = nonFinite(value);
+  if (special !== null) return special;
+  if (Math.abs(value) < 0.5 * 10 ** -digits) return (0).toFixed(digits);
+  return value.toFixed(digits);
+};
+
+export const toFixed1 = (value: number) => fixed(value, 1);
+export const toFixed2 = (value: number) => fixed(value, 2);
+export const toFixed3 = (value: number) => fixed(value, 3);
+
+/** Equity realization: EV / (pot × equity); NaN when it is undefined (no equity). */
+export const eqrOf = (ev: number, equity: number, pot: number) => {
+  const eqr = ev / (pot * equity);
+  return isFinite(eqr) ? eqr : Number.NaN;
+};
+
+/** Decimals to show EVs with: 3 below 10 chips, 2 below 100, else 1. */
+export const evDigitsFor = (evs: number[]) => {
+  const max = Math.max(0, ...evs.filter(isFinite).map(Math.abs));
+  return max < 9.9995 ? 3 : max < 99.995 ? 2 : 1;
 };
 
 export const toFixed = [toFixed1, toFixed2, toFixed3];
@@ -145,6 +203,9 @@ const parseFloat = (s: string): number => {
     return Number(s);
   }
 };
+
+/** A size may be typed with a trailing "%" ("50%" = "50"). */
+const withoutPercent = (s: string) => (s.endsWith("%") ? s.slice(0, -1) : s);
 
 export const MAX_AMOUNT = 30000;
 export const MAX_BET_SIZES = 30;
@@ -238,7 +299,8 @@ export const sanitizeBetString = (
         return { s: `Invalid geometric size: ${e}`, valid: false };
       }
       const float1 = split[0] === "" ? null : parseFloat(split[0]);
-      const float2 = split[1] === "" ? null : parseFloat(split[1]);
+      const float2 =
+        split[1] === "" ? null : parseFloat(withoutPercent(split[1]));
       if (float1 !== null) {
         if (Number.isNaN(float1)) {
           return { s: `Invalid geometric size: ${e}`, valid: false };
@@ -260,7 +322,7 @@ export const sanitizeBetString = (
       sanitized += "a";
     } else {
       // Pot relative
-      const float = parseFloat(e);
+      const float = parseFloat(withoutPercent(e));
       if (Number.isNaN(float)) {
         return { s: `Invalid bet size: ${e}`, valid: false };
       }
@@ -276,7 +338,7 @@ export const convertBetString = (s: string): string => {
   return s
     .split(",")
     .map((e) => e.trim())
-    .map((e) => ("acerx".includes(e[e.length - 1]) ? e : e + "%"))
+    .map((e) => ("acerx%".includes(e[e.length - 1]) ? e : e + "%"))
     .join(",");
 };
 
@@ -340,3 +402,37 @@ export const readableLineString = (s: string): string => {
 
   return ret;
 };
+
+/** Human-readable size, e.g. "1.25 GB" or "740 MB". */
+export const formatBytes = (bytes: number): string => {
+  if (bytes >= 1023.5 * 1024 * 1024) {
+    return (bytes / (1024 * 1024 * 1024)).toFixed(2) + " GB";
+  }
+  if (bytes >= 1023.5 * 1024) {
+    return (bytes / (1024 * 1024)).toFixed(0) + " MB";
+  }
+  return Math.max(1, Math.round(bytes / 1024)) + " KB";
+};
+
+/** Card chip backgrounds by suit (clubs, diamonds, hearts, spades). */
+export const suitBgClasses = [
+  "bg-[#3e9e5c]",
+  "bg-[#3d7fd6]",
+  "bg-[#d8455b]",
+  "bg-[#4b5263]",
+];
+
+/** Suit colors for charts, as the card chips (spades lighter to show on the dark chart). */
+export const suitChartColors = ["#3e9e5c", "#3d7fd6", "#d8455b", "#9aa0ad"];
+
+/** Suit text colours readable on the dark Graphite panels (clubs, diamonds, hearts, spades). */
+export const suitTextClasses = [
+  "text-[#5fbf7f]",
+  "text-[#6b9cf0]",
+  "text-[#ef6a7e]",
+  "text-[#c3c7d1]",
+];
+
+/** Engine weight (f32, 0–1) as a percentage rounded to 0.01 (f32 0.7 is 70, not 69.9999988). */
+export const weightPercent = (weight: number) =>
+  Math.round(weight * 10000) / 100;

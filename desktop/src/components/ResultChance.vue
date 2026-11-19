@@ -50,8 +50,16 @@
 </template>
 
 <script setup lang="ts">
+import { resolvedThemeColor } from "../theme";
 import { computed, ref, watch } from "vue";
-import { ranks, suits, cardId, toFixed1, toFixedAdaptive } from "../utils";
+import {
+  ranks,
+  suits,
+  cardId,
+  suitChartColors,
+  toFixed1,
+  toFixedAdaptive,
+} from "../utils";
 import {
   ChanceReports,
   Spot,
@@ -90,12 +98,6 @@ Chart.defaults.font.family =
   "system-ui, 'Noto Sans', 'Open Sans', Roboto, sans-serif";
 
 const labels = [...ranks].reverse();
-
-const green600 = "#16a34a";
-const blue600 = "#2563eb";
-const pink600 = "#db2777";
-const black = "#000000";
-const suitColor = [green600, blue600, pink600, black];
 
 const props = defineProps<{
   selectedSpot: Spot;
@@ -165,7 +167,7 @@ const chartData = computed((): ChartData<"bar", number[]> | null => {
           if (reports.status[card] === 0) return 0;
           return isCombos ? reports.combos[playerIndex][card] : 1;
         }).reverse(),
-        backgroundColor: suitColor[suit],
+        backgroundColor: suitChartColors[suit],
         stack: stacks[suit],
         ...defaultData,
       })).reverse();
@@ -175,14 +177,14 @@ const chartData = computed((): ChartData<"bar", number[]> | null => {
       options.chartChance === "eq"
         ? reports.equity[playerIndex]
         : options.chartChance === "ev"
-        ? reports.ev[playerIndex]
-        : reports.eqr[playerIndex];
+          ? reports.ev[playerIndex]
+          : reports.eqr[playerIndex];
     datasets = Array.from({ length: 4 }, (_, suit) => ({
       data: Array.from(
         { length: 13 },
         (_, rank) => data[4 * rank + suit]
       ).reverse(),
-      backgroundColor: suitColor[suit],
+      backgroundColor: suitChartColors[suit],
       stack: stacks[suit],
       ...defaultData,
     })).reverse();
@@ -196,7 +198,11 @@ const chartOptions = computed((): ChartOptions<"bar"> => {
   const style = ["strategy", "eq", "eqr"].includes(option)
     ? "percent"
     : "decimal";
-  const format = { style, useGrouping: false, minimumFractionDigits: 0 };
+  const format: Intl.NumberFormatOptions = {
+    style,
+    useGrouping: false,
+    minimumFractionDigits: 0,
+  };
 
   const titleText =
     props.displayPlayer.toUpperCase() +
@@ -216,6 +222,7 @@ const chartOptions = computed((): ChartOptions<"bar"> => {
     normalized: true,
     scales: {
       y: {
+        type: "linear",
         stacked: true,
         min: ["ev", "eqr"].includes(option) ? undefined : 0,
         max: option === "strategy" ? 1 : undefined,
@@ -230,7 +237,7 @@ const chartOptions = computed((): ChartOptions<"bar"> => {
         display: true,
         text: titleText,
         font: { size: 16, weight: "normal" },
-        color: "rgba(0, 0, 0, 0.9)",
+        color: resolvedThemeColor("ink", 0.9),
       },
       legend: {
         display: false,
@@ -244,7 +251,7 @@ const chartOptions = computed((): ChartOptions<"bar"> => {
             return ranks[rank] + suits[suit];
           },
           label(context) {
-            const value = context.parsed.y;
+            const value = context.parsed.y ?? 0;
             let label = context.dataset.label ?? "";
             if (label) label += ": ";
             if (["strategy-combos", "ev"].includes(option)) {

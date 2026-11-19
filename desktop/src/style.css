@@ -10,30 +10,33 @@
   @apply leading-tight;
 }
 
+/* Graphite theme (see the UI redesign spec). RGB triples for Tailwind opacity modifiers. */
+:root {
+  --bg: 21 21 23; /* #151517 */
+  --panel: 29 29 32; /* #1d1d20 */
+  --panel2: 36 36 40; /* #242428 */
+  --line: 50 50 56; /* #323238 */
+  --ink: 236 236 238; /* #ececee */
+  --muted: 154 154 163; /* #9a9aa3 */
+  --accent: 123 114 192; /* #7b72c0, muted lavender */
+  --accent-ink: 169 162 220; /* #a9a2dc, accent text on dark backgrounds */
+  --sel: 58 58 64; /* #3a3a40, selected item of a segmented control */
+  --cell: 38 38 42; /* #26262a */
+  --oop: 91 141 239; /* #5b8def */
+  --ip: 224 160 60; /* #e0a03c */
+  --weight: 234 179 8; /* #eab308, weight of a hand in a range */
+  --no-value: 107 114 128; /* #6b7280, a cell without a value (e.g. EQR without equity) */
+  --scroll-target: 30 53 50; /* #1e3532, the table row of the hand clicked in the grid */
+  color-scheme: dark;
+}
+
 body {
-  @apply bg-gray-50;
-  font-family: system-ui, "Noto Sans", "Open Sans", Roboto, sans-serif;
-}
-
-.button-base {
-  @apply rounded-lg shadow px-3.5 py-1.5 text-white text-sm font-semibold;
-  @apply transition-colors disabled:opacity-40;
-}
-
-.button-blue {
-  @apply bg-blue-600 hover:bg-blue-700 active:bg-blue-800 disabled:bg-blue-600;
-}
-
-.button-red {
-  @apply bg-red-600 hover:bg-red-700 active:bg-red-800 disabled:bg-red-600;
-}
-
-.button-green {
-  @apply bg-green-600 hover:bg-green-700 active:bg-green-800 disabled:bg-green-600;
+  @apply bg-bg text-ink;
+  font-family: Inter, system-ui, "Noto Sans", "Open Sans", Roboto, sans-serif;
 }
 
 input.input-error {
-  @apply !ring-1 !ring-red-600 !border-red-600 !bg-red-50;
+  @apply !ring-1 !ring-red-500 !border-red-500 !bg-red-500/10;
 }
 
 .text-shadow {
@@ -44,7 +47,11 @@ input.input-error {
   width: 1rem;
   height: 1rem;
   border-radius: 50%;
-  background: linear-gradient(to right, #404040 10%, rgba(64, 64, 64, 0) 42%);
+  background: linear-gradient(
+    to right,
+    rgb(var(--accent)) 10%,
+    rgb(var(--accent) / 0) 42%
+  );
   position: relative;
   animation: spinner-animation 0.8s infinite linear;
   transform: translateZ(0);
@@ -53,7 +60,7 @@ input.input-error {
 .spinner::before {
   width: 50%;
   height: 50%;
-  background: #404040;
+  background: rgb(var(--accent));
   border-radius: 100% 0 0 0;
   position: absolute;
   top: 0;
@@ -62,7 +69,7 @@ input.input-error {
 }
 
 .spinner::after {
-  @apply bg-gray-50;
+  @apply bg-bg;
   width: 75%;
   height: 75%;
   border-radius: 50%;
@@ -81,5 +88,46 @@ input.input-error {
   }
   100% {
     transform: rotate(360deg);
+  }
+}
+
+/* Graphite base for every field, border and form control (forms plugin defaults are light). */
+@layer base {
+  *,
+  ::before,
+  ::after {
+    border-color: rgb(var(--line));
+  }
+
+  [type="text"],
+  [type="number"],
+  [type="search"],
+  select,
+  textarea {
+    background-color: rgb(var(--panel2));
+    border-color: rgb(var(--line));
+    color: rgb(var(--ink));
+  }
+
+  input:disabled,
+  select:disabled,
+  textarea:disabled {
+    opacity: 0.5;
+  }
+
+  [type="checkbox"],
+  [type="radio"] {
+    background-color: rgb(var(--panel2));
+    border-color: rgb(var(--line));
+    color: rgb(var(--accent));
+  }
+}
+
+/* Compact field of the Graphite UI kit (inputs and selects); utilities next to it win. */
+@layer components {
+  .ui-input {
+    @apply h-7 rounded-md border border-line bg-panel2 px-2 text-xs text-ink;
+    @apply focus:border-accent focus:ring-1 focus:ring-accent;
+    @apply disabled:opacity-50;
   }
 }

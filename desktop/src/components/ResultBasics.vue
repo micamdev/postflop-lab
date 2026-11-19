@@ -1,13 +1,14 @@
 <template>
-  <div class="w-full h-full">
+  <!-- Size container: the cell fonts follow the side of the grid. -->
+  <div class="w-full h-full min-w-0 [container-type:size]">
     <table
       class="w-full h-full table-fixed select-none snug"
       :style="{
         '--font-scale': isCompareMode ? 0.875 : 1,
         '--pair-font-size':
-          'calc(max(1rem, min(1.35vw, 2.25vh)) * var(--font-scale))',
+          'calc(clamp(10px, 100cqmin / 13 * 0.36, 1.35rem) * var(--font-scale))',
         '--value-font-size':
-          'calc(max(0.889rem, min(1.2vw, 2vh)) * var(--font-scale))',
+          'calc(clamp(9px, 100cqmin / 13 * 0.3, 1.2rem) * var(--font-scale))',
       }"
       @mouseleave="onMouseLeaveTable"
     >
@@ -16,7 +17,7 @@
           v-for="col in 13"
           :key="col"
           :class="
-            'relative border border-black ' +
+            'relative border-2 border-bg ' +
             (clickedCellIndex === cellIndex(row, col) ? 'clicked-cell' : '')
           "
           @click="onClickCell(row, col)"
@@ -25,7 +26,7 @@
           <div
             :class="
               'flex absolute w-full h-full left-0 top-0 ' +
-              (row === col ? 'bg-neutral-700' : 'bg-neutral-800')
+              (row === col ? 'bg-panel2' : 'bg-cell')
             "
           >
             <div
@@ -41,7 +42,7 @@
           <div
             :class="
               'absolute -top-px left-[0.1875rem] z-10 text-shadow ' +
-              (hasWeight(row, col) ? 'text-white' : 'text-neutral-500')
+              (hasWeight(row, col) ? 'text-white' : 'text-muted/60')
             "
             style="font-size: var(--pair-font-size)"
           >
@@ -53,7 +54,7 @@
               max-width: calc(100% - 0.25rem);
               font-size: var(--value-font-size);
             "
-            :data-set="(strTmp = cellValueText[cellIndex(row, col)])"
+            :data-set="strTmp = cellValueText[cellIndex(row, col)]"
           >
             {{ strTmp.split(".")[0]
             }}<span v-if="strTmp.includes('.')"
@@ -69,11 +70,15 @@
 </template>
 
 <script setup lang="ts">
+import { themeColor } from "../theme";
+import { stackedGradient } from "../action-colors";
 import { computed, ref, toRefs, onUnmounted, watch } from "vue";
 import { useSavedConfigStore } from "../store";
 import {
   ranks,
   cardPairCellIndex,
+  eqrOf,
+  evDigitsFor,
   toFixed1,
   toFixed,
   colorString,
@@ -88,7 +93,6 @@ import {
   HoverContent,
 } from "../result-types";
 
-const yellow500 = "#eab308";
 const colorGradient = [
   { red: 0xef, green: 0x44, blue: 0x44 }, // red-500
   { red: 0xf9, green: 0x73, blue: 0x16 }, // orange-500
@@ -105,6 +109,8 @@ const getColor = (
   middle: number,
   highest: number
 ) => {
+  // No value (e.g. EQR without equity): neutral grey.
+  if (Number.isNaN(value)) return themeColor("no-value");
   if (value <= lowest) return colorString(colorGradient[0]);
   if (value > middle && value >= highest) return colorString(colorGradient[6]);
 
@@ -159,8 +165,7 @@ const evDigits = computed(() => {
   const results = props.results;
   if (results.isEmpty) return 3;
   const playerIndex = props.displayPlayer === "oop" ? 0 : 1;
-  const maxEv = Math.max(...results.ev[playerIndex]);
-  return maxEv < 9.9995 ? 3 : maxEv < 99.995 ? 2 : 1;
+  return evDigitsFor(results.ev[playerIndex]);
 });
 
 const toFixedEv = computed(() => {
@@ -338,7 +343,7 @@ const cellContent = computed(() => {
       if (numActions.value === 0) {
         let color;
         if (isEmpty || options.contentBasics === "default") {
-          color = yellow500;
+          color = themeColor("weight");
         } else {
           let value: number;
           if (options.contentBasics === "eq") {
@@ -346,7 +351,7 @@ const cellContent = computed(() => {
           } else if (options.contentBasics === "ev") {
             value = suit.ev / normalizer;
           } else {
-            value = suit.ev / (eqrBase * suit.equity);
+            value = eqrOf(suit.ev, suit.equity, eqrBase);
           }
           color = getColor(value, lowest, middle, highest);
         }
@@ -359,16 +364,13 @@ const cellContent = computed(() => {
       const spot = props.selectedSpot as SpotPlayer;
       const colors = spot.actions.map((action) => action.color);
 
-      let bgImage = `linear-gradient(to ${isSuitIndividual ? "top" : "right"}`;
       const bgSize = `100% ${height * 100}%`;
-
-      let prevPos = 0;
-      for (let i = suit.strategy.length - 1; i >= 0; --i) {
-        const pos = prevPos + suit.strategy[i] / normalizer;
-        bgImage += `, ${colors[i]} ${prevPos * 100}% ${pos * 100}%`;
-        prevPos = pos;
-      }
-      bgImage += ")";
+      // Last action first, as in the table.
+      const bgImage = stackedGradient(
+        [...suit.strategy].reverse().map((s) => s / normalizer),
+        [...colors].reverse(),
+        isSuitIndividual ? "top" : "right"
+      );
 
       return { bgImage, bgSize };
     });
@@ -428,7 +430,7 @@ const cellValueText = computed(() => {
     } else {
       const playerIndex = props.displayPlayer === "oop" ? 0 : 1;
       const eqrBase = props.results.eqrBase[playerIndex];
-      value = evSum / (eqrBase * equitySum);
+      value = eqrOf(evSum, equitySum, eqrBase);
     }
 
     if (displayOptions.contentBasics !== "default" && props.results.isEmpty) {
@@ -489,7 +491,7 @@ let strTmp = "";
 <style scoped>
 .clicked-cell::before {
   content: "";
-  @apply absolute -left-px -top-px z-10 border-2 border-red-500;
+  @apply absolute -left-px -top-px z-10 border-2 border-accent;
   width: calc(100% + 2px);
   height: calc(100% + 2px);
 }

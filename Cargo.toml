@@ -1,0 +1,32 @@
+[workspace]
+members = ["engine", "desktop/src-tauri"]
+resolver = "2"
+
+[workspace.package]
+# Same as rust-toolchain.toml: the only version built and tested.
+rust-version = "1.100"
+
+[profile.release]
+codegen-units = 1
+# Unwind (not abort): a panic inside a command becomes an error instead of closing the app
+# (guard.rs, issue #38). No measurable cost on the solver (reference spot, 500 iterations).
+panic = "unwind"
+strip = true
+
+# The solver is unusably slow unoptimized: optimize it (and its hot
+# dependencies) even in dev builds, so `npm run tauri dev` solves at
+# release-like speed while the app crate keeps fast incremental builds.
+[profile.dev.package.postflop-solver]
+opt-level = 3
+debug-assertions = false
+overflow-checks = false
+
+[profile.dev.package.rayon-core]
+opt-level = 3
+
+# The engine's solver functions are generic, so they are monomorphized (and
+# compiled) in the app crate: optimize it too, or solving stays slow in dev.
+[profile.dev.package.postflop-lab]
+opt-level = 3
+debug-assertions = false
+overflow-checks = false

@@ -1,0 +1,104 @@
+name: CI
+
+# Minutes are counted: a PR is checked once (no second run when it is merged into dev), a new
+# push cancels the run in progress, and the Rust job (Windows, the longest) only runs when
+# Rust code changed.
+on:
+  pull_request:
+    branches: [dev, main]
+  push:
+    branches: [main]
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  CARGO_TERM_COLOR: always
+
+jobs:
+  changes:
+    runs-on: ubuntu-latest
+    outputs:
+      rust: ${{ steps.filter.outputs.rust }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dorny/paths-filter@v3
+        id: filter
+        with:
+          filters: |
+            rust:
+              - "engine/**"
+              - "desktop/src-tauri/**"
+              - "Cargo.toml"
+              - "Cargo.lock"
+              - "rust-toolchain.toml"
+              - ".github/workflows/ci.yml"
+
+  rust:
+    needs: changes
+    # Always on main (before a release); on PRs, only when Rust code changed.
+    if: needs.changes.outputs.rust == 'true' || github.ref == 'refs/heads/main'
+    # Windows: the users' platform.
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      # Version read from "packageManager" in desktop/package.json.
+      - uses: pnpm/action-setup@v4
+        with:
+          package_json_file: desktop/package.json
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: pnpm
+          cache-dependency-path: desktop/pnpm-lock.yaml
+
+      # The Tauri build embeds desktop/dist, so the front end comes first.
+      - name: Install front-end dependencies
+        working-directory: desktop
+        run: pnpm install --frozen-lockfile
+
+      - name: Build front end
+        working-directory: desktop
+        run: pnpm build
+
+      # Reads rust-toolchain.toml (version, rustfmt, clippy) and caches target/.
+      # Its default RUSTFLAGS="-D warnings" turns every warning into an error.
+      - uses: actions-rust-lang/setup-rust-toolchain@v1
+
+      - name: Format
+        run: cargo fmt --all --check
+
+      - name: Clippy
+        run: cargo clippy --workspace --all-targets --all-features -- -D warnings
+
+      - name: Test
+        run: cargo test --workspace --release
+
+      - name: Test engine with custom-alloc
+        run: cargo test -p postflop-solver --release --features custom-alloc -- --test-threads 1
+
+  front:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: desktop
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: pnpm/action-setup@v4
+        with:
+          package_json_file: desktop/package.json
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: pnpm
+          cache-dependency-path: desktop/pnpm-lock.yaml
+
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm lint
+      - run: pnpm exec vue-tsc --noEmit
+      - run: pnpm test

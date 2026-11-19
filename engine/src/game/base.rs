@@ -21,7 +21,7 @@ impl Game for PostFlopGame {
     type Node = PostFlopNode;
 
     #[inline]
-    fn root(&self) -> MutexGuardLike<Self::Node> {
+    fn root(&self) -> MutexGuardLike<'_, Self::Node> {
         self.node_arena[0].lock()
     }
 
@@ -117,6 +117,15 @@ impl Game for PostFlopGame {
 }
 
 impl PostFlopGame {
+    /// Returns whether the bunching effect is enabled.
+    ///
+    /// Bunching data is not saved with the game: a game with the bunching effect cannot be saved
+    /// and reloaded faithfully.
+    #[inline]
+    pub fn is_bunching_enabled(&self) -> bool {
+        self.bunching_num_dead_cards > 0
+    }
+
     /// Creates a new empty [`PostFlopGame`].
     ///
     /// Use of this method is strongly discouraged because an instance created by this method is
@@ -145,6 +154,19 @@ impl PostFlopGame {
         card_config: CardConfig,
         action_tree: ActionTree,
     ) -> Result<(), String> {
+        self.update_config_checked(card_config, action_tree, |_| Ok(()))
+    }
+
+    /// As [`update_config`](Self::update_config), first passing `check` the number of nodes the
+    /// game tree will have, before its node arena is allocated: lets an application refuse a
+    /// tree too large to build. An error from `check` is returned before the node arena is
+    /// allocated, the game left unusable (as after any configuration error).
+    pub fn update_config_checked(
+        &mut self,
+        card_config: CardConfig,
+        action_tree: ActionTree,
+        check: impl FnOnce(u64) -> Result<(), String>,
+    ) -> Result<(), String> {
         self.state = State::ConfigError;
 
         if !action_tree.invalid_terminals().is_empty() {
@@ -161,6 +183,7 @@ impl PostFlopGame {
 
         self.check_card_config()?;
         self.init_card_fields();
+        check(self.count_num_nodes().iter().sum())?;
         self.init_root()?;
 
         self.state = State::TreeBuilt;

@@ -1248,3 +1248,143 @@ fn solve_pio_preset_raked() {
     assert!((root_ev_oop - 95.57).abs() < 0.2);
     assert!((root_ev_ip - 66.98).abs() < 0.2);
 }
+
+#[test]
+fn turn_representative_maps_mirror_suits() {
+    // Hearts and diamonds are absent from the flop and from the (suitless) ranges: a heart turn
+    // and the same rank in diamonds are the same strategic spot.
+    let card_config = CardConfig {
+        range: ["AA,KK,QQ".parse().unwrap(), "JJ,TT,99".parse().unwrap()],
+        flop: flop_from_str("Ks7c2s").unwrap(),
+        ..Default::default()
+    };
+    let tree_config = TreeConfig {
+        starting_pot: 60,
+        effective_stack: 300,
+        ..Default::default()
+    };
+    let action_tree = ActionTree::new(tree_config).unwrap();
+    let mut game = PostFlopGame::with_config(card_config, action_tree).unwrap();
+    game.allocate_memory(false);
+
+    // Not at a chance node yet.
+    assert!(game
+        .turn_representative(card_from_str("Th").unwrap())
+        .is_err());
+
+    game.play(0); // check
+    game.play(0); // check: turn chance node
+    assert!(game.is_chance_node());
+
+    let th = card_from_str("Th").unwrap();
+    let td = card_from_str("Td").unwrap();
+    let rep = game.turn_representative(th).unwrap();
+    assert_eq!(rep, game.turn_representative(td).unwrap());
+    assert!(rep == th || rep == td);
+    assert_eq!(game.turn_representative(rep).unwrap(), rep);
+
+    // Clubs and spades are on the flop: a club turn is its own representative.
+    let eight_c = card_from_str("8c").unwrap();
+    assert_eq!(game.turn_representative(eight_c).unwrap(), eight_c);
+
+    // A board card cannot be dealt.
+    assert!(game
+        .turn_representative(card_from_str("Ks").unwrap())
+        .is_err());
+}
+
+#[test]
+fn chance_representative_reaches_the_node_play_reaches() {
+    // Monotone flop with suitless ranges: diamonds, hearts and spades are interchangeable, so
+    // both the turn and the river can be mirrored.
+    let card_config = CardConfig {
+        range: ["AA,KK".parse().unwrap(), "QQ,JJ".parse().unwrap()],
+        flop: flop_from_str("Kc7c2c").unwrap(),
+        ..Default::default()
+    };
+    let tree_config = TreeConfig {
+        starting_pot: 60,
+        effective_stack: 300,
+        ..Default::default()
+    };
+    let action_tree = ActionTree::new(tree_config).unwrap();
+    let mut game = PostFlopGame::with_config(card_config, action_tree).unwrap();
+    game.allocate_memory(false);
+
+    let card = |s: &str| card_from_str(s).unwrap();
+    for turn in ["Th", "Td", "Ts", "8c"] {
+        for river in ["5h", "5d", "5s", "Ts", "5c"] {
+            let (turn, river) = (card(turn), card(river));
+            if turn == river {
+                continue;
+            }
+            // The actual cards, through play().
+            game.back_to_root();
+            game.play(0);
+            game.play(0);
+            let turn_rep = game.chance_representative(turn).unwrap();
+            game.play(turn as usize);
+            game.play(0);
+            game.play(0);
+            let river_rep = game.chance_representative(river).unwrap();
+            game.play(river as usize);
+            let reached = *game.node_history.last().unwrap();
+            // The representatives, played from the root: the same node.
+            game.back_to_root();
+            for action in [0, 0, turn_rep as usize, 0, 0, river_rep as usize] {
+                game.play(action);
+            }
+            assert_eq!(*game.node_history.last().unwrap(), reached);
+        }
+    }
+
+    // Cards that cannot be dealt, and positions that are not chance nodes.
+    game.back_to_root();
+    assert!(game.chance_representative(card("Th")).is_err());
+    game.play(0);
+    game.play(0);
+    assert!(game.chance_representative(card("Kc")).is_err());
+    game.play(card("Th") as usize);
+    game.play(0);
+    game.play(0);
+    assert!(game.chance_representative(card("Th")).is_err());
+}
+
+#[test]
+fn update_config_checked_sees_the_node_count_before_building() {
+    let config = || {
+        let card_config = CardConfig {
+            range: [Range::ones(); 2],
+            flop: flop_from_str("Td9d6h").unwrap(),
+            ..Default::default()
+        };
+        let tree_config = TreeConfig {
+            starting_pot: 60,
+            effective_stack: 970,
+            ..Default::default()
+        };
+        (card_config, ActionTree::new(tree_config).unwrap())
+    };
+
+    // Accepted: the game is built, and the count is the size of its node arena.
+    let mut seen = 0;
+    let mut game = PostFlopGame::new();
+    let (card_config, action_tree) = config();
+    game.update_config_checked(card_config, action_tree, |nodes| {
+        seen = nodes;
+        Ok(())
+    })
+    .unwrap();
+    assert!(seen > 1);
+    assert_eq!(game.node_arena.len() as u64, seen);
+
+    // Refused: the error is returned and nothing is built.
+    let mut game = PostFlopGame::new();
+    let (card_config, action_tree) = config();
+    let err = game
+        .update_config_checked(card_config, action_tree, |_| Err("too large".to_string()))
+        .unwrap_err();
+    assert_eq!(err, "too large");
+    assert!(game.node_arena.is_empty());
+    assert!(game.state == State::ConfigError);
+}

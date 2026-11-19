@@ -1,84 +1,70 @@
 <template>
-  <div class="min-w-[1080px]" :style="{ height: clientHeight + 'px' }">
-    <NavBar />
+  <div class="flex flex-col h-screen min-w-[1280px] overflow-hidden">
+    <TopBar />
 
     <div
-      v-show="store.navView === 'solver'"
-      class="flex w-full mx-auto max-w-screen-xl"
-      style="height: calc(100% - 2.5rem)"
+      v-if="session.message"
+      class="flex shrink-0 items-center gap-3 px-4 py-1.5 text-sm bg-ip/10 text-ip border-b border-line"
     >
-      <SideBar style="height: calc(100% - 2rem)" />
-
-      <div
-        class="flex-grow my-4 px-6 pt-2 overflow-y-auto"
-        style="height: calc(100% - 2rem)"
+      <span class="flex-1">{{ session.message }}</span>
+      <button
+        type="button"
+        class="text-muted hover:text-ink"
+        aria-label="Dismiss"
+        @click="session.clearMessage()"
       >
-        <div class="flex">
-          <div
-            :class="
-              'mb-5 pl-2 pr-3 pb-0.5 text-lg font-bold border-l-8 border-b-2 ' +
-              'border-blue-600 rounded rounded-br-none'
-            "
-          >
-            {{ header }}
-          </div>
-        </div>
-
-        <div v-show="store.sideView === 'oop-range'">
-          <RangeEditor :player="0" />
-        </div>
-        <div v-show="store.sideView === 'ip-range'">
-          <RangeEditor :player="1" />
-        </div>
-        <div v-show="store.sideView === 'board'">
-          <BoardSelector />
-        </div>
-        <div v-show="store.sideView === 'tree-config'">
-          <TreeConfig />
-        </div>
-        <div v-show="store.sideView === 'bunching'">
-          <BunchingEffect />
-        </div>
-        <div v-show="store.sideView === 'run-solver'">
-          <RunSolver />
-        </div>
-        <div v-if="store.sideView === 'about'">
-          <AboutPage />
-        </div>
-      </div>
+        ✕
+      </button>
     </div>
 
     <div
-      v-show="store.navView === 'results'"
-      style="height: calc(max(100%, 720px) - 2.5rem)"
+      v-if="store.appError"
+      class="flex shrink-0 items-center gap-3 px-4 py-1.5 text-sm bg-red-500/10 text-red-400 border-b border-line"
+      role="alert"
     >
-      <ResultViewer />
+      <span class="flex-1">{{ store.appError }}</span>
+      <button
+        type="button"
+        class="text-muted hover:text-ink"
+        aria-label="Dismiss"
+        @click="store.appError = ''"
+      >
+        ✕
+      </button>
     </div>
+
+    <main class="flex-1 min-h-0">
+      <div v-show="store.navView === 'setup'" class="h-full">
+        <SetupPage />
+      </div>
+
+      <div v-show="store.navView === 'results'" class="h-full">
+        <ResultViewer />
+      </div>
+
+      <div v-show="store.navView === 'library'" class="h-full px-3 py-3">
+        <LibraryPage />
+      </div>
+    </main>
   </div>
 </template>
 
 <script setup lang="ts">
-import { computed, ref } from "vue";
+import { trackTreeModified } from "../tree-source";
+import { setInternalErrorHandler } from "../invokes";
+import { handleInternalError } from "../internal-error";
 import { useStore } from "../store";
+import { useSolverSession } from "../solver-session";
 
-import NavBar from "./NavBar.vue";
-import SideBar from "./SideBar.vue";
-import RangeEditor from "./RangeEditor.vue";
-import BoardSelector from "./BoardSelector.vue";
-import TreeConfig from "./TreeConfig.vue";
-import BunchingEffect from "./BunchingEffect.vue";
-import RunSolver from "./RunSolver.vue";
-import AboutPage from "./AboutPage.vue";
+import TopBar from "./TopBar.vue";
+import SetupPage from "./setup/SetupPage.vue";
+import LibraryPage from "./LibraryPage.vue";
 import ResultViewer from "./ResultViewer.vue";
 
 const store = useStore();
-const header = computed(() => store.headers[store.sideView].join(" > "));
-
-const clientHeight = ref(0);
-const updateClientHeight = () => {
-  clientHeight.value = document.documentElement.clientHeight - 0.01;
-};
-
-updateClientHeight();
-window.addEventListener("resize", updateClientHeight);
+const session = useSolverSession();
+// Marks the saved tree "modified" on any setup edit, whichever page made it.
+trackTreeModified();
+// An internal error in the engine: drop the results and show it, instead of a closed app.
+setInternalErrorHandler(handleInternalError);
 </script>

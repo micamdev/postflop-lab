@@ -6,7 +6,7 @@
           <td
             v-for="col in 13"
             :key="col"
-            class="relative w-[2.625rem] border border-black"
+            class="relative w-[2.625rem] border border-line"
             @mousedown="dragStart(row, col)"
             @mouseup="dragEnd"
             @mouseenter="mouseEnter(row, col)"
@@ -14,13 +14,13 @@
             <div
               :class="
                 'absolute w-full h-full left-0 top-0 ' +
-                (row === col ? 'bg-neutral-700' : 'bg-neutral-800')
+                (row === col ? 'bg-panel2' : 'bg-cell')
               "
             >
               <div
                 class="absolute w-full h-full left-0 top-0 bg-bottom bg-no-repeat"
                 :style="{
-                  'background-image': `linear-gradient(${yellow500} 0% 100%)`,
+                  'background-image': `linear-gradient(${weightColor} 0% 100%)`,
                   'background-size': `100% ${cellValue(row, col)}%`,
                 }"
               ></div>
@@ -28,7 +28,7 @@
             <div
               :class="
                 'absolute -top-px left-[0.1875rem] z-10 text-shadow ' +
-                (cellValue(row, col) > 0 ? 'text-white' : 'text-neutral-500')
+                (cellValue(row, col) > 0 ? 'text-white' : 'text-muted')
               "
             >
               {{ cellText(row, col) }}
@@ -59,20 +59,19 @@
             @change="onRangeTextChange"
           />
 
-          <button
+          <UiButton
             v-if="player >= 2"
-            class="mr-4 button-base button-blue"
+            class="mr-4"
+            variant="ghost"
             @click="invertRange"
           >
             Invert
-          </button>
+          </UiButton>
 
-          <button class="button-base button-blue" @click="clearRange">
-            Clear
-          </button>
+          <UiButton variant="ghost" @click="clearRange"> Clear </UiButton>
         </div>
 
-        <div v-if="rangeTextError" class="mt-1 text-red-500">
+        <div v-if="rangeTextError" class="mt-1 text-red-400">
           Error: {{ rangeTextError }}
         </div>
       </div>
@@ -113,38 +112,41 @@
     </div>
 
     <div class="flex-grow max-w-[18rem] ml-6">
-      <DbItemPicker
-        store-name="ranges"
-        :index="player"
-        :value="rangeText"
-        :allow-save="rangeText !== '' && rangeTextError === ''"
-        :hide-import-export="player >= 2"
-        @load-item="loadRange"
-      />
+      <!-- Saved ranges come from the explorer (drag one here, or its "→ Fold" button). -->
+      <div
+        :class="[
+          'flex items-center justify-center h-28 px-4 rounded-lg border-2 border-dashed text-center text-sm',
+          isDropTarget ? 'border-accent text-ink' : 'border-line text-muted',
+        ]"
+        @dragover="onDragOver"
+        @dragleave="isDropTarget = false"
+        @drop="onDrop"
+      >
+        Drop a saved range here, or use “→ Fold” in the explorer. Save it with
+        “Save current › Fold range”.
+      </div>
 
       <div v-if="player >= 2" class="flex mt-12 justify-center gap-4">
-        <button class="button-base button-blue !px-5" @click="emit('save')">
+        <UiButton class="!px-5" variant="ghost" @click="emit('save')">
           Save Edit
-        </button>
-        <button class="button-base button-red !px-5" @click="emit('cancel')">
+        </UiButton>
+        <UiButton class="!px-5" variant="danger" @click="emit('cancel')">
           Cancel Edit
-        </button>
+        </UiButton>
       </div>
     </div>
   </div>
 </template>
 
 <script setup lang="ts">
+import { themeColor } from "../theme";
+import UiButton from "./ui/UiButton.vue";
 import { ref } from "vue";
 import { useStore } from "../store";
-import { ranks, trimRegex, rangeRegex } from "../utils";
-import * as invokes from "../invokes";
+import { ranks } from "../utils";
+import { RANGE_DRAG_TYPE, useRangeEditing } from "../use-range-editing";
 
-import DbItemPicker from "./DbItemPicker.vue";
-
-const yellow500 = "#eab308";
-
-type DraggingMode = "none" | "enabling" | "disabling";
+const weightColor = themeColor("weight");
 
 const props = withDefaults(
   defineProps<{ player: number; defaultText?: string }>(),
@@ -157,12 +159,9 @@ const emit = defineEmits<{
 }>();
 
 const store = useStore();
-const rangeText = ref(props.defaultText);
-const rangeTextError = ref("");
-const weight = ref(100);
-const numCombos = ref(0);
-
-let draggingMode: DraggingMode = "none";
+const editing = useRangeEditing(props.player);
+const { text: rangeText, error: rangeTextError, weight, numCombos } = editing;
+rangeText.value = props.defaultText;
 
 const cellText = (row: number, col: number) => {
   const r1 = 13 - Math.min(row, col);
@@ -170,104 +169,33 @@ const cellText = (row: number, col: number) => {
   return ranks[r1] + ranks[r2] + ["s", "", "o"][Math.sign(row - col) + 1];
 };
 
-const cellIndex = (row: number, col: number) => {
-  return 13 * (row - 1) + col - 1;
-};
-
 const cellValue = (row: number, col: number) => {
-  return store.ranges[props.player][cellIndex(row, col)];
+  return store.ranges[props.player][13 * (row - 1) + col - 1];
 };
 
-const onUpdate = async () => {
-  rangeText.value = await invokes.rangeToString(props.player);
-  numCombos.value = await invokes.rangeNumCombos(props.player);
-  rangeTextError.value = "";
+const dragStart = editing.startPaint;
+const dragEnd = editing.endPaint;
+const mouseEnter = editing.paintOver;
+const onWeightChange = editing.clampWeight;
+const onRangeTextChange = editing.applyText;
+const clearRange = editing.clear;
+const invertRange = editing.invert;
+const RANGE_TYPE = RANGE_DRAG_TYPE;
+const isDropTarget = ref(false);
+
+const onDragOver = (e: DragEvent) => {
+  if (!e.dataTransfer?.types.includes(RANGE_TYPE)) return;
+  e.preventDefault();
+  e.dataTransfer.dropEffect = "copy";
+  isDropTarget.value = true;
 };
 
-const update = async (row: number, col: number, weight: number) => {
-  const idx = 13 * (row - 1) + col - 1;
-  await invokes.rangeUpdate(props.player, row, col, weight / 100);
-  store.ranges[props.player][idx] = weight;
-  await onUpdate();
-};
-
-const onRangeTextChange = async () => {
-  const trimmed = rangeText.value.replace(trimRegex, "$1").trim();
-  const ranges = trimmed.split(",");
-
-  if (ranges[ranges.length - 1] === "") {
-    ranges.pop();
-  }
-
-  for (const range of ranges) {
-    if (!rangeRegex.test(range)) {
-      rangeTextError.value = `Failed to parse range: ${
-        range || "(empty string)"
-      }`;
-      return;
-    }
-  }
-
-  const errorString = await invokes.rangeFromString(props.player, trimmed);
-
-  if (errorString) {
-    rangeTextError.value = errorString;
-  } else {
-    const weights = await invokes.rangeGetWeights(props.player);
-    for (let i = 0; i < 13 * 13; ++i) {
-      store.ranges[props.player][i] = weights[i] * 100;
-    }
-    await onUpdate();
-  }
-};
-
-const dragStart = (row: number, col: number) => {
-  const idx = 13 * (row - 1) + col - 1;
-
-  if (store.ranges[props.player][idx] !== weight.value) {
-    draggingMode = "enabling";
-    update(row, col, weight.value);
-  } else {
-    draggingMode = "disabling";
-    update(row, col, 0);
-  }
-};
-
-const dragEnd = () => {
-  draggingMode = "none";
-};
-
-const mouseEnter = (row: number, col: number) => {
-  if (draggingMode === "enabling") {
-    update(row, col, weight.value);
-  } else if (draggingMode === "disabling") {
-    update(row, col, 0);
-  }
-};
-
-const onWeightChange = () => {
-  weight.value = Math.round(Math.max(0, Math.min(100, weight.value)));
-};
-
-const clearRange = async () => {
-  await invokes.rangeClear(props.player);
-  store.ranges[props.player].fill(0);
-  rangeText.value = "";
-  rangeTextError.value = "";
-  weight.value = 100;
-  numCombos.value = 0;
-};
-
-const invertRange = async () => {
-  await invokes.rangeInvert(props.player);
-  for (let i = 0; i < 13 * 13; ++i) {
-    store.ranges[props.player][i] = 100 - store.ranges[props.player][i];
-  }
-  await onUpdate();
-};
-
-const loadRange = (rangeStr: unknown) => {
-  rangeText.value = String(rangeStr);
-  onRangeTextChange();
+const onDrop = async (e: DragEvent) => {
+  isDropTarget.value = false;
+  const data = e.dataTransfer?.getData(RANGE_TYPE);
+  if (!data) return;
+  e.preventDefault();
+  const { value } = JSON.parse(data) as { value: unknown };
+  await editing.loadText(String(value));
 };
 </script>

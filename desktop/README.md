@@ -1,4 +1,15 @@
-# Desktop Postflop
+# Postflop Lab — desktop app
+
+This folder holds the desktop app of [Postflop Lab](../README.md) (Tauri + Vue).
+See the root README for development instructions and credits.
+
+The original README of desktop-postflop by Wataru Inariba is kept below.
+
+---
+
+## Original README
+
+### Desktop Postflop
 
 > [!IMPORTANT]
 > **As of October 2023, I have started developing a poker solver as a business and have decided to suspend development of this open-source project. See [this issue] for more information.**

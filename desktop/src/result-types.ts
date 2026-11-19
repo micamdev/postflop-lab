@@ -46,6 +46,10 @@ export type SpotChance = {
   }[];
   pot: number;
   stack: number;
+  /** Past the saved depth of a truncated save: no card is dealt from the save. */
+  isBeyondDepth?: boolean;
+  /** A river past the saved depth, dealt by re-solving its subgame on demand. */
+  isResolved?: boolean;
 };
 
 export type SpotPlayer = {
@@ -79,6 +83,7 @@ export const displayModeList = [
   "graphs",
   // "scatter",
   "compare",
+  "breakdown",
   "chance",
 ] as const;
 
@@ -98,6 +103,18 @@ export const chartChanceList = [
   "ev",
   "eqr",
 ] as const;
+
+/** Display options before the saved ones are read (results view and toolbar). */
+export const defaultDisplayOptions = (): DisplayOptions => ({
+  playerBasics: "auto",
+  playerChance: "auto",
+  barHeight: "normalized",
+  suit: "grouped",
+  strategy: "show",
+  contentBasics: "default",
+  contentGraphs: "eq",
+  chartChance: "strategy-combos",
+});
 
 export type DisplayOptions = {
   playerBasics: (typeof playerBasicsList)[number];
