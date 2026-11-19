@@ -3,7 +3,7 @@
 
 import type { LibraryEntry, SolutionMeta } from "./invokes";
 import { canonicalFlopKey, flopWeight, textureLabel } from "./flop-texture";
-import { cardText, eqrOf } from "./utils";
+import { cardText, eqrOf, toFixed1, toFixed2 } from "./utils";
 
 /** Whose first decision is the c-bet: IP after OOP checks, or OOP first. */
 export type CbetBy = "ip" | "oop";
@@ -279,9 +279,9 @@ export const reportCsv = (rows: ReportRow[], actions: string[]): string => {
     ...actions.map((a) =>
       r.strategy ? ((r.strategy[a] ?? 0) * 100).toFixed(1) : ""
     ),
-    ...r.ev.map((x) => x.toFixed(2)),
-    ...r.equity.map((x) => (x * 100).toFixed(1)),
-    ...r.eqr.map((x) => (isFinite(x) ? (x * 100).toFixed(1) : "")),
+    ...r.ev.map((x) => toFixed2(x)),
+    ...r.equity.map((x) => toFixed1(x * 100)),
+    ...r.eqr.map((x) => (isFinite(x) ? toFixed1(x * 100) : "")),
     advantageText(r.buckets, 1),
     advantageText(r.buckets, 2),
   ]);
@@ -353,4 +353,17 @@ export const sortReportRows = (
     }
     return sign * (x - y);
   });
+};
+
+/** What the chart shows per flop: the strategy, or one player's equity, EV or EQR. */
+export type ChartMetric = "strategy" | "eq" | "ev" | "eqr";
+
+/**
+ * The value a full bar stands for: 100% for the strategy and equity, the largest value for
+ * EV and EQR (negative values draw no bar).
+ */
+export const chartScale = (metric: ChartMetric, values: number[]): number => {
+  if (metric === "strategy" || metric === "eq") return 1;
+  const max = Math.max(0, ...values.filter(isFinite));
+  return max > 0 ? max : 1;
 };
