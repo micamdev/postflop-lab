@@ -31,7 +31,7 @@
             </a>
           </div>
           <p class="mt-4 text-xs text-muted">
-            Postflop Lab is free.
+            Enjoying Postflop Lab?
             <a
               href="https://ko-fi.com/micamapp"
               target="_blank"
