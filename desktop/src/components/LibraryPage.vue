@@ -1,4 +1,10 @@
 <template>
+  <BatchDialog
+    v-if="isBatchOpen"
+    :entries="entries"
+    default-prefix="Batch"
+    @close="isBatchOpen = false"
+  />
   <FlopReport
     v-if="reportSource"
     :key="reportSource.name"
@@ -18,6 +24,13 @@
         class="ui-input w-80"
       />
       <div class="flex-1" />
+      <UiButton
+        :disabled="batch.isRunning"
+        title="Solve the Setup's spot on a set of flops, for a flop report"
+        @click="isBatchOpen = true"
+      >
+        Solve a flop subset…
+      </UiButton>
       <UiButton :disabled="store.isLibraryBusy" @click="importFile">
         Import…
       </UiButton>
@@ -25,6 +38,43 @@
       <UiButton @click="refresh">Refresh</UiButton>
     </div>
 
+    <div
+      v-if="batch.isRunning"
+      class="flex items-center gap-3 mb-3 text-sm text-muted"
+    >
+      <span class="spinner inline-block"></span>
+      <span v-if="batch.progress">
+        Batch: flop {{ batch.progress.index + 1 }}/{{
+          batch.progress.total
+        }}
+        “{{ batch.progress.name }}”, iteration {{ batch.progress.iteration }}
+      </span>
+      <span v-else>Batch starting...</span>
+      <UiButton size="sm" @click="batch.stop()">Stop</UiButton>
+    </div>
+    <div
+      v-else-if="batch.result"
+      class="flex flex-wrap items-center gap-3 mb-3 text-sm"
+    >
+      <span>
+        Batch {{ batch.result.cancelled ? "stopped" : "done" }}:
+        {{ batch.result.solved }} flop{{
+          batch.result.solved === 1 ? "" : "s"
+        }}
+        saved<span v-if="batch.result.failed.length > 0" class="text-red-400"
+          >, {{ batch.result.failed.length }} failed ({{
+            batch.result.failed.join("; ")
+          }})</span
+        >.
+      </span>
+      <UiButton
+        v-if="lastBatchSource"
+        size="sm"
+        @click="reportSource = lastBatchSource"
+      >
+        Open report
+      </UiButton>
+    </div>
     <div v-if="errorText" class="mb-3 text-sm text-red-400">
       {{ errorText }}
     </div>
@@ -164,6 +214,9 @@ import {
 } from "../library-list";
 import UiButton from "./ui/UiButton.vue";
 import FlopReport from "./library/FlopReport.vue";
+import BatchDialog from "./library/BatchDialog.vue";
+import { useBatch } from "../use-batch";
+import { configKey } from "../flop-report";
 import UiMenu from "./ui/UiMenu.vue";
 import * as invokes from "../invokes";
 import {
@@ -179,6 +232,21 @@ import {
 const store = useStore();
 
 const entries = ref<invokes.LibraryEntry[]>([]);
+const batch = useBatch();
+const isBatchOpen = ref(false);
+// Each flop the batch saves shows up in the list (and in an open report).
+watch(
+  () => [batch.progress?.index, batch.isRunning],
+  () => void refresh()
+);
+/** A solution of the last batch's spot, to open its report from. */
+const lastBatchSource = computed(() => {
+  const entry = entries.value.find(
+    (e) =>
+      e.meta && e.meta.board.length === 3 && configKey(e.meta) === batch.lastKey
+  );
+  return entry ? withMeta(entry) : null;
+});
 /** The solution whose flop report is shown (instead of the list), or null. */
 const reportSource = ref<
   (invokes.LibraryEntry & { meta: invokes.SolutionMeta }) | null

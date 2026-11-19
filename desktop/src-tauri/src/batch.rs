@@ -1,11 +1,17 @@
 //! Batch solving: the same spot solved on a list of flops, each saved in the library. Runs on
 //! its own games, not the main one, so the open solution stays usable.
 
-use crate::solver::{build_game_inputs, GameTreeArgs};
+use crate::library::{self, SolutionMeta, META_SCHEMA};
+use crate::range::RangeManager;
+use crate::solver::{build_game_inputs, compute_summary, depth_from_name, GameTreeArgs};
 use postflop_solver::*;
 use rayon::ThreadPool;
-use serde::Deserialize;
+use serde::{Deserialize, Serialize};
+use std::path::Path;
 use std::sync::atomic::{AtomicBool, Ordering};
+use std::sync::{Arc, Mutex};
+use std::time::{Duration, Instant, SystemTime, UNIX_EPOCH};
+use tauri::{AppHandle, Emitter};
 
 /// Solve settings of a batch (as the Run Solver settings).
 #[derive(Deserialize, Clone, Debug)]
@@ -31,6 +37,7 @@ pub struct SolvedFlop {
 /// Builds and solves the spot on `board` (`args.board` is ignored). Refused when even 16-bit
 /// does not fit in `available_memory`. `progress` gets the iteration and, every 10
 /// iterations, the exploitability.
+#[allow(clippy::too_many_arguments)]
 pub fn solve_flop(
     ranges: &[Range; 2],
     args: &GameTreeArgs,
@@ -82,6 +89,191 @@ pub fn solve_flop(
         iterations,
         exploitability: exploitability.max(0.0),
     })
+}
+
+/// One flop of a batch: its board, its weight in the subset and the name to save it under.
+#[derive(Deserialize, Clone, Debug)]
+#[serde(rename_all = "camelCase")]
+pub struct BatchFlop {
+    pub board: [u8; 3],
+    pub weight: f64,
+    pub name: String,
+}
+
+/// A batch: the Setup (its board ignored), the flops and how to solve and save them.
+#[derive(Deserialize, Clone, Debug)]
+#[serde(rename_all = "camelCase")]
+pub struct BatchRequest {
+    pub args: GameTreeArgs,
+    /// The tree configuration as the front end saves it (the board is set per flop).
+    pub tree_config: serde_json::Value,
+    pub flops: Vec<BatchFlop>,
+    pub settings: BatchSettings,
+    /// Save depth: "flop", "turn" or "river".
+    pub depth: String,
+}
+
+/// Progress of a batch: the flop being solved and how far.
+#[derive(Serialize, Clone, Debug)]
+pub struct BatchProgress {
+    pub index: usize,
+    pub total: usize,
+    pub name: String,
+    pub iteration: u32,
+    pub exploitability: f32,
+}
+
+/// Outcome of a batch: flops saved, flops that failed ("name: error"), whether it was stopped.
+#[derive(Serialize, Clone, Debug, Default)]
+pub struct BatchResult {
+    pub solved: usize,
+    pub failed: Vec<String>,
+    pub cancelled: bool,
+}
+
+/// Solves and saves each flop of `request` in `dir`, one after the other. A flop that fails
+/// (not enough memory, name taken) is reported and the batch goes on; a stop ends it, the flop
+/// being solved not saved. `available_memory` is asked before each flop.
+pub fn run_batch(
+    dir: &Path,
+    ranges: &[Range; 2],
+    request: &BatchRequest,
+    available_memory: impl Fn() -> u64,
+    cancel: &AtomicBool,
+    pool: &ThreadPool,
+    mut progress: impl FnMut(BatchProgress),
+) -> BatchResult {
+    let mut result = BatchResult::default();
+    let total = request.flops.len();
+    for (index, flop) in request.flops.iter().enumerate() {
+        let mut report = |iteration, exploitability| {
+            progress(BatchProgress {
+                index,
+                total,
+                name: flop.name.clone(),
+                iteration,
+                exploitability,
+            })
+        };
+        report(0, f32::INFINITY);
+        let outcome = solve_flop(
+            ranges,
+            &request.args,
+            flop.board,
+            &request.settings,
+            available_memory(),
+            cancel,
+            pool,
+            &mut report,
+        )
+        .and_then(|solved| save_flop(dir, request, flop, solved));
+        match outcome {
+            Ok(()) => result.solved += 1,
+            Err(e) if e == ERR_CANCELLED => {
+                result.cancelled = true;
+                break;
+            }
+            Err(e) => result.failed.push(format!("{}: {e}", flop.name)),
+        }
+    }
+    result
+}
+
+/// Saves a solved flop of a batch, with its weight in the subset.
+fn save_flop(
+    dir: &Path,
+    request: &BatchRequest,
+    flop: &BatchFlop,
+    solved: SolvedFlop,
+) -> Result<(), String> {
+    let mut game = solved.game;
+    let range = &game.card_config().range;
+    let ranges = [range[0].to_string(), range[1].to_string()];
+    let meta = SolutionMeta {
+        schema: META_SCHEMA,
+        app_version: env!("CARGO_PKG_VERSION").to_string(),
+        created_at: SystemTime::now()
+            .duration_since(UNIX_EPOCH)
+            .map_or(0, |d| d.as_secs()),
+        board: flop.board.to_vec(),
+        ranges,
+        tree_config: tree_config_for(&request.tree_config, flop.board),
+        depth: request.depth.clone(),
+        exploitability: solved.exploitability,
+        iterations: solved.iterations,
+        precision: if game.is_compression_enabled() {
+            "16"
+        } else {
+            "32"
+        }
+        .to_string(),
+        summary: compute_summary(&mut game),
+        locks: Vec::new(),
+        flop_weight: Some(flop.weight),
+    };
+    game.set_target_storage_mode(depth_from_name(&request.depth)?)?;
+    library::save_with_progress(dir, &flop.name, &game, &meta, false, |_| {}).map(|_| ())
+}
+
+/// Cancellation flag of the batch in progress, if any.
+#[derive(Default)]
+pub struct BatchControl(Mutex<Option<Arc<AtomicBool>>>);
+
+/// Solves the Setup's spot on each flop of the request and saves them in the library, on its
+/// own games (the open solution stays usable). Emits "batch-progress".
+#[tauri::command(async)]
+pub fn batch_solve(
+    app: AppHandle,
+    range_state: tauri::State<Mutex<RangeManager>>,
+    pool_state: tauri::State<Mutex<Arc<ThreadPool>>>,
+    control: tauri::State<BatchControl>,
+    request: BatchRequest,
+) -> Result<BatchResult, String> {
+    let cancel = Arc::new(AtomicBool::new(false));
+    {
+        let mut current = crate::guard::lock(&control.0);
+        if current.is_some() {
+            return Err("A batch is already running".to_string());
+        }
+        *current = Some(cancel.clone());
+    }
+    let result = crate::guard::guard(|| {
+        let dir = crate::library_commands::library_dir(&app)?;
+        let ranges: [Range; 2] = crate::guard::lock(&range_state).0[..2]
+            .try_into()
+            .map_err(|_| "No ranges".to_string())?;
+        // Cloned so that the thread setting can change meanwhile.
+        let pool = crate::guard::lock(&pool_state).clone();
+        let mut last_emit = Instant::now();
+        Ok(run_batch(
+            &dir,
+            &ranges,
+            &request,
+            // The memory query failed (0): let the solve try rather than refuse every flop.
+            || match crate::memory().0 {
+                0 => u64::MAX,
+                available => available,
+            },
+            &cancel,
+            &pool,
+            |p| {
+                if p.iteration == 0 || last_emit.elapsed() >= Duration::from_millis(200) {
+                    last_emit = Instant::now();
+                    let _ = app.emit("batch-progress", p);
+                }
+            },
+        ))
+    });
+    *crate::guard::lock(&control.0) = None;
+    result
+}
+
+/// Stops the batch in progress (the flop being solved is not saved).
+#[tauri::command]
+pub fn batch_cancel(control: tauri::State<BatchControl>) {
+    if let Some(cancel) = crate::guard::lock(&control.0).as_ref() {
+        cancel.store(true, Ordering::Relaxed);
+    }
 }
 
 /// The front end's tree configuration with `board` in place of the Setup's.
@@ -194,6 +386,106 @@ mod tests {
             |_, _| {},
         );
         assert_eq!(err.err().unwrap(), ERR_CANCELLED);
+    }
+
+    fn request(names: &[(&str, &str)]) -> BatchRequest {
+        BatchRequest {
+            args: setup_args("", "50%"),
+            tree_config: serde_json::json!({ "board": [], "startingPot": 60 }),
+            flops: names
+                .iter()
+                .map(|(name, board)| BatchFlop {
+                    board: flop(board),
+                    weight: 100.0,
+                    name: name.to_string(),
+                })
+                .collect(),
+            settings: settings(5.0),
+            depth: "flop".to_string(),
+        }
+    }
+
+    #[test]
+    fn a_batch_saves_each_flop_with_its_weight() {
+        let dir = tempfile::tempdir().unwrap();
+        let mut seen = Vec::new();
+        let result = run_batch(
+            dir.path(),
+            &setup_ranges("AA,KK", "QQ,JJ"),
+            &request(&[("s Td9d6h", "Td9d6h"), ("s As7c2d", "As7c2d")]),
+            || u64::MAX,
+            &AtomicBool::new(false),
+            &pool(),
+            |p| seen.push((p.index, p.total)),
+        );
+        assert_eq!(result.solved, 2);
+        assert!(result.failed.is_empty() && !result.cancelled);
+        assert_eq!(seen.first(), Some(&(0, 2)));
+        assert_eq!(seen.last(), Some(&(1, 2)));
+
+        let entries = crate::library::list(dir.path());
+        assert_eq!(entries.len(), 2);
+        let meta = entries
+            .iter()
+            .find(|e| e.name == "s Td9d6h")
+            .unwrap()
+            .meta
+            .clone()
+            .unwrap();
+        assert_eq!(meta.board, flop("Td9d6h").to_vec());
+        assert_eq!(meta.flop_weight, Some(100.0));
+        assert_eq!(meta.depth, "flop");
+        assert_eq!(meta.tree_config["board"], serde_json::json!(flop("Td9d6h")));
+        assert_eq!(meta.schema, crate::library::META_SCHEMA);
+        assert!(meta.summary.ip_after_check.is_some());
+    }
+
+    #[test]
+    fn a_failed_flop_does_not_stop_the_batch() {
+        let dir = tempfile::tempdir().unwrap();
+        // Already saved under that name: not overwritten.
+        run_batch(
+            dir.path(),
+            &setup_ranges("AA,KK", "QQ,JJ"),
+            &request(&[("taken", "Td9d6h")]),
+            || u64::MAX,
+            &AtomicBool::new(false),
+            &pool(),
+            |_| {},
+        );
+        let result = run_batch(
+            dir.path(),
+            &setup_ranges("AA,KK", "QQ,JJ"),
+            &request(&[("taken", "As7c2d"), ("free", "As7c2d")]),
+            || u64::MAX,
+            &AtomicBool::new(false),
+            &pool(),
+            |_| {},
+        );
+        assert_eq!(result.solved, 1);
+        assert_eq!(result.failed.len(), 1);
+        assert!(
+            result.failed[0].starts_with("taken:"),
+            "{:?}",
+            result.failed
+        );
+    }
+
+    #[test]
+    fn a_stopped_batch_saves_nothing_more() {
+        let dir = tempfile::tempdir().unwrap();
+        let result = run_batch(
+            dir.path(),
+            &setup_ranges("AA,KK", "QQ,JJ"),
+            &request(&[("a", "Td9d6h")]),
+            || u64::MAX,
+            &AtomicBool::new(true),
+            &pool(),
+            |_| {},
+        );
+        assert!(result.cancelled);
+        assert_eq!(result.solved, 0);
+        assert!(crate::library::list(dir.path()).is_empty());
     }
 
     #[test]
