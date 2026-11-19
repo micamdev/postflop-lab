@@ -199,7 +199,7 @@
           <div class="flex flex-col flex-1 min-h-0 w-full max-w-[22rem]">
             <div
               v-if="strategyItems"
-              class="flex shrink-0 h-1.5 mx-3 mt-3 mb-2 rounded-full overflow-hidden"
+              class="flex shrink-0 h-1.5 mx-3 mt-3 mb-5 rounded-full overflow-hidden"
               :title="strategyTitle"
               role="img"
               :aria-label="strategyTitle"
