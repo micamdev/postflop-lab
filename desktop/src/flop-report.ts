@@ -119,14 +119,6 @@ export const reportRows = (
     ];
   });
 
-/**
- * The report rows: one per flop up to the suits (a flop solved twice, or AsKd7c and AhKc7d,
- * would count twice in the average). When batches solved this spot, the average uses one
- * subset, the largest: its weights stand for all flops, together and only together (a
- * hand-solved flop's weight only stands for its own suits, another subset's for other flops).
- * A flop is kept from that subset first, then from any batch, then the most recent.
- * `subset` says which subset the average uses and how many of its flops are solved.
- */
 const ALL_FLOPS = 1755;
 
 /**
@@ -154,6 +146,14 @@ const subsetForAverage = (rows: ReportRow[]): number | null => {
   return best;
 };
 
+/**
+ * The report rows: one per flop up to the suits (a flop solved twice, or AsKd7c and AhKc7d,
+ * would count twice in the average). When batches solved this spot, the average uses one
+ * subset (see `subsetForAverage`): its weights stand for all flops, together and only together (a
+ * hand-solved flop's weight only stands for its own suits, another subset's for other flops).
+ * A flop is kept from that subset first, then from any batch, then the most recent.
+ * `subset` says which subset the average uses and how many of its flops are solved.
+ */
 export const buildReport = (
   entries: LibraryEntry[],
   key: string,
