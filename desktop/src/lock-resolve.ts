@@ -31,6 +31,8 @@ export const useLockResolve = defineStore("lockResolve", () => {
       return "Locks are not available with the bunching effect.";
     }
     if (store.isSolveStarting) return "A solve is starting.";
+    if (store.isBunchingRunning)
+      return "The bunching effect is being precomputed.";
     if (useBatch().isRunning) return "A batch is solving flops.";
     const settingsError = validateSolveSettings(useSolverSession().settings);
     if (settingsError) {

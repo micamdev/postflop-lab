@@ -49,7 +49,7 @@
         }}
         “{{ batch.progress.name }}”, iteration {{ batch.progress.iteration }}
       </span>
-      <span v-else>Batch starting...</span>
+      <span v-else>Batch starting…</span>
       <UiButton size="sm" @click="batch.stop()">Stop</UiButton>
     </div>
     <div
@@ -380,7 +380,7 @@ const exploitabilityText = (meta: invokes.SolutionMeta) => {
 
 const load = async (entry: invokes.LibraryEntry) => {
   errorText.value = "";
-  busyText.value = `Loading "${entry.name}"...`;
+  busyText.value = `Loading “${entry.name}”…`;
   const error = await loadSolution(entry.name);
   busyText.value = "";
   noteLoad(failedLoads, entry, error);

@@ -144,7 +144,7 @@ import UiButton from "./ui/UiButton.vue";
 import { ref } from "vue";
 import { useStore } from "../store";
 import { ranks } from "../utils";
-import { useRangeEditing } from "../use-range-editing";
+import { RANGE_DRAG_TYPE, useRangeEditing } from "../use-range-editing";
 
 const weightColor = themeColor("weight");
 
@@ -180,7 +180,7 @@ const onWeightChange = editing.clampWeight;
 const onRangeTextChange = editing.applyText;
 const clearRange = editing.clear;
 const invertRange = editing.invert;
-const RANGE_TYPE = "application/x-postflop-range";
+const RANGE_TYPE = RANGE_DRAG_TYPE;
 const isDropTarget = ref(false);
 
 const onDragOver = (e: DragEvent) => {

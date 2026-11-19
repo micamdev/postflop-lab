@@ -1,5 +1,5 @@
 <template>
-  <label class="flex flex-col gap-1 text-sm">
+  <component :is="as" class="flex flex-col gap-1 text-sm">
     <span class="flex items-center gap-1.5 text-muted">
       <!-- With help: the label itself shows it on hover (dotted underline, no icon). -->
       <UiTooltip v-if="$slots.help">
@@ -16,10 +16,19 @@
       <span v-if="suffix" class="text-muted">{{ suffix }}</span>
     </span>
     <span v-if="error" class="text-xs text-red-400">{{ error }}</span>
-  </label>
+  </component>
 </template>
 
 <script setup lang="ts">
 import UiTooltip from "./UiTooltip.vue";
-defineProps<{ label: string; error?: string; suffix?: string }>();
+withDefaults(
+  defineProps<{
+    label: string;
+    error?: string;
+    suffix?: string;
+    /** "div" around a segmented control: a label would click its first segment. */
+    as?: "label" | "div";
+  }>(),
+  { as: "label" }
+);
 </script>

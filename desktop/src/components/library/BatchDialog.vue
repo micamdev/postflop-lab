@@ -13,7 +13,7 @@
       </p>
 
       <div class="flex flex-col gap-3 text-sm">
-        <label class="flex items-center justify-between gap-3">
+        <div class="flex items-center justify-between gap-3">
           Flops
           <UiSegmented
             :model-value="String(size)"
@@ -25,12 +25,12 @@
             "
             @update:model-value="size = Number($event)"
           />
-        </label>
+        </div>
         <label class="flex items-center justify-between gap-3">
           Name prefix
           <input v-model="prefix" type="text" class="ui-input w-56" />
         </label>
-        <label class="flex items-center justify-between gap-3">
+        <div class="flex items-center justify-between gap-3">
           Save depth
           <UiSegmented
             v-model="depth"
@@ -40,7 +40,7 @@
               { value: 'river', label: 'Complete' },
             ]"
           />
-        </label>
+        </div>
         <p class="text-xs text-muted">
           {{
             depth === "flop"
@@ -67,7 +67,7 @@
         <UiButton
           variant="primary"
           :disabled="!canStart"
-          :title="batch.isSolverBusy ? 'The solver is running' : ''"
+          :title="batch.isSolverBusy ? 'The solver or the library is busy' : ''"
           @click="onStart"
         >
           Solve {{ plan?.ok ? plan.toSolve.length : "" }} flops

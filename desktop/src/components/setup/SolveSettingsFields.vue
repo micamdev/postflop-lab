@@ -11,7 +11,7 @@
       />
     </UiField>
 
-    <UiField label="Precision">
+    <UiField label="Precision" as="div">
       <template #help>
         <p>Precision mainly changes memory usage.</p>
         <p class="mt-1">

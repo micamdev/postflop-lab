@@ -2,10 +2,11 @@
 // library (see batch-plan.ts and the Rust `batch` module).
 
 import { defineStore } from "pinia";
-import { computed, ref } from "vue";
+import { ref } from "vue";
 import { listen } from "@tauri-apps/api/event";
-import { snapshotSetup, useConfigStore, useStore } from "./store";
+import { snapshotSetup, useConfigStore } from "./store";
 import { useSolverSession } from "./solver-session";
+import { useSolverBusy } from "./solver-busy";
 import { gameTreeArgs } from "./game-args";
 import { setupErrors } from "./setup-validation";
 import { validateSolveSettings } from "./solve-settings";
@@ -26,7 +27,6 @@ export type BatchPreview =
   | { ok: false; error: string };
 
 export const useBatch = defineStore("batch", () => {
-  const store = useStore();
   const config = useConfigStore();
   const session = useSolverSession();
 
@@ -36,20 +36,8 @@ export const useBatch = defineStore("batch", () => {
   /** Config key of the last batch: its report can be opened from the Library. */
   const lastKey = ref<string | null>(null);
 
-  /**
-   * Another solve or operation holds the solver or the main game (the batch would compete
-   * for the CPU and the memory).
-   */
-  const isSolverBusy = computed(
-    () =>
-      store.isLibraryBusy ||
-      session.isBuilding ||
-      store.isSolverRunning ||
-      store.isSolverPaused ||
-      store.isFinalizing ||
-      store.isSolveStarting ||
-      store.isBunchingRunning
-  );
+  /** Another operation holds the solver (the batch would compete for CPU and memory). */
+  const isSolverBusy = useSolverBusy();
 
   /** The flops of a subset of `size` still to solve for the Setup's spot. */
   const preview = async (

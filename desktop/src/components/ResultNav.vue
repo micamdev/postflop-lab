@@ -298,7 +298,7 @@ const resolveAndDeal = async (card: number) => {
   const history = historyOf(spots.value, spot.index);
   const label = cardText(card).rank + cardText(card).suit;
   navError.value = "";
-  resolveStatus.value = `Re-solving the river ${label}...`;
+  resolveStatus.value = `Re-solving the river ${label}…`;
   store.isLibraryBusy = true;
 
   const unlisten = await listen<{ iteration: number }>(

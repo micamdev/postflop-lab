@@ -221,7 +221,7 @@ import {
 } from "../../saved-items";
 import { RangeSource, useConfigStore, useStore } from "../../store";
 import { applyConfigValue, configToValue } from "../../tree-config-value";
-import { useRangeEditing } from "../../use-range-editing";
+import { RANGE_DRAG_TYPE, useRangeEditing } from "../../use-range-editing";
 import { setTreeSource } from "../../tree-source";
 import { useWindowWidth } from "../../use-window-width";
 import * as invokes from "../../invokes";
@@ -347,7 +347,7 @@ const onDoubleClick = (node: SavedNode) => {
 const onDragStart = (e: DragEvent, node: SavedNode) => {
   if (node.kind !== "item" || !e.dataTransfer) return;
   e.dataTransfer.setData(
-    "application/x-postflop-range",
+    RANGE_DRAG_TYPE,
     JSON.stringify({ path: node.path, value: node.value })
   );
   e.dataTransfer.effectAllowed = "copy";

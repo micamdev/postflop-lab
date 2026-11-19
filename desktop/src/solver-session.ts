@@ -198,15 +198,6 @@ export const useSolverSession = defineStore("solverSession", () => {
     return true;
   };
 
-  /** Memory the solver may use: available memory, or 70% of the total on macOS; unlimited
-   * when the system did not report it (0). */
-  const memoryLimit = async () => {
-    const [available, total] = await invokes.memory();
-    const limit =
-      (await invokes.osName()) === "macos" ? total * 0.7 : available;
-    return limit > 0 ? limit : Number.POSITIVE_INFINITY;
-  };
-
   /** Stops the solver state after an unexpected error, with the error shown. */
   const fail = (e: unknown) => {
     store.isSolverRunning = false;

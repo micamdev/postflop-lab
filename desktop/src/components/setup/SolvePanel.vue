@@ -2,7 +2,7 @@
   <UiPanel title="Solve">
     <!-- Settings: a summary; the fields in a popover from Edit; an invalid one is named. -->
     <template #actions>
-      <UiPopover v-model:open="isOpen">
+      <UiPopover>
         <template #trigger>
           <button
             type="button"
@@ -29,7 +29,7 @@
     <UiButton
       variant="primary"
       class="w-full mt-3"
-      :disabled="!canSolve || blocker !== null"
+      :disabled="!canSolve || blocker !== null || settingsError !== null"
       @click="onSolve"
     >
       ▶ Solve
@@ -46,9 +46,11 @@
 </template>
 
 <script setup lang="ts">
-import { computed, ref } from "vue";
+import { computed } from "vue";
 import { useConfigStore, useStore } from "../../store";
-import { solveBlocker, useSolverSession } from "../../solver-session";
+import { useSolverSession } from "../../solver-session";
+import { solveBlocker } from "../../setup-validation";
+import { useSolverBusy } from "../../solver-busy";
 import { validateSolveSettings } from "../../solve-settings";
 import { useBatch } from "../../use-batch";
 import { ask } from "../../library";
@@ -65,7 +67,6 @@ const config = useConfigStore();
 const session = useSolverSession();
 const batch = useBatch();
 
-const isOpen = ref(false);
 const settingsError = computed(() => validateSolveSettings(session.settings));
 /** What the spot still lacks to be solved (board, ranges, tree settings), or null. */
 const blocker = computed(() => solveBlocker(config, store.ranges));
@@ -87,17 +88,8 @@ const summary = computed(() => {
 /** Under the button: an invalid setting, or what the spot lacks, or nothing. */
 const status = computed(() => settingsError.value ?? blocker.value ?? "");
 
-const canSolve = computed(
-  () =>
-    !batch.isRunning &&
-    !store.isLibraryBusy &&
-    !store.isBunchingRunning &&
-    !session.isBuilding &&
-    !store.isSolveStarting &&
-    !store.isSolverRunning &&
-    !store.isSolverPaused &&
-    !store.isFinalizing
-);
+const solverBusy = useSolverBusy();
+const canSolve = computed(() => !solverBusy.value && !batch.isRunning);
 
 const onSolve = async () => {
   if (store.isSolverFinished) {

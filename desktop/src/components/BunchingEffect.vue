@@ -104,8 +104,7 @@
           variant="ghost"
           :disabled="
             numCombos.every((x) => x === 0) ||
-            store.isBunchingRunning ||
-            store.isSolverRunning ||
+            solverBusy ||
             batch.isRunning ||
             numThreads < 1 ||
             numThreads > 64 ||
@@ -134,7 +133,7 @@
           v-else
           variant="ghost"
           :disabled="
-            store.isSolverRunning ||
+            solverBusy ||
             batch.isRunning ||
             numThreads < 1 ||
             numThreads > 64 ||
@@ -213,6 +212,7 @@ import {
 } from "../utils";
 import * as invokes from "../invokes";
 import { useBatch } from "../use-batch";
+import { useSolverBusy } from "../solver-busy";
 import { useSolverSession } from "../solver-session";
 import { threadsError } from "../solve-settings";
 
@@ -225,6 +225,7 @@ import {
 } from "@heroicons/vue/20/solid";
 
 const store = useStore();
+const solverBusy = useSolverBusy();
 const batch = useBatch();
 const configStore = useConfigStore();
 
@@ -268,7 +269,6 @@ const onUpdateLocal = async (player: number) => {
 
 const editRange = async (player: number) => {
   rangeTextCopy.value = await invokes.rangeToString(player + 2);
-  store.headers["bunching"].push(`Fold Range ${player + 1}`);
   editingPlayer.value = player;
 };
 
@@ -318,7 +318,7 @@ const runPrecomputation = async () => {
     return;
   }
 
-  statusText.value = "Phase 1/3 - Preparing...";
+  statusText.value = "Phase 1/3 - Preparing…";
   flopCopy.value = configStore.board.slice(0, 3);
   hasBunchingRun.value = true;
   elapsedTimeMs.value = 0;
@@ -368,7 +368,7 @@ const resumePrecomputation = async () => {
         break;
       }
 
-      statusText.value = `Phase ${phase}/3 - ${percent}% completed...`;
+      statusText.value = `Phase ${phase}/3 - ${percent}% completed…`;
     }
 
     elapsedTimeMs.value += performance.now() - startTime;
@@ -397,7 +397,6 @@ const resumePrecomputation = async () => {
 const saveEdit = async () => {
   isRangeTextError.value[editingPlayer.value] = false;
   await onUpdateLocal(editingPlayer.value);
-  store.headers["bunching"].pop();
   editingPlayer.value = -1;
 };
 
@@ -405,7 +404,6 @@ const cancelEdit = async () => {
   rangeTexts.value[editingPlayer.value] = rangeTextCopy.value;
   await invokes.rangeFromString(editingPlayer.value + 2, rangeTextCopy.value);
   await onUpdate(editingPlayer.value);
-  store.headers["bunching"].pop();
   editingPlayer.value = -1;
 };
 </script>

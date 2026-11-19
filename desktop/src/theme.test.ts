@@ -8,7 +8,9 @@ describe("theme", () => {
     // Tests run from desktop/.
     const css = readFileSync("src/style.css", "utf8");
     for (const token of THEME_TOKENS) {
-      expect(css, token).toMatch(new RegExp(`--${token}: [0-9]+ [0-9]+ [0-9]+;`));
+      expect(css, token).toMatch(
+        new RegExp(`--${token}: [0-9]+ [0-9]+ [0-9]+;`)
+      );
     }
   });
 

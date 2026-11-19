@@ -21,7 +21,7 @@
 
       <div class="mt-4 font-semibold">Saved depth</div>
       <div v-if="estimates.length === 0" class="mt-1 text-muted">
-        Computing sizes...
+        Computing sizes…
       </div>
       <label
         v-for="[depth, memory] of estimates"
