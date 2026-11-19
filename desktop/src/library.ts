@@ -1,6 +1,7 @@
 import { nextTick } from "vue";
 import { confirm, message } from "@tauri-apps/plugin-dialog";
 import {
+  emptySetup,
   useStore,
   useConfigStore,
   snapshotSetup,
@@ -139,7 +140,14 @@ const replaceWithSolution = async (name: string): Promise<string | null> => {
     return message;
   }
 
-  Object.assign(config, meta.tree_config);
+  // The Setup's own fields only: another version's extra fields would change the spot's key.
+  for (const field of Object.keys(emptySetup())) {
+    if (field !== "board" && field in meta.tree_config) {
+      (config as unknown as Record<string, unknown>)[field] =
+        meta.tree_config[field];
+    }
+  }
+  config.board = meta.tree_config.board as number[];
   setSavedSetup(snapshotSetup());
 
   for (const player of [0, 1]) {

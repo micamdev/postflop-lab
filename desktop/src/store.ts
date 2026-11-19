@@ -24,7 +24,7 @@ export type SolutionInfo = {
 };
 
 /** The setup fields (board, stacks, bet sizes, tree options), all zero or empty. */
-const emptySetup = () => ({
+export const emptySetup = () => ({
   board: [] as number[],
   startingPot: 0,
   effectiveStack: 0,

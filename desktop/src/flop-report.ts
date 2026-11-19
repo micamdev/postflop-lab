@@ -2,7 +2,13 @@
 // from the library metadata only (no solution is loaded).
 
 import type { LibraryEntry, SolutionMeta } from "./invokes";
-import { canonicalFlopKey, flopWeight, textureLabel } from "./flop-texture";
+import {
+  canonicalFlopKey,
+  flopTexture,
+  flopWeight,
+  textureLabel,
+} from "./flop-texture";
+import { emptySetup } from "./store";
 import { cardText, eqrOf, toFixed1, toFixed2 } from "./utils";
 
 /** Whose first decision is the c-bet: IP after OOP checks, or OOP first. */
@@ -25,8 +31,16 @@ const stableJson = (value: unknown): string => {
  * the same report only if their keys are equal (precision and save depth do not matter).
  */
 export const configKey = (meta: SolutionMeta): string => {
-  const tree = { ...meta.tree_config };
-  delete tree.board;
+  // The Setup's fields only (an older or newer save may have others), a missing one at its
+  // default, texts trimmed: the same spot always gets the same key.
+  const tree = Object.fromEntries(
+    Object.entries(emptySetup())
+      .filter(([field]) => field !== "board")
+      .map(([field, empty]) => {
+        const value = meta.tree_config[field] ?? empty;
+        return [field, typeof value === "string" ? value.trim() : value];
+      })
+  );
   return stableJson({ ranges: meta.ranges, tree, locks: meta.locks ?? [] });
 };
 
@@ -113,6 +127,33 @@ export const reportRows = (
  * A flop is kept from that subset first, then from any batch, then the most recent.
  * `subset` says which subset the average uses and how many of its flops are solved.
  */
+const ALL_FLOPS = 1755;
+
+/**
+ * The batch subset the average uses: the most complete one (solved flops over its size), the
+ * larger one on a tie. A barely started large batch does not push out a finished smaller one.
+ * Null when no flop comes from a batch.
+ */
+const subsetForAverage = (rows: ReportRow[]): number | null => {
+  const solved = new Map<number, Set<string>>();
+  for (const row of rows) {
+    if (row.batchSize === null) continue;
+    const flops = solved.get(row.batchSize) ?? new Set<string>();
+    flops.add(canonicalFlopKey(row.board));
+    solved.set(row.batchSize, flops);
+  }
+  let best: number | null = null;
+  let bestShare = -1;
+  for (const [size, flops] of solved) {
+    const share = flops.size / size;
+    if (share > bestShare || (share === bestShare && size > (best ?? 0))) {
+      best = size;
+      bestShare = share;
+    }
+  }
+  return best;
+};
+
 export const buildReport = (
   entries: LibraryEntry[],
   key: string,
@@ -123,8 +164,7 @@ export const buildReport = (
   subset: { size: number; solved: number } | null;
 } => {
   const all = reportRows(entries, key, cbetBy);
-  const sizes = all.flatMap((r) => (r.batchSize === null ? [] : [r.batchSize]));
-  const size = sizes.length > 0 ? Math.max(...sizes) : null;
+  const size = subsetForAverage(all);
   const rank = (row: ReportRow) =>
     row.batchSize === size && size !== null
       ? 2
@@ -147,7 +187,11 @@ export const buildReport = (
     .filter((row) => best.get(canonicalFlopKey(row.board)) === row)
     .map((row) => ({
       ...row,
-      inAverage: size === null || row.batchSize === size,
+      // Every flop solved (1755): a hand-solved flop's weight is the same as the subset's.
+      inAverage:
+        size === null ||
+        row.batchSize === size ||
+        (size === ALL_FLOPS && row.batchSize === null),
     }));
   return {
     rows,
@@ -222,6 +266,18 @@ export const averageRow = (allRows: ReportRow[]) => {
   };
 };
 
+/** Share of the `top` best equity tranches IP holds over OOP (positive: IP has the edge). */
+const advantageValue = (
+  buckets: [number[], number[]] | null,
+  top: number
+): number | null => {
+  if (!buckets) return null;
+  const [oop, ip] = buckets.map((b) =>
+    b.slice(0, top).reduce((sum, x) => sum + x, 0)
+  );
+  return ip - oop;
+};
+
 /**
  * Who holds more of the strongest hands (the `top` best equity tranches: 1 = 90%+, nut
  * advantage; 2 = 75%+, best hands advantage) and by how many points: "IP +9.0", "None" under
@@ -231,14 +287,11 @@ export const advantageText = (
   buckets: [number[], number[]] | null,
   top: 1 | 2
 ): string => {
-  if (!buckets) return "—";
-  const [oop, ip] = buckets.map((b) =>
-    b.slice(0, top).reduce((sum, x) => sum + x, 0)
-  );
-  if (isNaN(oop) || isNaN(ip)) return "—";
-  const gap = Math.abs(oop - ip) * 100;
+  const edge = advantageValue(buckets, top);
+  if (edge === null || isNaN(edge)) return "—";
+  const gap = Math.abs(edge) * 100;
   if (gap < 1) return "None";
-  return `${oop > ip ? "OOP" : "IP"} +${gap.toFixed(1)}`;
+  return `${edge > 0 ? "IP" : "OOP"} +${gap.toFixed(1)}`;
 };
 
 /** "Bet 7", "Check": the name of an action for a column. */
@@ -288,17 +341,17 @@ export const reportCsv = (rows: ReportRow[], actions: string[]): string => {
   return [header, ...lines].map((line) => line.join(",")).join("\n");
 };
 
-/** Share of the `top` best equity tranches IP holds over OOP (positive: IP has the edge). */
-const advantageValue = (
-  buckets: [number[], number[]] | null,
-  top: number
-): number | null => {
-  if (!buckets) return null;
-  const [oop, ip] = buckets.map((b) =>
-    b.slice(0, top).reduce((sum, x) => sum + x, 0)
-  );
-  return ip - oop;
+/** Rainbow, two-tone, monotone; then unpaired, paired, trips; then not connected first. */
+const textureClass = (board: number[]) => {
+  const t = flopTexture(board);
+  const suits = ["rainbow", "two-tone", "monotone"].indexOf(t.suits);
+  const pairing = ["unpaired", "paired", "trips"].indexOf(t.pairing);
+  return suits * 6 + pairing * 2 + Number(t.connected);
 };
+
+/** Sort value of the texture column: its class, then the highest cards first. */
+const textureOrder = (board: number[]) =>
+  textureClass(board) * 10000 + (9999 - flopOrder(board));
 
 /** Ranks of a flop, highest first, as one comparable number. */
 const flopOrder = (board: number[]) =>
@@ -323,7 +376,7 @@ export const sortReportRows = (
       case "flop":
         return flopOrder(r.board);
       case "texture":
-        return r.texture;
+        return textureOrder(r.board);
       case "weight":
         return r.weight;
       case "eq0":

@@ -1,8 +1,9 @@
 // Flop subsets for batch solving: the 1755 flops distinct up to the suits, and representative
-// subsets of them whose weights keep each texture's share (so a weighted average over a subset
-// estimates the average over all flops).
+// subsets of them. The weights keep each suits × pairing class's exact share; inside a class
+// the flops are spread over the ranks, so heights and connectedness are only approximated
+// (closer as the subset grows).
 
-import { flopTexture } from "./flop-texture";
+import { canonicalFlop, flopTexture } from "./flop-texture";
 
 export type WeightedFlop = {
   /** Three cards (4 * rank + suit), highest first. */
@@ -14,31 +15,6 @@ export type WeightedFlop = {
 /** Subset sizes offered for a batch (1755: every flop). */
 export const SUBSET_SIZES = [25, 49, 95, 184, 1755] as const;
 
-const SUIT_PERMUTATIONS = (() => {
-  const result: number[][] = [];
-  const permute = (rest: number[], prefix: number[]) => {
-    if (rest.length === 0) result.push(prefix);
-    rest.forEach((s, i) =>
-      permute([...rest.slice(0, i), ...rest.slice(i + 1)], [...prefix, s])
-    );
-  };
-  permute([0, 1, 2, 3], []);
-  return result;
-})();
-
-const highFirst = (board: number[]) => [...board].sort((a, b) => b - a);
-
-/** The variant of `board` with the smallest cards (highest first), for any suit renaming. */
-const canonical = (board: number[]) =>
-  SUIT_PERMUTATIONS.map((perm) =>
-    highFirst(board.map((card) => (card & ~3) | perm[card & 3]))
-  ).reduce((best, b) => {
-    for (let i = 0; i < 3; ++i) {
-      if (b[i] !== best[i]) return b[i] < best[i] ? b : best;
-    }
-    return best;
-  });
-
 let cache: WeightedFlop[] | null = null;
 
 /** The 1755 flops distinct up to the suits, with how many flops each stands for. */
@@ -48,7 +24,7 @@ export const allFlops = (): WeightedFlop[] => {
   for (let a = 0; a < 52; ++a) {
     for (let b = a + 1; b < 52; ++b) {
       for (let c = b + 1; c < 52; ++c) {
-        const board = canonical([a, b, c]);
+        const board = canonicalFlop([a, b, c]);
         const key = board.join(",");
         const entry = counts.get(key);
         if (entry) entry.weight++;
@@ -141,6 +117,8 @@ const pickSpread = (flops: WeightedFlop[], m: number) => {
   return [...picked].sort((a, b) => a - b);
 };
 
+const subsetCache = new Map<number, WeightedFlop[]>();
+
 /**
  * `n` flops standing for all of them: each texture class (suits × pairing) gets flops in
  * proportion to how often it occurs, spread over its ranks; every flop of the class is then
@@ -149,15 +127,20 @@ const pickSpread = (flops: WeightedFlop[], m: number) => {
 export const representativeFlops = (n: number): WeightedFlop[] => {
   const all = allFlops();
   if (n >= all.length) return all;
+  const cached = subsetCache.get(n);
+  if (cached) return cached;
   const groups = new Map<string, WeightedFlop[]>();
   for (const flop of all) {
     const key = classOf(flop.board);
-    groups.set(key, [...(groups.get(key) ?? []), flop]);
+    const group = groups.get(key);
+    if (group) group.push(flop);
+    else groups.set(key, [flop]);
   }
   const classes = [...groups.keys()].sort().map((key) => groups.get(key)!);
-  const counts = allocate(classes, n);
+  // At least one flop per class.
+  const counts = allocate(classes, Math.max(n, classes.length));
 
-  return classes.flatMap((flops, c) => {
+  const subset = classes.flatMap((flops, c) => {
     const picks = pickSpread(flops, counts[c]).map((i) => ({
       board: flops[i].board,
       weight: 0,
@@ -176,4 +159,6 @@ export const representativeFlops = (n: number): WeightedFlop[] => {
     }
     return picks;
   });
+  subsetCache.set(n, subset);
+  return subset;
 };

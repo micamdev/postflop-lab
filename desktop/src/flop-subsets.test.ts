@@ -61,3 +61,11 @@ describe("representativeFlops", () => {
     expect(representativeFlops(49)).toEqual(representativeFlops(49));
   });
 });
+
+describe("small subsets", () => {
+  test("fewer flops than texture classes still covers every class", () => {
+    expect(representativeFlops(3).length).toBeGreaterThanOrEqual(3);
+    const total = representativeFlops(3).reduce((s, f) => s + f.weight, 0);
+    expect(total).toBe(22100);
+  });
+});

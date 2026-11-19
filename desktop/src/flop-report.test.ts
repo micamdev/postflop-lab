@@ -383,7 +383,7 @@ describe("subsets", () => {
     ]);
   });
 
-  test("a flop in two subsets: the row of the subset used for the average is kept", () => {
+  test("a flop in two subsets: the row of the subset used for the average is kept (the more complete one)", () => {
     const report = buildReport(
       [
         entry(
@@ -398,7 +398,8 @@ describe("subsets", () => {
       key,
       "ip"
     );
-    expect(report.rows.map((r) => r.name)).toEqual(["b49"]);
+    // 1 of 25 flops is more complete than 1 of 49.
+    expect(report.rows.map((r) => r.name)).toEqual(["b25"]);
   });
 
   test("no batch: no subset", () => {
@@ -414,5 +415,61 @@ describe("chartScale", () => {
     expect(chartScale("eqr", [0.9, 1.3])).toBe(1.3);
     // Nothing positive: a scale that does not divide by zero.
     expect(chartScale("ev", [0, -1])).toBe(1);
+  });
+});
+
+describe("audit follow-ups", () => {
+  const key = configKey(meta(AK7));
+  const QQ2 = [43, 42, 0];
+
+  test("the average uses the most complete subset, not a barely started larger one", () => {
+    const report = buildReport(
+      [
+        entry("b25 a", meta(AK7, { flop_weight: 800, batch_size: 25 })),
+        entry("b25 b", meta(EIGHT76, { flop_weight: 900, batch_size: 25 })),
+        entry("b184", meta(QQ2, { flop_weight: 100, batch_size: 184 })),
+      ],
+      key,
+      "ip"
+    );
+    expect(report.subset).toEqual({ size: 25, solved: 2 });
+  });
+
+  test("with every flop solved (1755), hand-solved flops count too", () => {
+    const { rows } = buildReport(
+      [
+        entry("batch", meta(AK7, { flop_weight: 24, batch_size: 1755 })),
+        entry("hand", meta(EIGHT76)),
+      ],
+      key,
+      "ip"
+    );
+    expect(rows.every((r) => r.inAverage)).toBe(true);
+  });
+
+  test("the same spot whatever extra keys or spaces its tree config has", () => {
+    const base = meta(AK7);
+    const extra = meta(AK7, {
+      tree_config: { ...base.tree_config, someOldField: 1, oopFlopBet: "33% " },
+    });
+    expect(configKey(extra)).toBe(configKey(base));
+  });
+
+  test("texture sort: by suits, pairing and connectedness, then highest cards", () => {
+    // Js 8d 2c and Ts 8d 2c rainbow; As Ks 7d two-tone.
+    const rows = reportRows(
+      [
+        entry("two-tone A", meta([51, 47, 21])),
+        entry("rainbow T", meta([35, 25, 0])),
+        entry("rainbow J", meta([39, 25, 0])),
+      ],
+      key,
+      "ip"
+    );
+    expect(sortReportRows(rows, "texture", false).map((r) => r.name)).toEqual([
+      "rainbow J",
+      "rainbow T",
+      "two-tone A",
+    ]);
   });
 });
