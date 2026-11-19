@@ -2,18 +2,7 @@
   <header
     class="flex shrink-0 items-center gap-3 h-10 px-3 bg-panel border-b border-line"
   >
-    <div v-if="board.length > 0" class="flex gap-0.5">
-      <span
-        v-for="card in board"
-        :key="card"
-        :class="[
-          'flex items-center justify-center w-[22px] h-7 rounded text-[13px] font-bold text-white',
-          suitBgClasses[card & 3],
-        ]"
-      >
-        {{ cardText(card).rank }}
-      </span>
-    </div>
+    <BoardChips v-if="board.length > 0" :board="board" size="md" />
     <span class="font-semibold truncate max-w-[16rem]">{{ name }}</span>
     <span
       :class="[
@@ -142,6 +131,7 @@
 </template>
 
 <script setup lang="ts">
+import BoardChips from "./ui/BoardChips.vue";
 import { computed, onUnmounted, ref } from "vue";
 import { useStore, useConfigStore, useSavedConfigStore } from "../store";
 import { useSolverSession } from "../solver-session";
@@ -153,7 +143,6 @@ import {
   solutionStatus,
 } from "../solve-status";
 import { validateSolveSettings } from "../solve-settings";
-import { cardText, suitBgClasses } from "../utils";
 import UiButton from "./ui/UiButton.vue";
 import UiSegmented from "./ui/UiSegmented.vue";
 import UiTooltip from "./ui/UiTooltip.vue";
