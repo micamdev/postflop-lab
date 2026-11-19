@@ -13,6 +13,7 @@
         <StacksPanel />
         <BetSizesPanel />
         <MemoryEstimate />
+        <SolvePanel />
       </div>
     </div>
 
@@ -42,6 +43,7 @@ import BoardPanel from "./BoardPanel.vue";
 import StacksPanel from "./StacksPanel.vue";
 import BetSizesPanel from "./BetSizesPanel.vue";
 import MemoryEstimate from "./MemoryEstimate.vue";
+import SolvePanel from "./SolvePanel.vue";
 import TreeConfig from "../TreeConfig.vue";
 import BunchingEffect from "../BunchingEffect.vue";
 import UiButton from "../ui/UiButton.vue";

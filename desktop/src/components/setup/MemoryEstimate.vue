@@ -45,10 +45,6 @@
         </template>
       </p>
     </template>
-    <p class="mt-1 text-xs text-muted">
-      {{ session.settings.threads }} threads · target
-      {{ session.settings.targetExploitability }}% of the pot
-    </p>
   </UiPanel>
 </template>
 
