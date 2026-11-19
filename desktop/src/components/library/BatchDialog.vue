@@ -31,17 +31,6 @@
           <input v-model="prefix" type="text" class="ui-input w-56" />
         </label>
         <div class="flex items-center justify-between gap-3">
-          Save depth
-          <UiSegmented
-            v-model="depth"
-            :options="[
-              { value: 'flop', label: 'Flop only' },
-              { value: 'turn', label: 'Up to the turn' },
-              { value: 'river', label: 'Complete' },
-            ]"
-          />
-        </div>
-        <div class="flex items-center justify-between gap-3">
           Target (of the pot)
           <UiSegmented
             :model-value="String(target)"
@@ -52,6 +41,17 @@
               }))
             "
             @update:model-value="target = Number($event)"
+          />
+        </div>
+        <div class="flex items-center justify-between gap-3">
+          Save depth
+          <UiSegmented
+            v-model="depth"
+            :options="[
+              { value: 'flop', label: 'Flop only' },
+              { value: 'turn', label: 'Up to the turn' },
+              { value: 'river', label: 'Complete' },
+            ]"
           />
         </div>
         <p class="text-xs text-muted">

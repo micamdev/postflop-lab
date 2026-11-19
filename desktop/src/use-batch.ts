@@ -9,7 +9,7 @@ import { useSolverSession } from "./solver-session";
 import { useSolverBusy } from "./solver-busy";
 import { gameTreeArgs } from "./game-args";
 import { setupErrors } from "./setup-validation";
-import { validateSolveSettings } from "./solve-settings";
+import { DEFAULT_BATCH_TARGET, validateSolveSettings } from "./solve-settings";
 import { representativeFlops } from "./flop-subsets";
 import { planBatch, BatchFlop } from "./batch-plan";
 import { configKey } from "./flop-report";
@@ -45,7 +45,11 @@ export const useBatch = defineStore("batch", () => {
     prefix: string,
     entries: invokes.LibraryEntry[]
   ): Promise<BatchPreview> => {
-    const settingsError = validateSolveSettings(session.settings);
+    // The batch has its own target: only the Setup's threads, precision and iterations count.
+    const settingsError = validateSolveSettings({
+      ...session.settings,
+      targetExploitability: DEFAULT_BATCH_TARGET,
+    });
     if (settingsError) return { ok: false, error: settingsError };
     const first = Object.values(setupErrors(config)).flat()[0];
     if (first) return { ok: false, error: first };
