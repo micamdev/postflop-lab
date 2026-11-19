@@ -6,8 +6,9 @@
       v-for="row in rows"
       :key="row.name"
       type="button"
-      class="flex flex-col flex-1 min-w-[10px] max-w-[28px] group"
+      class="flex flex-col flex-1 min-w-[10px] max-w-[28px] group disabled:cursor-default"
       :title="tooltip(row)"
+      :aria-label="tooltip(row)"
       :disabled="store.isLibraryBusy"
       @click="emit('open', row.name)"
     >
@@ -18,7 +19,7 @@
       >
         <div
           v-if="metric === 'strategy' && row.strategy"
-          class="flex flex-col w-full h-full group-hover:opacity-80"
+          class="flex flex-col w-full h-full group-enabled:group-hover:opacity-80"
         >
           <div
             v-for="action in actions"
@@ -31,7 +32,7 @@
         </div>
         <div
           v-else-if="metric !== 'strategy'"
-          class="w-full group-hover:opacity-80"
+          class="w-full group-enabled:group-hover:opacity-80"
           :style="{
             height: `${barHeight(row) * 100}%`,
             backgroundColor: themeColor(player === 0 ? 'oop' : 'ip'),

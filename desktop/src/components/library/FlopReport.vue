@@ -116,7 +116,12 @@
       />
       <span class="flex items-center gap-2">
         Sort by
-        <select v-model="sortKey" class="ui-input h-7 py-0 text-xs">
+        <select
+          :value="sortKey"
+          class="ui-input h-7 py-0 text-xs"
+          aria-label="Sort by"
+          @change="sortBy(($event.target as HTMLSelectElement).value)"
+        >
           <option
             v-for="column in sortColumns"
             :key="column.key"
@@ -129,6 +134,7 @@
           type="button"
           class="w-6 h-6 rounded hover:bg-panel2 hover:text-ink"
           :title="descending ? 'Descending' : 'Ascending'"
+          :aria-label="descending ? 'Descending' : 'Ascending'"
           @click="descending = !descending"
         >
           {{ descending ? "▼" : "▲" }}
