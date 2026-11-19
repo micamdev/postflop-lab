@@ -2,6 +2,7 @@ import { describe, expect, test } from "vitest";
 import type { LibraryEntry, SolutionMeta } from "./invokes";
 import { planBatch } from "./batch-plan";
 import { configKey } from "./flop-report";
+import { classOf, representativeFlops } from "./flop-subsets";
 
 // As = 51, Kd = 45, 7c = 20; Ah = 50, Kc = 44, 7d = 21; 8h = 26, 7h = 22, 6d = 17.
 const AK7 = [51, 45, 20];
@@ -49,6 +50,36 @@ describe("planBatch", () => {
       planBatch([saved("b49", AK7, spot.ranges, 49)], key, flops2, 49, "p")
         .skipped
     ).toBe(1);
+  });
+
+  test("with every flop (1755), a hand-solved flop is skipped: its weight is the same", () => {
+    const flops2 = [{ board: AK7, weight: 24 }];
+    expect(
+      planBatch(
+        [saved("hand", AhKc7d, spot.ranges, null)],
+        key,
+        flops2,
+        1755,
+        "p"
+      ).skipped
+    ).toBe(1);
+  });
+
+  test("each texture class spread over the batch: a stopped batch stays representative", () => {
+    const { toSolve } = planBatch([], key, representativeFlops(184), 184, "p");
+    const total = new Map<string, number>();
+    for (const f of toSolve)
+      total.set(classOf(f.board), (total.get(classOf(f.board)) ?? 0) + 1);
+    for (const share of [0.25, 0.5, 0.95]) {
+      const prefix = toSolve.slice(0, Math.round(toSolve.length * share));
+      for (const [c, n] of total) {
+        const got = prefix.filter((f) => classOf(f.board) === c).length;
+        expect(
+          Math.abs(got - n * share),
+          `${c} at ${share}`
+        ).toBeLessThanOrEqual(1.5);
+      }
+    }
   });
 
   const flops = [

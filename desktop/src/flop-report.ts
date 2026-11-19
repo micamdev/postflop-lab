@@ -132,7 +132,8 @@ const inSubset = (row: ReportRow, size: number | null) =>
 /**
  * The batch subset the average uses: the largest one at least 95% solved, else the most
  * complete one (the larger on a tie). A barely started large batch does not push out a
- * finished smaller one; a nearly finished one does. Null when no flop comes from a batch.
+ * finished smaller one; a nearly finished one does (a batch spreads each texture class over
+ * its run, so its missing flops are not one block of textures). Null when no flop comes from a batch.
  */
 const subsetForAverage = (rows: ReportRow[]): number | null => {
   const sizes = new Set(
