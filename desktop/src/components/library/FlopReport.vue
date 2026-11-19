@@ -155,161 +155,31 @@
       :player="chartPlayer"
       @open="emit('open', $event)"
     />
-    <div
+    <FlopReportTable
       v-else
-      class="flex-1 min-h-0 overflow-auto rounded-lg border border-line bg-panel"
-    >
-      <table class="w-full text-sm tabular-nums">
-        <thead class="sticky top-0 z-10 bg-panel2">
-          <tr class="text-left text-xs text-muted">
-            <th
-              v-for="column in columns"
-              :key="column.key"
-              scope="col"
-              :aria-sort="
-                sortKey === column.key
-                  ? descending
-                    ? 'descending'
-                    : 'ascending'
-                  : undefined
-              "
-              :class="[
-                'px-3 py-2 font-semibold whitespace-nowrap select-none',
-                column.numeric ? 'text-right' : '',
-              ]"
-              :title="column.title"
-            >
-              <span v-if="column.key === 'strategy'">{{ column.label }}</span>
-              <!-- A button: sortable with the keyboard too. -->
-              <button
-                v-else
-                type="button"
-                class="font-semibold rounded-sm hover:text-ink focus-visible:outline focus-visible:outline-2 focus-visible:outline-accent"
-                @click="sortBy(column.key)"
-              >
-                {{ column.label }}
-                <span v-if="sortKey === column.key" aria-hidden="true">{{
-                  descending ? "▼" : "▲"
-                }}</span>
-              </button>
-            </th>
-          </tr>
-        </thead>
-        <tbody>
-          <tr class="border-t border-line bg-panel2/60 font-semibold">
-            <td class="px-3 py-2">Average</td>
-            <td class="px-3 py-2 text-muted font-normal">
-              <template v-if="subset">
-                {{ subset.size }}-flop subset, weighted
-                <span
-                  v-if="subset.solved < subset.size"
-                  class="text-red-400"
-                  title="Solve the rest of the subset (same size, same spot) for an average that stands for all flops"
-                  >({{ subset.solved }}/{{ subset.size }} solved)</span
-                >
-              </template>
-              <template v-else>weighted by frequency</template>
-            </td>
-            <td class="px-3 py-2 whitespace-nowrap">
-              {{ advantageText(average.buckets, 1) }}
-            </td>
-            <td class="px-3 py-2 whitespace-nowrap">
-              {{ advantageText(average.buckets, 2) }}
-            </td>
-            <td class="px-3 py-2">
-              <div
-                v-if="average.strategy"
-                class="w-40 h-3 rounded-sm"
-                :style="{ backgroundImage: bar(average.strategy) }"
-              ></div>
-            </td>
-            <td
-              v-for="cell in valueCells(average)"
-              :key="cell.key"
-              :class="[
-                'px-3 py-2 whitespace-nowrap',
-                cell.numeric ? 'text-right' : '',
-              ]"
-              :style="cellStyle(cell)"
-            >
-              {{ cell.text }}
-            </td>
-          </tr>
-          <tr
-            v-for="row of shown"
-            :key="row.name"
-            :class="[
-              'border-t border-line',
-              store.isLibraryBusy
-                ? 'cursor-default'
-                : 'cursor-pointer hover:bg-panel2',
-            ]"
-            :title="store.isLibraryBusy ? '' : `Open “${row.name}”`"
-            :tabindex="store.isLibraryBusy ? -1 : 0"
-            class="focus-visible:outline-none focus-visible:bg-panel2 focus-visible:shadow-[inset_2px_0_0_rgb(var(--accent))]"
-            @click="emit('open', row.name)"
-            @keydown.enter="emit('open', row.name)"
-          >
-            <td class="px-3 py-2 whitespace-nowrap">
-              <BoardChips :board="row.board" sorted />
-            </td>
-            <td class="px-3 py-2 text-muted whitespace-nowrap">
-              {{ row.texture }}
-              <span
-                v-if="!row.inAverage"
-                class="ml-1 text-xs"
-                title="Not in the subset the average uses (solved by hand or in another subset)"
-                >· not in average</span
-              >
-            </td>
-            <td class="px-3 py-2 whitespace-nowrap">
-              {{ advantageText(row.buckets, 1) }}
-            </td>
-            <td class="px-3 py-2 whitespace-nowrap">
-              {{ advantageText(row.buckets, 2) }}
-            </td>
-            <td class="px-3 py-2">
-              <div
-                v-if="row.strategy"
-                class="w-40 h-3 rounded-sm"
-                :style="{ backgroundImage: bar(row.strategy) }"
-              ></div>
-              <span v-else class="text-muted">—</span>
-            </td>
-            <td
-              v-for="cell in valueCells(row)"
-              :key="cell.key"
-              :class="[
-                'px-3 py-2 whitespace-nowrap',
-                cell.numeric ? 'text-right' : '',
-              ]"
-              :style="cellStyle(cell)"
-            >
-              {{ cell.text }}
-            </td>
-          </tr>
-        </tbody>
-      </table>
-    </div>
+      :rows="shown"
+      :average="average"
+      :subset="subset"
+      :actions="actions"
+      :colors="colors"
+      :sort-key="sortKey"
+      :descending="descending"
+      @sort="sortBy"
+      @open="emit('open', $event)"
+    />
   </div>
 </template>
 
 <script setup lang="ts">
-import BoardChips from "../ui/BoardChips.vue";
 import { computed, ref, watch } from "vue";
 import { save } from "@tauri-apps/plugin-dialog";
 import { writeTextFile } from "@tauri-apps/plugin-fs";
 import { useStore } from "../../store";
 import * as invokes from "../../invokes";
-import { toFixed1, toFixed2 } from "../../utils";
-import { stackedGradient } from "../../action-colors";
-import { themeColor } from "../../theme";
 import { potPercent, toSpotActions } from "../../nav-spots";
 import { matchesTexture, TextureFilter } from "../../flop-texture";
 import {
   CbetBy,
-  actionLabel,
-  advantageText,
   averageRow,
   buildReport,
   ChartMetric,
@@ -323,6 +193,8 @@ import UiButton from "../ui/UiButton.vue";
 import UiSegmented from "../ui/UiSegmented.vue";
 import NodeStrategyCards from "../results/NodeStrategyCards.vue";
 import FlopReportChart from "./FlopReportChart.vue";
+import FlopReportTable from "./FlopReportTable.vue";
+import { reportColumns } from "../../flop-report-columns";
 
 // The flop report of the spot of `source`: every library solution with the same
 // configuration, one row per flop (see flop-report.ts).
@@ -388,85 +260,6 @@ const missingCount = computed(
   () => rows.value.filter((r) => r.isOlderSave).length
 );
 
-type Column = { key: string; label: string; numeric?: boolean; title?: string };
-const columns = computed<Column[]>(() => [
-  { key: "flop", label: "Flop" },
-  { key: "texture", label: "Texture" },
-  {
-    key: "nut",
-    label: "Nut adv.",
-    title: "Who holds more of the hands with 90%+ equity, by how many points",
-  },
-  {
-    key: "best",
-    label: "Best hands",
-    title: "Who holds more of the hands with 75%+ equity, by how many points",
-  },
-  { key: "strategy", label: "Strategy" },
-  ...actions.value.map((a) => ({
-    key: a,
-    label: actionLabel(a),
-    numeric: true,
-  })),
-  ...(["EV", "EQ", "EQR"] as const).flatMap((name) =>
-    (["OOP", "IP"] as const).map((who, p) => ({
-      key: `${name.toLowerCase()}${p}`,
-      label: `${name} ${who}`,
-      numeric: true,
-      title: `${who}'s ${name === "EQ" ? "equity" : name} at the root`,
-    }))
-  ),
-]);
-
-type Values = Pick<
-  ReturnType<typeof averageRow>,
-  "strategy" | "equity" | "ev" | "eqr" | "buckets"
->;
-type Cell = {
-  key: string;
-  text: string;
-  numeric?: boolean;
-  /** A bar filling `ratio` of the cell, in `color`. */
-  fill?: { ratio: number; color: string };
-};
-
-/** The cells after the strategy bar: actions, then EV, EQ, EQR (OOP then IP). */
-const valueCells = (v: Values): Cell[] => {
-  const playerColor = (p: number) => themeColor(p === 0 ? "oop" : "ip");
-  return [
-    ...actions.value.map((a) => {
-      const frequency = v.strategy ? (v.strategy[a] ?? 0) : null;
-      return {
-        key: a,
-        text: frequency === null ? "—" : percent(frequency),
-        numeric: true,
-        fill:
-          frequency === null
-            ? undefined
-            : { ratio: frequency, color: colors.value[a] },
-      };
-    }),
-    ...[0, 1].map((p) => ({
-      key: `ev${p}`,
-      text: evText(v.ev[p]),
-      numeric: true,
-    })),
-    ...[0, 1].map((p) => ({
-      key: `eq${p}`,
-      text: percent(v.equity[p]),
-      numeric: true,
-      fill: { ratio: v.equity[p], color: playerColor(p) },
-    })),
-    ...[0, 1].map((p) => ({
-      key: `eqr${p}`,
-      text: percent(v.eqr[p]),
-      numeric: true,
-      // 200% fills the cell.
-      fill: { ratio: v.eqr[p] / 2, color: playerColor(p) },
-    })),
-  ];
-};
-
 /** The average strategy as the action cards of the results. */
 const averageItems = computed(() => {
   const strategy = average.value.strategy;
@@ -487,23 +280,9 @@ const averageItems = computed(() => {
   });
 });
 
-const cellStyle = (cell: Cell) => {
-  if (!cell.fill || !isFinite(cell.fill.ratio)) return {};
-  const width = Math.min(Math.max(cell.fill.ratio, 0), 1) * 100;
-  const color = cell.fill.color;
-  // A thin line under the value, its length the value.
-  return {
-    backgroundImage: `linear-gradient(${color}, ${color})`,
-    // The bar spans the text area (the cell less its 0.75rem side paddings).
-    backgroundSize: `calc((100% - 1.5rem) * ${width / 100}) 3px`,
-    backgroundPosition: "right 0.75rem bottom 4px",
-    backgroundRepeat: "no-repeat",
-  };
-};
-
 /** The columns the chart can be sorted by (all sortable ones). */
 const sortColumns = computed(() =>
-  columns.value.filter((c) => c.key !== "strategy")
+  reportColumns(actions.value).filter((c) => c.key !== "strategy")
 );
 
 /** Same column: reverse; new column: descending, except flop and texture. */
@@ -522,17 +301,6 @@ const colors = computed(() =>
     toSpotActions(actions.value).map((a, i) => [actions.value[i], a.color])
   )
 );
-const bar = (strategy: Record<string, number>) =>
-  stackedGradient(
-    actions.value.map((a) => strategy[a] ?? 0),
-    actions.value.map((a) => colors.value[a]),
-    "right"
-  );
-
-const percent = (value: number | undefined) =>
-  value === undefined || isNaN(value) ? "—" : toFixed1(value * 100) + "%";
-const evText = (value: number) => (isNaN(value) ? "—" : toFixed2(value));
-
 const exportCsv = async () => {
   const path = await save({
     defaultPath: "flop report.csv",
