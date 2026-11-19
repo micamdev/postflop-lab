@@ -3,6 +3,7 @@
     windows_subsystem = "windows"
 )]
 
+mod batch;
 mod bunching;
 mod guard;
 mod library;
@@ -38,6 +39,7 @@ fn main() {
         .manage(Mutex::new(session::SubgameCache::default()))
         .manage(subgame_commands::SubgameControl::default())
         .manage(lock_commands::CurrentLocks::default())
+        .manage(batch::BatchControl::default())
         .manage(Mutex::new(std::sync::Arc::new(
             ThreadPoolBuilder::new().build().unwrap(),
         )))
@@ -111,6 +113,8 @@ fn main() {
             library_check_load,
             library_load,
             library_refresh_summary,
+            batch::batch_solve,
+            batch::batch_cancel,
             library_rename,
             library_delete,
             library_import,

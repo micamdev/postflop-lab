@@ -106,6 +106,7 @@
             numCombos.every((x) => x === 0) ||
             store.isBunchingRunning ||
             store.isSolverRunning ||
+            batch.isRunning ||
             numThreads < 1 ||
             numThreads > 64 ||
             numThreads % 1 !== 0
@@ -134,6 +135,7 @@
           variant="ghost"
           :disabled="
             store.isSolverRunning ||
+            batch.isRunning ||
             numThreads < 1 ||
             numThreads > 64 ||
             numThreads % 1 !== 0
@@ -210,6 +212,7 @@ import {
   weightPercent,
 } from "../utils";
 import * as invokes from "../invokes";
+import { useBatch } from "../use-batch";
 import { useSolverSession } from "../solver-session";
 import { threadsError } from "../solve-settings";
 
@@ -222,6 +225,7 @@ import {
 } from "@heroicons/vue/20/solid";
 
 const store = useStore();
+const batch = useBatch();
 const configStore = useConfigStore();
 
 const numThreads = ref(navigator.hardwareConcurrency || 1);

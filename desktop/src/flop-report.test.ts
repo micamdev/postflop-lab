@@ -317,7 +317,10 @@ describe("review follow-ups", () => {
       [
         entry("hand old", meta(AK7, { created_at: 1 })),
         entry("hand new", meta(AhKc7d, { created_at: 3 })),
-        entry("batch", meta(AhKc7d, { created_at: 2, flop_weight: 400 })),
+        entry(
+          "batch",
+          meta(AhKc7d, { created_at: 2, flop_weight: 400, batch_size: 49 })
+        ),
         entry("876", meta(EIGHT76, { created_at: 5 })),
         entry("876 again", meta(EIGHT76, { created_at: 6 })),
       ],
@@ -331,7 +334,7 @@ describe("review follow-ups", () => {
   test("with batch flops, the average is over them only", () => {
     const { rows } = buildReport(
       [
-        entry("batch", meta(AK7, { flop_weight: 400 })),
+        entry("batch", meta(AK7, { flop_weight: 400, batch_size: 49 })),
         entry("hand", meta(EIGHT76, {}, { equity: [0, 0] })),
       ],
       key,
@@ -348,5 +351,53 @@ describe("review follow-ups", () => {
       "ip"
     );
     expect(rows.every((r) => r.inAverage)).toBe(true);
+  });
+});
+
+describe("subsets", () => {
+  const key = configKey(meta(AK7));
+  const QQ2 = [43, 42, 0];
+
+  test("the average uses one subset (the largest), and says how complete it is", () => {
+    const report = buildReport(
+      [
+        entry("b25 AK7", meta(AK7, { flop_weight: 800, batch_size: 25 })),
+        entry("b49 876", meta(EIGHT76, { flop_weight: 400, batch_size: 49 })),
+        entry(
+          "b49 QQ2",
+          meta(QQ2, { flop_weight: 450, batch_size: 49 }, { equity: [0, 0] })
+        ),
+      ],
+      key,
+      "ip"
+    );
+    expect(report.subset).toEqual({ size: 49, solved: 2 });
+    expect(report.rows.map((r) => [r.name, r.inAverage])).toEqual([
+      ["b25 AK7", false],
+      ["b49 876", true],
+      ["b49 QQ2", true],
+    ]);
+  });
+
+  test("a flop in two subsets: the row of the subset used for the average is kept", () => {
+    const report = buildReport(
+      [
+        entry(
+          "b49",
+          meta(AK7, { flop_weight: 400, batch_size: 49, created_at: 1 })
+        ),
+        entry(
+          "b25",
+          meta(AK7, { flop_weight: 800, batch_size: 25, created_at: 2 })
+        ),
+      ],
+      key,
+      "ip"
+    );
+    expect(report.rows.map((r) => r.name)).toEqual(["b49"]);
+  });
+
+  test("no batch: no subset", () => {
+    expect(buildReport([entry("a", meta(AK7))], key, "ip").subset).toBeNull();
   });
 });

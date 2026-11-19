@@ -314,6 +314,8 @@ export type SolutionMeta = {
   locks?: NodeLock[];
   /** Weight of the flop in the subset it was batch-solved with (absent if solved by hand). */
   flop_weight?: number | null;
+  /** Size of the flop subset of the batch that solved it (absent if solved by hand). */
+  batch_size?: number | null;
 };
 
 export type LibraryEntry = {
@@ -452,4 +454,49 @@ export const gamePrepareLockSolve = async (
   locks: NodeLock[]
 ): Promise<boolean> => {
   return await invoke("game_prepare_lock_solve", { locks });
+};
+
+/* Batch solving */
+
+export type BatchRequest = {
+  /** The Setup's tree arguments (the board is set per flop). */
+  args: GameTreeArgs;
+  /** The Setup as saved in the metadata (the board is set per flop). */
+  treeConfig: Record<string, unknown>;
+  flops: { board: number[]; weight: number; name: string }[];
+  /** Size of the subset the flops come from (saved with each flop). */
+  subsetSize: number;
+  settings: {
+    precision: string;
+    targetExploitability: number;
+    maxIterations: number;
+  };
+  depth: string;
+};
+
+export type BatchProgress = {
+  index: number;
+  total: number;
+  name: string;
+  iteration: number;
+  exploitability: number;
+};
+
+export type BatchResult = {
+  solved: number;
+  /** "name: error" for each flop that failed. */
+  failed: string[];
+  cancelled: boolean;
+};
+
+/** Solves the Setup's spot on each flop and saves them; "batch-progress" events meanwhile. */
+export const batchSolve = async (
+  request: BatchRequest
+): Promise<BatchResult> => {
+  return await invoke("batch_solve", { request });
+};
+
+/** Stops the batch in progress (the flop being solved is not saved). */
+export const batchCancel = async (): Promise<void> => {
+  await invoke("batch_cancel");
 };

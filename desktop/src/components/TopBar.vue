@@ -72,6 +72,15 @@
       </UiButton>
     </template>
 
+    <button
+      v-if="batch.isRunning"
+      type="button"
+      class="text-xs text-muted hover:text-ink tabular-nums"
+      title="A batch is solving flops: see the Library"
+      @click="store.navView = 'library'"
+    >
+      Batch {{ batchProgressText }}
+    </button>
     <UiTooltip text="Solve settings">
       <button
         type="button"
@@ -160,11 +169,18 @@ import SaveSolutionDialog from "./SaveSolutionDialog.vue";
 import { useLockResolve } from "../lock-resolve";
 import { hasPendingLocks } from "../lock-utils";
 import AboutDialog from "./AboutDialog.vue";
+import { useBatch } from "../use-batch";
 
 const store = useStore();
 const config = useConfigStore();
 const savedConfig = useSavedConfigStore();
 const session = useSolverSession();
+const batch = useBatch();
+const batchProgressText = computed(() =>
+  batch.progress
+    ? `${batch.progress.index + 1}/${batch.progress.total}`
+    : "…"
+);
 
 const isSettingsOpen = ref(false);
 const lockResolve = useLockResolve();
@@ -208,6 +224,7 @@ const settingsError = computed(() => validateSolveSettings(session.settings));
 
 const canSolve = computed(
   () =>
+    !batch.isRunning &&
     !store.isLibraryBusy &&
     !store.isBunchingRunning &&
     !session.isBuilding &&

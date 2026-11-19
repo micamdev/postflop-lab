@@ -78,6 +78,7 @@ import {
   toSpotActions,
 } from "../nav-spots";
 import * as invokes from "../invokes";
+import { useBatch } from "../use-batch";
 
 import {
   Results,
@@ -282,6 +283,12 @@ const resolveAndDeal = async (card: number) => {
   }
   // A navigation is running: the selected spot is about to change.
   if (isBusy || props.isLocked) return;
+  // Re-solving a river would compete with the batch for the CPU and the memory.
+  if (useBatch().isRunning) {
+    navError.value =
+      "A batch is solving flops: re-solve this river once it ends.";
+    return;
+  }
   // Busy with something else (a library load): its busy flag must not be cleared here.
   if (store.isLibraryBusy && !resolveStatus.value) {
     navError.value = "The library is busy.";
