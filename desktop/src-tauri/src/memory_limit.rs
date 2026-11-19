@@ -8,6 +8,8 @@ pub fn limit_from(available: u64, total: u64, in_use: u64, macos: bool) -> u64 {
         u64::MAX
     } else if macos {
         (total / 10 * 7).saturating_sub(in_use)
+    } else if available == 0 {
+        u64::MAX
     } else {
         available
     }
@@ -44,5 +46,7 @@ mod tests {
     fn no_limit_when_the_memory_cannot_be_read() {
         assert_eq!(limit_from(0, 0, 10 * GB, false), u64::MAX);
         assert_eq!(limit_from(0, 0, 10 * GB, true), u64::MAX);
+        // Outside macOS, an unread available memory must not refuse every game.
+        assert_eq!(limit_from(0, 16 * GB, 0, false), u64::MAX);
     }
 }
