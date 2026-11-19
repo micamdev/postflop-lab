@@ -111,15 +111,18 @@ const emit = defineEmits<{
   (event: "update:display-options", displayOptions: Types.DisplayOptions): void;
 }>();
 
-/** Strategy, Equity, Compare and Breakdown, plus Turn / River while a card is being dealt. */
+/**
+ * Strategy, Equity and Breakdown (grid and summary), Turn / River while a card is being
+ * dealt, then Compare (laid out differently: both ranges side by side).
+ */
 const tabs = computed(() => [
   { value: "basics", label: "Strategy" },
   { value: "graphs", label: "Equity" },
-  { value: "compare", label: "Compare" },
   { value: "breakdown", label: "Breakdown" },
   ...(props.chanceMode === ""
     ? []
     : [{ value: "chance", label: capitalize(props.chanceMode) }]),
+  { value: "compare", label: "Compare" },
 ]);
 
 const playerOptions = (auto: "oop" | "ip") => [
