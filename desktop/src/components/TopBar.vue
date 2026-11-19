@@ -59,6 +59,9 @@
         v-else
         size="sm"
         :disabled="settingsError !== null"
+        :title="
+          settingsError ? `Solve settings (Setup › Solve): ${settingsError}` : ''
+        "
         @click="session.resume()"
       >
         Resume

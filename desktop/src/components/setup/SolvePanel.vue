@@ -4,6 +4,7 @@
     <div class="flex items-start justify-between gap-2 text-xs text-muted">
       <span class="tabular-nums">{{ summary }}</span>
       <button
+        v-if="!settingsError"
         type="button"
         class="shrink-0 text-accent-ink hover:underline"
         :aria-expanded="isOpen"
@@ -58,6 +59,7 @@ const summary = computed(() => {
     `max ${s.maxIterations} iterations`,
     `${s.threads} threads`,
     ...(store.isBunchingEnabled ? ["bunching on"] : []),
+    ...(session.ignoreMemoryLimit ? ["RAM limit ignored"] : []),
   ].join(" · ");
 });
 

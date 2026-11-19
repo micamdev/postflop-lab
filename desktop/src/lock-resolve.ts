@@ -33,7 +33,9 @@ export const useLockResolve = defineStore("lockResolve", () => {
     if (store.isSolveStarting) return "A solve is starting.";
     if (useBatch().isRunning) return "A batch is solving flops.";
     const settingsError = validateSolveSettings(useSolverSession().settings);
-    if (settingsError) return `Solve settings: ${settingsError}`;
+    if (settingsError) {
+      return `Solve settings (Setup › Solve): ${settingsError}`;
+    }
     return "";
   });
 
