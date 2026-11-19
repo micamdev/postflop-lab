@@ -6,7 +6,6 @@ import {
   averageRow,
   buildReport,
   chartBar,
-  chartScale,
   chartZero,
   configKey,
   defaultCbetBy,
@@ -434,17 +433,6 @@ describe("chartBar", () => {
   test("the zero line, when values go below it", () => {
     expect(chartZero("ev", [15, -5])).toBe(0.25);
     expect(chartZero("ev", [1, 2])).toBeNull();
-  });
-});
-
-describe("chartScale", () => {
-  test("strategy and equity fill 0-100%; EV and EQR up to the largest value", () => {
-    expect(chartScale("strategy", [])).toBe(1);
-    expect(chartScale("eq", [0.4, 0.6])).toBe(1);
-    expect(chartScale("ev", [2, 8, Number.NaN])).toBe(8);
-    expect(chartScale("eqr", [0.9, 1.3])).toBe(1.3);
-    // Nothing positive: a scale that does not divide by zero.
-    expect(chartScale("ev", [0, -1])).toBe(1);
   });
 });
 

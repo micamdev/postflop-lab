@@ -417,16 +417,6 @@ export const sortReportRows = (
 /** What the chart shows per flop: the strategy, or one player's equity, EV or EQR. */
 export type ChartMetric = "strategy" | "eq" | "ev" | "eqr";
 
-/**
- * The value a full bar stands for: 100% for the strategy and equity, the largest value for
- * EV and EQR (negative values draw no bar).
- */
-export const chartScale = (metric: ChartMetric, values: number[]): number => {
-  if (metric === "strategy" || metric === "eq") return 1;
-  const max = Math.max(0, ...values.filter(isFinite));
-  return max > 0 ? max : 1;
-};
-
 /** The chart's range: from the lowest value (0 when none is negative) to the highest. */
 const chartRange = (metric: ChartMetric, values: number[]) => {
   if (metric === "strategy" || metric === "eq") return { low: 0, span: 1 };

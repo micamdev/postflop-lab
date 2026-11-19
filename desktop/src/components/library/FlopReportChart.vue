@@ -33,18 +33,22 @@
         <template v-else-if="metric !== 'strategy'">
           <!-- From the zero line: up for a positive value, down for a negative one. -->
           <div
-            class="absolute inset-x-0 group-enabled:group-hover:opacity-80"
+            :class="[
+              'absolute inset-x-0 group-enabled:group-hover:opacity-80',
+              valueOf(row) < 0 ? 'opacity-60' : '',
+            ]"
             :style="{
               bottom: `${bar(row).bottom * 100}%`,
               height: `${bar(row).height * 100}%`,
               backgroundColor: themeColor(player === 0 ? 'oop' : 'ip'),
-              opacity: valueOf(row) < 0 ? 0.55 : 1,
             }"
           ></div>
           <div
             v-if="zero !== null"
             class="absolute inset-x-0 h-px bg-muted"
-            :style="{ bottom: `${zero * 100}%` }"
+            :style="{
+              bottom: `calc(${zero * 100}% - ${zero === 1 ? 1 : 0}px)`,
+            }"
           ></div>
         </template>
       </div>

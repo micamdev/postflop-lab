@@ -184,7 +184,7 @@
               <button
                 v-else
                 type="button"
-                class="font-semibold hover:text-ink"
+                class="font-semibold rounded-sm hover:text-ink focus-visible:outline focus-visible:outline-2 focus-visible:outline-accent"
                 @click="sortBy(column.key)"
               >
                 {{ column.label }}
@@ -246,6 +246,7 @@
             ]"
             :title="store.isLibraryBusy ? '' : `Open “${row.name}”`"
             :tabindex="store.isLibraryBusy ? -1 : 0"
+            class="focus-visible:outline-none focus-visible:bg-panel2 focus-visible:shadow-[inset_2px_0_0_rgb(var(--accent))]"
             @click="emit('open', row.name)"
             @keydown.enter="emit('open', row.name)"
           >
