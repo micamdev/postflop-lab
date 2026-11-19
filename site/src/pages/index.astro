@@ -5,6 +5,7 @@ import Shot from "../components/Shot.astro";
 
 const repo = "https://github.com/micamdev/postflop-lab";
 const releases = `${repo}/releases/latest`;
+const kofi = "https://ko-fi.com/micamapp";
 
 const features = [
   {
@@ -163,6 +164,10 @@ const comparison = [
         No account, no subscription, no limits on tree size other than your memory. The code
         is open under the AGPL-3.0 license.
       </p>
+      <p class="mx-auto mt-3 max-w-[34rem] text-ash">
+        If it helps your game, you can{" "}
+        <a href={kofi} class="text-lavender hover:underline">support it on Ko-fi</a>.
+      </p>
       <div class="mt-9 flex flex-wrap items-center justify-center gap-x-6 gap-y-4">
         <a
           href={releases}
@@ -183,6 +188,7 @@ const comparison = [
       <span>Made by <a href="https://mica.app" class="text-chalk hover:underline">Michael Maccio</a></span>
       <a href={repo} class="hover:text-chalk">GitHub</a>
       <a href={`${repo}/issues/new`} class="hover:text-chalk">Report an issue</a>
+      <a href={kofi} class="hover:text-chalk">Support on Ko-fi</a>
       <span class="sm:ml-auto">AGPL-3.0, based on Desktop Postflop by Wataru Inariba</span>
     </div>
   </footer>
