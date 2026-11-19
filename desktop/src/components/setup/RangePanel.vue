@@ -44,36 +44,54 @@
       <UiButton v-else size="sm" @click="startEdit">Edit</UiButton>
     </header>
 
-    <div
-      class="grid gap-[2px] select-none"
-      style="grid-template-columns: repeat(13, minmax(0, 1fr))"
-      @mouseleave="editing.endPaint"
-      @mouseup="editing.endPaint"
-    >
+    <div class="relative">
+      <!-- While a saved range is dragged over it, or when the range is empty. -->
       <div
-        v-for="cell in cells"
-        :key="cell.index"
+        v-if="isDropTarget || (!isEditing && editing.numCombos.value === 0)"
         :class="[
-          'relative h-[clamp(22px,calc((100vh-460px)/14),44px)] rounded-[2px] overflow-hidden bg-cell',
-          isEditing ? 'cursor-pointer' : '',
+          'absolute inset-0 z-10 flex items-center justify-center rounded-md text-sm pointer-events-none',
+          isDropTarget ? 'bg-accent/15 text-ink font-semibold' : 'text-muted',
         ]"
-        @mousedown="isEditing && editing.startPaint(cell.row, cell.col)"
-        @mouseenter="isEditing && editing.paintOver(cell.row, cell.col)"
+      >
+        <span class="px-3 py-1.5 rounded-md bg-panel/90">
+          {{
+            isDropTarget
+              ? `Drop to load into ${player === 0 ? "OOP" : "IP"}`
+              : "Empty range: Edit, or drag one from the explorer"
+          }}
+        </span>
+      </div>
+      <div
+        class="grid gap-[2px] select-none"
+        style="grid-template-columns: repeat(13, minmax(0, 1fr))"
+        @mouseleave="editing.endPaint"
+        @mouseup="editing.endPaint"
       >
         <div
-          :class="['absolute inset-x-0 bottom-0', fillClass]"
-          :style="{ height: `${store.ranges[player][cell.index]}%` }"
-        />
-        <span
+          v-for="cell in cells"
+          :key="cell.index"
           :class="[
-            'relative px-[3px] text-[10px] leading-[18px]',
-            store.ranges[player][cell.index] > 0
-              ? 'font-semibold text-white'
-              : 'text-muted/70',
+            'relative h-[clamp(22px,calc((100vh-460px)/14),44px)] rounded-[2px] overflow-hidden bg-cell',
+            isEditing ? 'cursor-pointer' : '',
           ]"
+          @mousedown="isEditing && editing.startPaint(cell.row, cell.col)"
+          @mouseenter="isEditing && editing.paintOver(cell.row, cell.col)"
         >
-          {{ cell.text }}
-        </span>
+          <div
+            :class="['absolute inset-x-0 bottom-0', fillClass]"
+            :style="{ height: `${store.ranges[player][cell.index]}%` }"
+          />
+          <span
+            :class="[
+              'relative px-[3px] text-[10px] leading-[18px]',
+              store.ranges[player][cell.index] > 0
+                ? 'font-semibold text-white'
+                : 'text-muted/70',
+            ]"
+          >
+            {{ cell.text }}
+          </span>
+        </div>
       </div>
     </div>
 
@@ -83,7 +101,6 @@
           ((editing.numCombos.value * 100) / ((52 * 51) / 2)).toFixed(1)
         }}%)
       </span>
-      <span v-if="!isEditing">Drop a saved range here</span>
     </footer>
 
     <div v-if="isEditing" class="flex flex-col gap-2">
