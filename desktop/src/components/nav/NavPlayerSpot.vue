@@ -27,8 +27,7 @@
           (action.isSelected || isSelected ? '' : 'opacity-70')
         "
       >
-        {{ action.name }}
-        {{ action.amount === "0" ? "" : action.amount }}
+        {{ actionText(action) }}
       </span>
       <span
         v-if="isSelected && rates != null"
@@ -42,6 +41,7 @@
 
 <script setup lang="ts">
 import type { SpotPlayer } from "../../result-types";
+import { actionText } from "../../nav-spots";
 
 // The actions of a player spot, with their frequencies once selected.
 

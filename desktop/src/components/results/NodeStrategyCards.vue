@@ -18,7 +18,9 @@
           ]"
           :style="{ backgroundColor: cardColor(item) }"
         >
-          <div class="text-xs truncate opacity-90">{{ label(item) }}</div>
+          <div class="text-xs truncate opacity-90" :title="label(item)">
+            {{ label(item) }}
+          </div>
           <div class="text-lg font-semibold leading-tight">
             {{ (item.frequency * 100).toFixed(1) }}%
           </div>
@@ -46,6 +48,7 @@
 
 <script setup lang="ts">
 import type { StrategyItem } from "../../node-strategy";
+import { actionText } from "../../nav-spots";
 
 defineProps<{ items: StrategyItem[] | null; noHands: boolean }>();
 
@@ -58,6 +61,5 @@ const cardColor = (item: StrategyItem) =>
     ? `color-mix(in srgb, ${item.color} 82%, black)`
     : `color-mix(in srgb, ${item.color} 22%, rgb(var(--panel2)))`;
 
-const label = (item: StrategyItem) =>
-  item.amount === "0" ? item.name : `${item.name} ${item.amount}`;
+const label = actionText;
 </script>

@@ -49,8 +49,7 @@
             ]"
             @click.stop="play(spot.index, action.index)"
           >
-            {{ action.name }}
-            {{ action.amount === "0" ? "" : action.amount }}
+            {{ actionText(action) }}
           </button>
           <div
             v-if="spot.actions.length === 0"
@@ -190,6 +189,7 @@
 </template>
 
 <script setup lang="ts">
+import { actionText, streetBets, toSpotActions } from "../nav-spots";
 import UiButton from "./ui/UiButton.vue";
 import UiPanel from "./ui/UiPanel.vue";
 import { computed, nextTick, ref } from "vue";
@@ -476,16 +476,10 @@ const pushResultsChance = async () => {
       index: selectedSpotIndex.value + 1,
       player: "oop",
       selectedIndex: -1,
-      actions: nextActions.map((action, i) => {
-        const [name, amount] = action.split(":");
-        return {
-          index: i,
-          name,
-          amount,
-
-          isSelected: false,
-          color: "#000",
-        };
+      // The new street starts from the chance spot's pot, with no bet yet.
+      actions: toSpotActions(nextActions, {
+        pot: config.startingPot + 2 * totalBetAmount.value[0],
+        bet: 0,
       }),
     }
   );
@@ -502,16 +496,10 @@ const pushResultsPlayer = async () => {
     index: selectedSpotIndex.value,
     player,
     selectedIndex: -1,
-    actions: actions.map((action, i) => {
-      const [name, amount] = action.split(":");
-      return {
-        index: i,
-        name,
-        amount,
-        isSelected: false,
-        color: "#000",
-      };
-    }),
+    actions: toSpotActions(
+      actions,
+      streetBets(spots.value, selectedSpotIndex.value)
+    ),
   });
 };
 

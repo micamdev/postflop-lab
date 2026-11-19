@@ -75,6 +75,7 @@ import {
   historyOf,
   lineOf,
   nextLiveCard,
+  streetBets,
   toSpotActions,
 } from "../nav-spots";
 import * as invokes from "../invokes";
@@ -720,7 +721,11 @@ const spliceSpotsChance = async (spotIndex: number) => {
       index: spotIndex + 1,
       player: "oop",
       selectedIndex: -1,
-      actions: toSpotActions(nextActions),
+      // The new street starts from the chance spot's pot, with no bet yet.
+      actions: toSpotActions(nextActions, {
+        pot: config.startingPot + 2 * totalBetAmountAppended[0],
+        bet: 0,
+      }),
     }
   );
 
@@ -734,13 +739,14 @@ const spliceSpotsChance = async (spotIndex: number) => {
 const spliceSpotsPlayer = (spotIndex: number, actions: string[]) => {
   const prevSpot = spots.value[spotIndex - 1];
   const player = prevSpot.player === "oop" ? "ip" : "oop";
+  const street = streetBets(spots.value, spotIndex);
 
   spots.value.splice(spotIndex, spots.value.length, {
     type: "player",
     index: spotIndex,
     player,
     selectedIndex: -1,
-    actions: toSpotActions(actions),
+    actions: toSpotActions(actions, street),
   });
 };
 
