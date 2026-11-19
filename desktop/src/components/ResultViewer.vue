@@ -21,7 +21,8 @@
     <template v-else>
       <p class="text-lg font-semibold">No solution yet</p>
       <p class="text-muted">
-        Set up a spot and press Solve in the Setup, or open one from the Library.
+        Set up a spot and press Solve in the Setup, or open one from the
+        Library.
       </p>
     </template>
   </div>
@@ -170,7 +171,7 @@
         <div
           v-for="player in COMPARE_PLAYERS.slice(0, 1)"
           :key="player"
-          class="flex flex-1 min-w-0 items-start justify-center"
+          class="flex shrink-0 items-start"
         >
           <!-- A line in the player's colour on top: the middle column names OOP and IP. -->
           <ResultBasics
@@ -191,41 +192,43 @@
           />
         </div>
 
-        <!-- No action cards: the strategy is in the navigation spot, a thin bar recalls it. -->
-        <div
-          class="flex flex-col w-[240px] shrink-0"
-        >
-          <div
-            v-if="strategyItems"
-            class="flex shrink-0 h-1.5 mx-3 mt-3 mb-2 rounded-full overflow-hidden"
-            :title="strategyTitle"
-            role="img"
-            :aria-label="strategyTitle"
-          >
+        <!-- The grids keep the edges; this column takes the width left (its content stays
+             readable). No action cards: the strategy is in the navigation spot, a thin bar
+             recalls it. -->
+        <div class="flex flex-col flex-1 min-w-[240px] items-center">
+          <div class="flex flex-col flex-1 min-h-0 w-full max-w-[22rem]">
             <div
-              v-for="item in strategyItems"
-              :key="item.name + item.amount"
-              :style="{
-                width: `${item.frequency * 100}%`,
-                backgroundColor: item.color,
-              }"
+              v-if="strategyItems"
+              class="flex shrink-0 h-1.5 mx-3 mt-3 mb-5 rounded-full overflow-hidden"
+              :title="strategyTitle"
+              role="img"
+              :aria-label="strategyTitle"
+            >
+              <div
+                v-for="item in strategyItems"
+                :key="item.name + item.amount"
+                :style="{
+                  width: `${item.frequency * 100}%`,
+                  backgroundColor: item.color,
+                }"
+              />
+            </div>
+            <p v-else-if="noHandsAtNode" class="px-3 pt-3 text-xs text-muted">
+              No hands for this player at this node.
+            </p>
+            <ResultCompare
+              class="flex-1 min-h-0"
+              :selected-spot="selectedSpot"
+              :selected-chance="selectedChance"
+              :results="results"
             />
           </div>
-          <p v-else-if="noHandsAtNode" class="px-3 pt-3 text-xs text-muted">
-            No hands for this player at this node.
-          </p>
-          <ResultCompare
-            class="flex-1 min-h-0"
-            :selected-spot="selectedSpot"
-            :selected-chance="selectedChance"
-            :results="results"
-          />
         </div>
 
         <div
           v-for="player in COMPARE_PLAYERS.slice(1)"
           :key="player"
-          class="flex flex-1 min-w-0 items-start justify-center"
+          class="flex shrink-0 items-start"
         >
           <!-- A line in the player's colour on top: the middle column names OOP and IP. -->
           <ResultBasics
