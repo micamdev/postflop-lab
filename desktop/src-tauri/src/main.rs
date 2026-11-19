@@ -33,6 +33,8 @@ fn main() {
         .plugin(tauri_plugin_dialog::init())
         .plugin(tauri_plugin_opener::init())
         .plugin(tauri_plugin_fs::init())
+        .plugin(tauri_plugin_updater::Builder::new().build())
+        .plugin(tauri_plugin_process::init())
         .manage(Mutex::new(RangeManager::default()))
         .manage(Mutex::new(default_action_tree()))
         .manage(Mutex::new(None as Option<BunchingData>))
