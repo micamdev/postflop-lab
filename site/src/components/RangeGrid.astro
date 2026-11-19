@@ -1,0 +1,65 @@
+---
+// A solved strategy on the 13 × 13 hand grid, drawn like the app's: each hand's cell is
+// split by action frequency, its height by how much of the hand is in the range.
+import strategy from "../data/strategy.json";
+
+const { actions, cells } = strategy;
+---
+
+<figure class="w-full min-w-0">
+  <div
+    class="grid grid-cols-13 gap-[2px] rounded-lg bg-graphite p-[2px] ring-1 ring-rule"
+    role="img"
+    aria-label={`${strategy.title}: ${actions.map((a) => `${a.label} ${Math.round(a.total * 100)}%`).join(", ")}`}
+  >
+    {
+      cells.map((cell, i) => {
+        const row = Math.floor(i / 13);
+        const col = i % 13;
+        return (
+          <div class="relative aspect-square overflow-hidden rounded-[3px] bg-cell">
+            {cell.weight > 0 && (
+              <div
+                class="cell-bar absolute inset-x-0 bottom-0 flex"
+                style={`height:${cell.weight * 100}%; --delay:${(row + col) * 22}ms`}
+              >
+                {/* Biggest bet on the left, check on the right, as in the app. */}
+                {cell.freqs
+                  .map((f, a) => ({ f, color: actions[a].color }))
+                  .reverse()
+                  .map(({ f, color }) => (
+                    <span style={`width:${f * 100}%; background:${color}`} />
+                  ))}
+              </div>
+            )}
+            <span
+              class:list={[
+                "absolute left-[3px] top-[1px] text-[clamp(6px,0.78vw,10.5px)] font-semibold leading-tight tracking-tight",
+                cell.weight > 0 ? "text-white" : "text-ash/50",
+              ]}
+            >
+              {cell.hand}
+            </span>
+          </div>
+        );
+      })
+    }
+  </div>
+  <figcaption class="mt-4 flex flex-wrap items-baseline gap-x-5 gap-y-2 text-sm">
+    <span class="text-ash">{strategy.title}</span>
+    <span class="flex flex-wrap gap-x-4 gap-y-1">
+      {
+        actions.map((a) => (
+          <span class="tabular flex items-center gap-1.5">
+            <span
+              class="inline-block size-2.5 rounded-sm"
+              style={`background:${a.color}`}
+            />
+            {a.label}
+            <span class="text-ash">{Math.round(a.total * 100)}%</span>
+          </span>
+        ))
+      }
+    </span>
+  </figcaption>
+</figure>

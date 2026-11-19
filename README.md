@@ -25,6 +25,11 @@ pnpm build
 # Run the app in development mode
 pnpm tauri dev
 
+# Installers (pnpm tauri build) are signed for the in-app updater: set
+# TAURI_SIGNING_PRIVATE_KEY (the key's content) and TAURI_SIGNING_PRIVATE_KEY_PASSWORD
+# first. The release workflow reads them from the repository secrets. Unsigned local build:
+# pnpm tauri build --config '{"bundle":{"createUpdaterArtifacts":false}}'
+
 # End-to-end smoke test, before a release (Windows): starts the app in a temporary
 # library, then setup, solve, navigation, save and load. Exit code 0 when it passes.
 # Close any running `pnpm tauri dev` first (ports 5392 and 9223, same executable). The
@@ -53,3 +58,9 @@ Both projects' full git histories are preserved in this repository.
 ## License
 
 [AGPL-3.0-or-later](LICENSE), as the original projects.
+
+## Website
+
+`site/` is the landing page at https://postflop.mica.app (Astro, deployed to Cloudflare
+Workers): `cd site && pnpm install && pnpm dev`, then `pnpm run deploy` to publish.
+The hero's strategy grid is real solver output (`site/src/data/strategy.json`).

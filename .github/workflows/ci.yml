@@ -1,8 +1,8 @@
 name: CI
 
-# Minutes are counted: a PR is checked once (no second run when it is merged into dev), a new
-# push cancels the run in progress, and the Rust job (Windows, the longest) only runs when
-# Rust code changed.
+# Monorepo: each project's job runs only when that project changed (always on main, before a
+# release). A PR is checked once, a new push cancels the run in progress, and the last job,
+# "CI ok", sums them up: it is the one check to require (a skipped job counts as passed).
 on:
   pull_request:
     branches: [dev, main]
@@ -21,6 +21,8 @@ jobs:
     runs-on: ubuntu-latest
     outputs:
       rust: ${{ steps.filter.outputs.rust }}
+      desktop: ${{ steps.filter.outputs.desktop }}
+      site: ${{ steps.filter.outputs.site }}
     steps:
       - uses: actions/checkout@v4
       - uses: dorny/paths-filter@v3
@@ -33,6 +35,12 @@ jobs:
               - "Cargo.toml"
               - "Cargo.lock"
               - "rust-toolchain.toml"
+              - ".github/workflows/ci.yml"
+            desktop:
+              - "desktop/**"
+              - ".github/workflows/ci.yml"
+            site:
+              - "site/**"
               - ".github/workflows/ci.yml"
 
   rust:
@@ -81,6 +89,8 @@ jobs:
         run: cargo test -p postflop-solver --release --features custom-alloc -- --test-threads 1
 
   front:
+    needs: changes
+    if: needs.changes.outputs.desktop == 'true' || github.ref == 'refs/heads/main'
     runs-on: ubuntu-latest
     defaults:
       run:
@@ -102,3 +112,42 @@ jobs:
       - run: pnpm lint
       - run: pnpm exec vue-tsc --noEmit
       - run: pnpm test
+
+  # The website (postflop.mica.app): it builds. Cloudflare deploys it from main.
+  site:
+    needs: changes
+    if: needs.changes.outputs.site == 'true' || github.ref == 'refs/heads/main'
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: site
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: pnpm/action-setup@v4
+        with:
+          package_json_file: site/package.json
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: pnpm
+          cache-dependency-path: site/pnpm-lock.yaml
+
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm build
+
+  # The one check to require: fails if any job failed or was cancelled, passes when the
+  # jobs that ran passed (the others were skipped: their project did not change).
+  ci-ok:
+    name: CI ok
+    needs: [changes, rust, front, site]
+    if: always()
+    runs-on: ubuntu-latest
+    steps:
+      - name: Every job that ran passed
+        run: |
+          echo '${{ toJSON(needs) }}'
+          if ${{ contains(needs.*.result, 'failure') || contains(needs.*.result, 'cancelled') }}; then
+            exit 1
+          fi

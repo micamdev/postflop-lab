@@ -5,6 +5,7 @@
 import { computed } from "vue";
 import { useStore } from "./store";
 import { useSolverSession } from "./solver-session";
+import { updateState } from "./update";
 
 export const useSolverBusy = () => {
   const store = useStore();
@@ -17,6 +18,9 @@ export const useSolverBusy = () => {
       store.isSolveStarting ||
       store.isSolverRunning ||
       store.isSolverPaused ||
-      store.isFinalizing
+      store.isFinalizing ||
+      // Installing an update closes the app.
+      updateState.phase === "downloading" ||
+      updateState.phase === "installing"
   );
 };

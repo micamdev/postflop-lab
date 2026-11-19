@@ -1,0 +1,215 @@
+---
+import Layout from "../layouts/Layout.astro";
+import RangeGrid from "../components/RangeGrid.astro";
+import Shot from "../components/Shot.astro";
+
+const repo = "https://github.com/micamdev/postflop-lab";
+const releases = `${repo}/releases/latest`;
+
+const features = [
+  {
+    title: "Keep every spot you solve",
+    text: "Solutions are saved as files you own. Keep the whole tree, or stop at the turn and let rivers re-solve on demand when you pick them. Search your library by name or board.",
+    shot: "library",
+    alt: "The library: saved solutions with their board, depth, exploitability and size",
+  },
+  {
+    title: "Lock a strategy, solve the rest",
+    text: "Set the frequencies of any hands at a node, keep the rest of the node as it plays, then solve again. See how the other player adapts to an opponent who over-folds or never raises.",
+    shot: "lock",
+    alt: "The node lock editor over the strategy grid",
+  },
+  {
+    title: "Read a strategy across every flop",
+    text: "Solve a representative set of the 1,755 flops in one run, from 25 flops to all of them. Compare c-bet frequency and sizes, equity, EV and nut advantage by flop, filter by texture, export to CSV.",
+    shot: "report",
+    alt: "The flop report: one row per flop with c-bet frequencies, equity and EV",
+  },
+];
+
+const comparison = [
+  ["Solve any postflop spot", true, true],
+  ["Save and reload solutions", false, true],
+  ["Node locking", false, true],
+  ["Reports across many flops", false, true],
+  ["Maintained", false, true],
+] as const;
+---
+
+<Layout
+  title="Postflop Lab: free GTO postflop solver"
+  description="A free and open-source GTO postflop solver for No-Limit Hold'em. Solve, save and study your spots on your own computer, with node locking and reports across hundreds of flops."
+>
+  <header class="mx-auto flex max-w-6xl items-center gap-6 px-6 py-5">
+    <a href="/" class="flex items-center gap-2.5 font-semibold" aria-label="Postflop Lab, home">
+      <img src="/favicon.png" alt="" width="28" height="28" class="rounded-md bg-white p-1" />
+      <span class="heading text-lg">Postflop Lab</span>
+    </a>
+    <nav class="ml-auto flex items-center gap-6 text-sm">
+      <a href={repo} class="hidden text-ash transition-colors hover:text-chalk sm:inline">Source code</a>
+      <a
+        href={releases}
+        class="rounded-md bg-chalk px-3.5 py-1.5 font-semibold text-graphite transition-colors hover:bg-white"
+      >
+        Download
+      </a>
+    </nav>
+  </header>
+
+  <main>
+    <section class="mx-auto grid max-w-6xl grid-cols-1 items-center gap-x-14 gap-y-12 px-6 pt-10 pb-20 lg:grid-cols-[5fr_6fr] lg:pt-16 lg:pb-28">
+      <div>
+        <h1 class="display text-[clamp(2.2rem,4.2vw,3.35rem)]">
+          Solve postflop spots on your own computer.
+        </h1>
+        <p class="mt-6 max-w-[34rem] text-lg text-ash">
+          Postflop Lab is a free and open-source GTO solver for No-Limit Hold'em. Build a
+          tree, solve it, save it, lock nodes, and compare strategies across hundreds of
+          flops.
+        </p>
+        <div class="mt-9 flex flex-wrap items-center gap-x-6 gap-y-4">
+          <a
+            href={releases}
+            data-download
+            class="rounded-lg bg-check px-5 py-3 font-semibold text-graphite shadow-[0_8px_30px_-12px_rgba(63,174,110,0.7)] transition-[filter] hover:brightness-110"
+          >
+            Download for Windows
+          </a>
+          <a href={releases} class="text-sm text-ash underline-offset-4 hover:text-chalk hover:underline">
+            Linux and other downloads
+          </a>
+        </div>
+        <p class="tabular mt-4 text-sm text-ash" data-release-info>
+          Windows 10 and 11, Linux. Free, no account.
+        </p>
+      </div>
+      <RangeGrid />
+    </section>
+
+    <section class="mx-auto max-w-6xl px-6 pb-24" aria-label="The app">
+      <Shot
+        name="results"
+        alt="Postflop Lab's results view: the action tree, the strategy grid and the per-hand table"
+        eager
+      />
+    </section>
+
+    <section class="mx-auto max-w-6xl space-y-24 px-6 pb-28 lg:space-y-32">
+      {
+        features.map((f, i) => (
+          <div
+            class:list={[
+              "grid grid-cols-1 items-center gap-x-14 gap-y-8",
+              i % 2 === 1 ? "lg:grid-cols-[7fr_4fr]" : "lg:grid-cols-[4fr_7fr]",
+            ]}
+          >
+            <div class:list={[i % 2 === 1 && "lg:order-2"]}>
+              <h2 class="heading text-[clamp(1.7rem,3vw,2.3rem)]">{f.title}</h2>
+              <p class="mt-4 max-w-[32rem] text-ash">{f.text}</p>
+            </div>
+            <Shot name={f.shot} alt={f.alt} sizes="(min-width: 1024px) 680px, 100vw" />
+          </div>
+        ))
+      }
+    </section>
+
+    <section class="border-y border-rule bg-slate">
+      <div class="mx-auto grid max-w-6xl grid-cols-1 gap-x-14 gap-y-10 px-6 py-20 lg:grid-cols-[4fr_7fr]">
+        <div>
+          <h2 class="heading text-[clamp(1.7rem,3vw,2.3rem)]">Coming from Desktop Postflop?</h2>
+          <p class="mt-4 max-w-[32rem] text-ash">
+            Postflop Lab continues{" "}
+            <a href="https://github.com/b-inary/desktop-postflop" class="text-lavender hover:underline">Desktop Postflop</a>{" "}
+            by Wataru Inariba, on the same solver engine, after its development stopped in
+            2023. It installs next to it and keeps its own settings, so enter your ranges
+            again once.
+          </p>
+        </div>
+        <table class="w-full self-center text-left">
+          <thead class="text-sm text-ash">
+            <tr class="border-b border-rule">
+              <th scope="col" class="py-3 font-normal"><span class="sr-only">Feature</span></th>
+              <th scope="col" class="w-36 py-3 text-center font-normal">Desktop Postflop</th>
+              <th scope="col" class="w-36 py-3 text-center font-semibold text-chalk">Postflop Lab</th>
+            </tr>
+          </thead>
+          <tbody>
+            {
+              comparison.map(([label, before, now]) => (
+                <tr class="border-b border-rule last:border-0">
+                  <th scope="row" class="py-3.5 pr-4 font-normal">{label}</th>
+                  {[before, now].map((yes) => (
+                    <td class="py-3.5 text-center">
+                      {yes ? (
+                        <><span class="text-check" aria-hidden="true">✓</span><span class="sr-only">Yes</span></>
+                      ) : (
+                        <><span class="text-ash/60" aria-hidden="true">–</span><span class="sr-only">No</span></>
+                      )}
+                    </td>
+                  ))}
+                </tr>
+              ))
+            }
+          </tbody>
+        </table>
+      </div>
+    </section>
+
+    <section class="mx-auto max-w-6xl px-6 py-24 text-center">
+      <h2 class="display mx-auto max-w-[40rem] text-[clamp(2rem,4vw,3rem)]">
+        Free to use, free to read.
+      </h2>
+      <p class="mx-auto mt-5 max-w-[34rem] text-ash">
+        No account, no subscription, no limits on tree size other than your memory. The code
+        is open under the AGPL-3.0 license.
+      </p>
+      <div class="mt-9 flex flex-wrap items-center justify-center gap-x-6 gap-y-4">
+        <a
+          href={releases}
+          data-download
+          class="rounded-lg bg-check px-5 py-3 font-semibold text-graphite transition-[filter] hover:brightness-110"
+        >
+          Download for Windows
+        </a>
+        <a href={repo} class="text-sm text-ash underline-offset-4 hover:text-chalk hover:underline">
+          Read the source on GitHub
+        </a>
+      </div>
+    </section>
+  </main>
+
+  <footer class="border-t border-rule">
+    <div class="mx-auto flex max-w-6xl flex-wrap items-center gap-x-8 gap-y-3 px-6 py-8 text-sm text-ash">
+      <span>Made by <a href="https://mica.app" class="text-chalk hover:underline">Michael Maccio</a></span>
+      <a href={repo} class="hover:text-chalk">GitHub</a>
+      <a href={`${repo}/issues/new`} class="hover:text-chalk">Report an issue</a>
+      <span class="sm:ml-auto">AGPL-3.0, based on Desktop Postflop by Wataru Inariba</span>
+    </div>
+  </footer>
+
+  <script>
+    // The download buttons point at the latest Windows installer, with its version and size.
+    type Asset = { name: string; size: number; browser_download_url: string };
+    try {
+      const response = await fetch(
+        "https://api.github.com/repos/micamdev/postflop-lab/releases/latest"
+      );
+      if (response.ok) {
+        const release: { tag_name: string; assets: Asset[] } = await response.json();
+        const msi = release.assets.find((a) => a.name.endsWith(".msi"));
+        if (msi) {
+          for (const link of document.querySelectorAll<HTMLAnchorElement>("[data-download]")) {
+            link.href = msi.browser_download_url;
+          }
+          const info = document.querySelector("[data-release-info]");
+          if (info) {
+            const mb = (msi.size / 1024 / 1024).toFixed(1);
+            info.textContent = `Version ${release.tag_name.replace(/^v/, "")} for Windows 10 and 11, ${mb} MB. Free, no account.`;
+          }
+        }
+      }
+    } catch {
+      // Offline or rate-limited: the buttons keep pointing at the releases page.
+    }
+  </script>
+</Layout>

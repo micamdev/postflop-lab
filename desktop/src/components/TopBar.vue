@@ -86,6 +86,16 @@
     >
       Batch {{ batchProgressText }}
     </button>
+    <UiTooltip v-if="updateState.update" :text="updateTooltip">
+      <button
+        type="button"
+        class="px-2 py-0.5 rounded-full text-[11px] font-semibold bg-accent/15 text-accent-ink transition-colors hover:bg-accent/25 disabled:opacity-60 disabled:cursor-default"
+        :disabled="isUpdating || updateBlocked !== null"
+        @click="onUpdate"
+      >
+        {{ updateText }}
+      </button>
+    </UiTooltip>
     <UiTooltip text="About">
       <button
         type="button"
@@ -152,6 +162,14 @@ import { useLockResolve } from "../lock-resolve";
 import { hasPendingLocks } from "../lock-utils";
 import AboutDialog from "./AboutDialog.vue";
 import { useBatch } from "../use-batch";
+import { useSolverBusy } from "../solver-busy";
+import { ask } from "../library";
+import {
+  installUpdate,
+  updateBlocker,
+  updateButtonText,
+  updateState,
+} from "../update";
 
 const store = useStore();
 const config = useConfigStore();
@@ -164,6 +182,38 @@ const batchProgressText = computed(() =>
 
 const lockResolve = useLockResolve();
 const isAboutOpen = ref(false);
+
+const solverBusy = useSolverBusy();
+const updateBlocked = computed(() =>
+  updateBlocker({ solverBusy: solverBusy.value, batchRunning: batch.isRunning })
+);
+const isUpdating = computed(
+  () =>
+    updateState.phase === "downloading" || updateState.phase === "installing"
+);
+const updateText = computed(() =>
+  updateButtonText({
+    ...updateState,
+    version: updateState.update?.version ?? "",
+  })
+);
+const updateTooltip = computed(() => {
+  if (updateBlocked.value) return updateBlocked.value;
+  if (updateState.phase === "failed") return updateState.error;
+  return "Download, install and restart Postflop Lab";
+});
+const onUpdate = async () => {
+  if (
+    store.isSolverFinished &&
+    !store.isSolutionSaved &&
+    !(await ask(
+      "The current solution is not saved. Update and restart anyway?"
+    ))
+  ) {
+    return;
+  }
+  await installUpdate();
+};
 
 const toneClass: Record<StatusTone, string> = {
   neutral: "bg-panel2 text-muted",
