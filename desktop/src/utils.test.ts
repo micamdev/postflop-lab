@@ -1,7 +1,7 @@
 import { describe, expect, test } from "vitest";
 import {
   convertBetString,
-  nutAdvantageText,
+  bucketLeader,
   sanitizeBetString,
   suitTextClasses,
 } from "./utils";
@@ -29,39 +29,18 @@ describe("bet sizes typed with a percent sign", () => {
   });
 });
 
-describe("nutAdvantageText", () => {
+describe("bucketLeader", () => {
   // Shares per tranche: >= 90%, 75-90%, 50-75%, < 50%.
-  test("compares the 90%+ hands", () => {
-    expect(nutAdvantageText([0.1, 0.1, 0.4, 0.4], [0.02, 0.2, 0.3, 0.48])).toBe(
-      "OOP (10.0% vs 2.0% at 90%+)"
-    );
+  test("the player with more of the tranche, by at least 1 point", () => {
+    const oop = [0.1, 0.1, 0.4, 0.4];
+    const ip = [0.02, 0.2, 0.3, 0.48];
+    expect(bucketLeader(oop, ip, 0)).toBe(0);
+    expect(bucketLeader(oop, ip, 1)).toBe(1);
   });
 
-  test("nobody has it when the 90%+ shares are within 1 point", () => {
-    // 75-90% hands are strong, not nuts: they do not decide the nut advantage.
-    expect(
-      nutAdvantageText([0, 0.189, 0.811, 0], [0, 0.153, 0.025, 0.822])
-    ).toBe("None (OOP 0.0% vs IP 0.0% at 90%+)");
-    expect(nutAdvantageText([0.005, 0.1, 0.4, 0.495], [0, 0.3, 0.2, 0.5])).toBe(
-      "None (OOP 0.5% vs IP 0.0% at 90%+)"
-    );
-  });
-
-  test("no data", () => {
-    expect(nutAdvantageText([NaN, NaN, NaN, NaN], [0, 0, 0, 1])).toBe("—");
-  });
-});
-
-describe("best hands advantage (75%+)", () => {
-  test("adds up the 90%+ and 75-90% tranches", () => {
-    expect(
-      nutAdvantageText([0, 0.189, 0.811, 0], [0, 0.153, 0.025, 0.822], 2)
-    ).toBe("OOP (18.9% vs 15.3% at 75%+)");
-    expect(
-      nutAdvantageText([0.05, 0.1, 0.4, 0.45], [0, 0.3, 0.2, 0.5], 2)
-    ).toBe("IP (30.0% vs 15.0% at 75%+)");
-    expect(
-      nutAdvantageText([0, 0.1, 0.4, 0.5], [0, 0.105, 0.4, 0.495], 2)
-    ).toBe("None (OOP 10.0% vs IP 10.5% at 75%+)");
+  test("nobody within 1 point, or without data", () => {
+    expect(bucketLeader([0.005, 0.1], [0, 0.3], 0)).toBeNull();
+    expect(bucketLeader([0, 0.1], [0, 0.3], 0)).toBeNull();
+    expect(bucketLeader([NaN, 0], [0.5, 0], 0)).toBeNull();
   });
 });

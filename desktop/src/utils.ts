@@ -124,28 +124,18 @@ export const equityBuckets = (
 };
 
 /**
- * Who holds more of the strongest hands, from the shares of each range per equity tranche
- * (`equityBuckets`), with a 1-point margin: the 90%+ tranche (`top` = 1, nut advantage)
- * or the 90%+ and 75-90% tranches (`top` = 2, best hands advantage). "None (...)" says
- * that neither range has the edge; "—" when there is no data.
+ * Who holds more of the equity tranche `i` (shares from `equityBuckets`): 0 for OOP, 1 for
+ * IP, null within 1 point (nobody has the edge) or without data. The 90%+ tranche is the
+ * nut advantage; the flop report also adds the two first tranches (75%+, best hands).
  */
-export const nutAdvantageText = (
+export const bucketLeader = (
   oop: number[],
   ip: number[],
-  top: 1 | 2 = 1
-): string => {
-  const share = (shares: number[]) =>
-    shares.slice(0, top).reduce((sum, x) => sum + x, 0);
-  const [a, b] = [share(oop), share(ip)];
-  const at = top === 1 ? "90%+" : "75%+";
-  if (isNaN(a) || isNaN(b)) return "—";
-  const pct = (x: number) => (x * 100).toFixed(1) + "%";
-  if (Math.abs(a - b) < 0.01) {
-    return `None (OOP ${pct(a)} vs IP ${pct(b)} at ${at})`;
-  }
-  return a > b
-    ? `OOP (${pct(a)} vs ${pct(b)} at ${at})`
-    : `IP (${pct(b)} vs ${pct(a)} at ${at})`;
+  i: number
+): 0 | 1 | null => {
+  const [a, b] = [oop[i], ip[i]];
+  if (isNaN(a) || isNaN(b) || Math.abs(a - b) < 0.01) return null;
+  return a > b ? 0 : 1;
 };
 
 /** "-" for an undefined value, "∞" / "-∞" for an infinite one, else null. */
