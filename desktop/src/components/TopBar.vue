@@ -28,9 +28,9 @@
       v-model="store.navView"
       class="ml-2"
       :options="[
+        { value: 'library', label: 'Library' },
         { value: 'setup', label: 'Setup' },
         { value: 'results', label: 'Results' },
-        { value: 'library', label: 'Library' },
       ]"
     />
 
