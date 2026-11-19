@@ -200,6 +200,8 @@
             v-if="strategyItems"
             class="flex h-1.5 mx-3 mt-3 rounded-full overflow-hidden"
             :title="strategyTitle"
+            role="img"
+            :aria-label="strategyTitle"
           >
             <div
               v-for="item in strategyItems"
@@ -210,6 +212,9 @@
               }"
             />
           </div>
+          <p v-else-if="noHandsAtNode" class="px-3 pt-3 text-xs text-muted">
+            No hands for this player at this node.
+          </p>
           <ResultCompare
             class="flex-1 min-h-0"
             :selected-spot="selectedSpot"
