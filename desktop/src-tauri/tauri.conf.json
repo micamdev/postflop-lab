@@ -42,7 +42,7 @@
     }
   },
   "productName": "Postflop Lab",
-  "version": "0.2.7",
+  "version": "1.0.0",
   "identifier": "dev.micam.postflop-lab",
   "plugins": {},
   "app": {

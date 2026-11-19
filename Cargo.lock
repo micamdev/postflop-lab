@@ -2758,7 +2758,7 @@ dependencies = [
 
 [[package]]
 name = "postflop-lab"
-version = "0.2.7"
+version = "1.0.0"
 dependencies = [
  "postflop-solver",
  "rayon",

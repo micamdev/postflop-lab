@@ -1,4 +1,6 @@
 name: Release
+# A tag v* builds a draft release. A manual run (no tag) builds the same files as workflow
+# artifacts, to test the build without publishing.
 on:
   push:
     tags:
@@ -24,6 +26,17 @@ jobs:
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
+
+      # Fail in seconds, not after the build, when the tag and the app version differ.
+      - name: Check the tag matches the app version
+        if: startsWith(github.ref, 'refs/tags/')
+        shell: bash
+        run: |
+          version=$(node -p "require('./desktop/package.json').version")
+          if [ "${GITHUB_REF_NAME}" != "v${version}" ]; then
+            echo "Tag ${GITHUB_REF_NAME} does not match the app version v${version}" >&2
+            exit 1
+          fi
 
       # Version read from "packageManager" in desktop/package.json.
       - name: Setup pnpm
@@ -61,7 +74,7 @@ jobs:
         run: pnpm tauri build --target ${{ matrix.target }}
 
       - name: Upload artifacts (Windows)
-        if: matrix.platform == 'windows-latest'
+        if: matrix.platform == 'windows-latest' && startsWith(github.ref, 'refs/tags/')
         uses: softprops/action-gh-release@v2
         with:
           draft: true
@@ -70,10 +83,23 @@ jobs:
             target/x86_64-pc-windows-msvc/release/bundle/msi/*.msi
 
       - name: Upload artifacts (Linux)
-        if: matrix.platform == 'ubuntu-24.04'
+        if: matrix.platform == 'ubuntu-24.04' && startsWith(github.ref, 'refs/tags/')
         uses: softprops/action-gh-release@v2
         with:
           draft: true
           files: |
             target/x86_64-unknown-linux-gnu/release/bundle/deb/*.deb
             target/x86_64-unknown-linux-gnu/release/bundle/appimage/*.AppImage
+
+      # Manual run: the files as workflow artifacts (no release).
+      - name: Upload workflow artifacts (manual run)
+        if: ${{ !startsWith(github.ref, 'refs/tags/') }}
+        uses: actions/upload-artifact@v4
+        with:
+          name: postflop-lab-${{ matrix.target }}
+          if-no-files-found: error
+          path: |
+            target/${{ matrix.target }}/release/postflop-lab.exe
+            target/${{ matrix.target }}/release/bundle/msi/*.msi
+            target/${{ matrix.target }}/release/bundle/deb/*.deb
+            target/${{ matrix.target }}/release/bundle/appimage/*.AppImage
