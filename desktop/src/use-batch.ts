@@ -78,10 +78,14 @@ export const useBatch = defineStore("batch", () => {
     return { ok: true, ...plan, key, size };
   };
 
-  /** Solves the flops of `plan` (from `preview`) and saves them at `depth`. */
+  /**
+   * Solves the flops of `plan` (from `preview`) to `target` (% of the pot) and saves
+   * them at `depth`.
+   */
   const start = async (
     plan: Extract<BatchPreview, { ok: true }>,
-    depth: string
+    depth: string,
+    target: number
   ) => {
     if (isRunning.value || isSolverBusy.value || plan.toSolve.length === 0) {
       return;
@@ -103,7 +107,7 @@ export const useBatch = defineStore("batch", () => {
         subsetSize: plan.size,
         settings: {
           precision: session.settings.precision,
-          targetExploitability: session.settings.targetExploitability,
+          targetExploitability: target,
           maxIterations: session.settings.maxIterations,
         },
         depth,

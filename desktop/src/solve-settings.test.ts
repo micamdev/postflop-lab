@@ -1,6 +1,8 @@
 import { describe, expect, test } from "vitest";
 import {
   SETTINGS_KEY,
+  BATCH_TARGETS,
+  DEFAULT_BATCH_TARGET,
   defaultSolveSettings,
   loadSolveSettings,
   saveSolveSettings,
@@ -22,11 +24,16 @@ describe("solve settings", () => {
     expect(defaultSolveSettings(8)).toEqual({
       threads: 8,
       precision: "32",
-      targetExploitability: 0.3,
+      targetExploitability: 0.5,
       maxIterations: 1000,
     });
     expect(defaultSolveSettings(0).threads).toBe(1);
     expect(defaultSolveSettings(128).threads).toBe(64);
+  });
+
+  test("a batch aims at 1% of the pot by default (its report averages many flops)", () => {
+    expect(DEFAULT_BATCH_TARGET).toBe(1);
+    expect(BATCH_TARGETS).toEqual([0.5, 1, 2]);
   });
 
   test("validate", () => {
