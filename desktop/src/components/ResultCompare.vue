@@ -45,7 +45,7 @@
       <BarChart :values="row.values" />
     </div>
 
-    <!-- Nut advantage: share of each range in each equity tranche -->
+    <!-- Share of each range in each equity tranche (90%+: the nut advantage) -->
     <div
       class="mt-2 pt-2.5 border-t border-line text-[11px] font-bold tracking-wider text-muted"
     >
@@ -59,13 +59,7 @@
       <div class="flex">
         <Percentage
           :value="buckets[0][i]"
-          :class="{
-            'w-14': true,
-            'font-semibold':
-              i < WEAK_BUCKET &&
-              !isNaN(buckets[0][i]) &&
-              buckets[0][i] >= (1 - EPS) * buckets[1][i],
-          }"
+          :class="{ 'w-14': true, 'font-semibold': bucketLeads(i, 0) }"
         />
         <div class="flex-grow text-center text-xs text-muted">{{ label }}</div>
         <Percentage
@@ -73,22 +67,11 @@
           :class="{
             'w-14': true,
             'text-right': true,
-            'font-semibold':
-              i < WEAK_BUCKET &&
-              !isNaN(buckets[1][i]) &&
-              (1 - EPS) * buckets[0][i] <= buckets[1][i],
+            'font-semibold': bucketLeads(i, 1),
           }"
         />
       </div>
       <BarChart :values="[buckets[0][i], buckets[1][i]]" />
-    </div>
-    <div class="mt-1 text-xs text-muted">
-      Nut advantage:
-      <span class="font-semibold text-ink">{{ nutAdvantageText }}</span>
-    </div>
-    <div class="text-xs text-muted">
-      Best hands advantage:
-      <span class="font-semibold text-ink">{{ bestHandsAdvantageText }}</span>
     </div>
   </div>
 </template>
@@ -101,7 +84,7 @@ import {
   eqrOf,
   equityBuckets,
   evDigitsFor,
-  nutAdvantageText as nutAdvantage,
+  bucketLeader,
   toFixed1,
   toFixed,
   toFixedAdaptive,
@@ -228,14 +211,13 @@ const buckets = computed(() => {
   ];
 });
 
-// Who holds more nutted hands (90%+ equity), or "None".
-const nutAdvantageText = computed(() =>
-  nutAdvantage(buckets.value[0], buckets.value[1])
-);
-// The same with the 75%+ hands (GTO Wizard's "Best hands").
-const bestHandsAdvantageText = computed(() =>
-  nutAdvantage(buckets.value[0], buckets.value[1], 2)
-);
+/**
+ * Bold marks the player ahead in a tranche by at least 1 point (as the advantages of the
+ * flop report; 90%+ is the nut advantage). More weak hands ("< 50%") is not an advantage.
+ */
+const bucketLeads = (i: number, player: 0 | 1) =>
+  i < WEAK_BUCKET &&
+  bucketLeader(buckets.value[0], buckets.value[1], i) === player;
 
 const evDigits = computed(() => {
   const results = props.results;
