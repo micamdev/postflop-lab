@@ -421,13 +421,15 @@ pub fn compute_summary(game: &mut PostFlopGame) -> SolutionSummary {
     game.cache_normalized_weights();
 
     let mut summary = SolutionSummary::default();
+    let mut buckets = [[0.0; 4]; 2];
     for player in 0..2 {
         let weights = game.normalized_weights(player);
-        summary.equity[player] = weighted_average(&game.equity(player), weights);
+        let equity = game.equity(player);
+        summary.equity[player] = weighted_average(&equity, weights);
         summary.ev[player] = weighted_average(&game.expected_values(player), weights);
+        buckets[player] = equity_buckets(&equity, weights);
     }
 
-    let buckets = [0, 1].map(|p| equity_buckets(&game.equity(p), game.normalized_weights(p)));
     // An empty range has no tranches (NaN cannot be saved as JSON).
     if buckets.iter().flatten().all(|x| x.is_finite()) {
         summary.equity_buckets = Some(buckets);
@@ -440,7 +442,7 @@ pub fn compute_summary(game: &mut PostFlopGame) -> SolutionSummary {
             game.play(0);
             game.cache_normalized_weights();
             if game.current_player() == 1 {
-                summary.ip_after_check = node_frequencies(game);
+                summary.ip_after_check = node_frequencies(game).and_then(finite);
             }
             game.back_to_root();
             game.cache_normalized_weights();
@@ -471,6 +473,15 @@ fn node_frequencies(game: &PostFlopGame) -> Option<NodeFrequencies> {
         actions: actions(game),
         frequencies,
     })
+}
+
+/// The node's frequencies if they are all defined: a node no hand reaches (OOP never checks)
+/// has 0 / 0 frequencies, which cannot be saved (NaN becomes null in JSON).
+fn finite(node: NodeFrequencies) -> Option<NodeFrequencies> {
+    node.frequencies
+        .iter()
+        .all(|f| f.is_finite())
+        .then_some(node)
 }
 
 /// Equity tranches, highest first: a hand is in the first one whose bound its equity reaches.
@@ -935,6 +946,21 @@ mod tests {
         let total: f64 = after.frequencies.iter().sum();
         assert!((total - 1.0).abs() < 1e-4, "{total}");
         assert_eq!(game.history(), &[] as &[usize]);
+    }
+
+    #[test]
+    fn frequencies_without_weight_are_not_recorded() {
+        // IP never reaches the node (OOP never checks): 0 / 0 for every action.
+        let node = NodeFrequencies {
+            actions: vec!["Check:0".to_string(), "Bet:7".to_string()],
+            frequencies: vec![f64::NAN, f64::NAN],
+        };
+        assert_eq!(finite(node), None);
+        let node = NodeFrequencies {
+            actions: vec!["Check:0".to_string()],
+            frequencies: vec![1.0],
+        };
+        assert!(finite(node).is_some());
     }
 
     #[test]

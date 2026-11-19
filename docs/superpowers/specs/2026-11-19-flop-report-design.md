@@ -64,9 +64,11 @@ solvers also pair the two: Pio users run batch solves overnight.
   root player is OOP and has a Check.
 
 Files saved earlier (schema 2) lack these fields: the report shows "—" in those columns. **My
-call:** an **Update** action in the report reloads those files one at a time and rewrites only
-their metadata. This needs a library function that rewrites the header without changing the
-data.
+call:** an **Update** action in the report reloads those files one at a time, in a separate
+game, recomputes their summary and rewrites each file at the same depth (the data is
+re-encoded, so it costs a load and a save per file). Update runs one file at a time and blocks
+the other library operations (save, rename, delete, load) while it runs, so it never rewrites
+a file that another operation is changing.
 
 ### 2. Configuration of a group (fingerprint)
 

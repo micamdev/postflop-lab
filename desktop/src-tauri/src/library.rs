@@ -210,6 +210,11 @@ pub fn save_with_progress(
         return Err(ERR_EXISTS.to_string());
     }
     let memo = serde_json::to_string(meta).map_err(|e| e.to_string())?;
+    // An undefined number (NaN) is written as null, which does not read back: refuse rather
+    // than write a file the library would list as unreadable.
+    if serde_json::from_str::<SolutionMeta>(&memo).is_err() {
+        return Err("Cannot save: the metadata has undefined values".to_string());
+    }
     if memo.len() > MAX_MEMO_BYTES {
         return Err(
             "The tree configuration is too large to save (over 1 MB of metadata)".to_string(),
@@ -521,6 +526,18 @@ pub(crate) mod tests {
         assert!(after.abs_diff(before) < before / 10, "{before} -> {after}");
         let (loaded, _) = load(dir.path(), "turn", u64::MAX).unwrap();
         assert_eq!(loaded.target_storage_mode(), BoardState::Turn);
+    }
+
+    #[test]
+    fn save_refuses_metadata_it_could_not_read_back() {
+        // NaN becomes null in JSON, which does not read back as a number: the file would be
+        // listed as unreadable.
+        let dir = tempfile::tempdir().unwrap();
+        let mut bad = meta(1);
+        bad.summary.equity = [f64::NAN, 0.5];
+        let err = save(dir.path(), "spot", &small_game(true), &bad, false).unwrap_err();
+        assert!(err.contains("metadata"), "{err}");
+        assert!(list(dir.path()).is_empty());
     }
 
     #[test]
