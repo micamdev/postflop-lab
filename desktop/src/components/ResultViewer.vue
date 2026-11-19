@@ -145,7 +145,9 @@
       </template>
 
       <template v-else-if="displayMode === 'graphs'">
+        <!-- The chart takes the grid's width in Strategy: the summary does not move. -->
         <ResultGraphs
+          :left-width="BASICS_SIDE"
           :cards="cards"
           :selected-spot="selectedSpot"
           :selected-chance="selectedChance"

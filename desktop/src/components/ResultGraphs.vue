@@ -1,6 +1,10 @@
 <template>
   <div class="flex w-full h-full">
-    <div v-if="!results.isEmpty" class="flex flex-col h-full" style="flex: 4">
+    <div
+      v-if="!results.isEmpty"
+      class="flex flex-col h-full shrink-0"
+      :style="{ width: leftWidth }"
+    >
       <div class="w-full px-4 pt-4 pb-2" style="flex: 7">
         <div class="relative h-full">
           <LineChart
@@ -31,12 +35,16 @@
       </div>
     </div>
 
-    <div v-else class="flex h-full items-center justify-center" style="flex: 4">
+    <div
+      v-else
+      class="flex h-full shrink-0 items-center justify-center"
+      :style="{ width: leftWidth }"
+    >
       Graphs not available
     </div>
 
     <ResultTable
-      style="flex: 3"
+      class="flex-1 min-w-[380px]"
       table-mode="graphs"
       :graph-type="displayOptions.contentGraphs"
       :cards="cards"
@@ -107,6 +115,8 @@ const props = defineProps<{
   results: Results;
   displayOptions: DisplayOptions;
   displayPlayer: "oop" | "ip";
+  /** Width of the chart area (the grid's in Strategy, so the summary does not move). */
+  leftWidth: string;
 }>();
 
 const chartWidth = ref(0);
