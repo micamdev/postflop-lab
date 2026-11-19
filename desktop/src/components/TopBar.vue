@@ -89,7 +89,7 @@
     <UiTooltip text="About">
       <button
         type="button"
-        class="w-8 h-8 rounded-md text-muted hover:text-ink hover:bg-panel2"
+        class="w-5 h-5 rounded-full border border-line text-[11px] leading-none font-semibold text-muted transition-colors hover:text-ink hover:border-muted"
         aria-label="About"
         @click="isAboutOpen = true"
       >
