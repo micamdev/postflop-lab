@@ -197,6 +197,12 @@
               </template>
               <template v-else>weighted by frequency</template>
             </td>
+            <td class="px-3 py-2 whitespace-nowrap">
+              {{ advantageText(average.buckets, 1) }}
+            </td>
+            <td class="px-3 py-2 whitespace-nowrap">
+              {{ advantageText(average.buckets, 2) }}
+            </td>
             <td class="px-3 py-2">
               <div
                 v-if="average.strategy"
@@ -250,6 +256,12 @@
                 title="Not in the subset the average uses (solved by hand or in another subset)"
                 >· not in average</span
               >
+            </td>
+            <td class="px-3 py-2 whitespace-nowrap">
+              {{ advantageText(row.buckets, 1) }}
+            </td>
+            <td class="px-3 py-2 whitespace-nowrap">
+              {{ advantageText(row.buckets, 2) }}
             </td>
             <td class="px-3 py-2">
               <div
@@ -374,6 +386,16 @@ type Column = { key: string; label: string; numeric?: boolean; title?: string };
 const columns = computed<Column[]>(() => [
   { key: "flop", label: "Flop" },
   { key: "texture", label: "Texture" },
+  {
+    key: "nut",
+    label: "Nut adv.",
+    title: "Who holds more of the hands with 90%+ equity, by how many points",
+  },
+  {
+    key: "best",
+    label: "Best hands",
+    title: "Who holds more of the hands with 75%+ equity, by how many points",
+  },
   { key: "strategy", label: "Strategy" },
   ...actions.value.map((a) => ({
     key: a,
@@ -388,16 +410,6 @@ const columns = computed<Column[]>(() => [
       title: `${who}'s ${name === "EQ" ? "equity" : name} at the root`,
     }))
   ),
-  {
-    key: "nut",
-    label: "Nut adv.",
-    title: "Who holds more of the hands with 90%+ equity, by how many points",
-  },
-  {
-    key: "best",
-    label: "Best hands",
-    title: "Who holds more of the hands with 75%+ equity, by how many points",
-  },
 ]);
 
 type Values = Pick<
@@ -412,7 +424,7 @@ type Cell = {
   fill?: { ratio: number; color: string };
 };
 
-/** The cells after the strategy bar: actions, EV, EQ, EQR (OOP then IP), advantages. */
+/** The cells after the strategy bar: actions, then EV, EQ, EQR (OOP then IP). */
 const valueCells = (v: Values): Cell[] => {
   const playerColor = (p: number) => themeColor(p === 0 ? "oop" : "ip");
   return [
@@ -446,8 +458,6 @@ const valueCells = (v: Values): Cell[] => {
       // 200% fills the cell.
       fill: { ratio: v.eqr[p] / 2, color: playerColor(p) },
     })),
-    { key: "nut", text: advantageText(v.buckets, 1) },
-    { key: "best", text: advantageText(v.buckets, 2) },
   ];
 };
 
@@ -473,8 +483,9 @@ const cellStyle = (cell: Cell) => {
   // A thin line under the value, its length the value.
   return {
     backgroundImage: `linear-gradient(${color}, ${color})`,
-    backgroundSize: `${width}% 3px`,
-    backgroundPosition: "right bottom 4px",
+    // The bar spans the text area (the cell less its 0.75rem side paddings).
+    backgroundSize: `calc((100% - 1.5rem) * ${width / 100}) 3px`,
+    backgroundPosition: "right 0.75rem bottom 4px",
     backgroundRepeat: "no-repeat",
   };
 };
