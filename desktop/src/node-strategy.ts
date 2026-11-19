@@ -7,8 +7,8 @@ export type StrategyItem = {
   amount: string;
   color: string;
   frequency: number;
-  /** Weighted number of combos taking the action. */
-  combos: number;
+  /** Weighted number of combos taking the action (absent for an average over flops). */
+  combos?: number;
 };
 
 /**

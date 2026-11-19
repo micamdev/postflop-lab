@@ -130,17 +130,18 @@ describe("reportRows", () => {
       board: AK7,
       texture: "A high, rainbow",
       weight: 24,
-      equity: 0.55,
-      ev: 12,
+      equity: [0.45, 0.55],
+      ev: [8, 12],
       strategy: { "Check:0": 0.4, "Bet:7": 0.6 },
     });
+    // EQR: EV / (pot × equity), the pot of 20 at the root.
+    expect(rows[0].eqr[0]).toBeCloseTo(8 / (20 * 0.45));
+    expect(rows[0].eqr[1]).toBeCloseTo(12 / (20 * 0.55));
   });
 
   test("OOP first: the root strategy and OOP's values", () => {
     const [row] = reportRows(entries, configKey(meta(AK7)), "oop");
     expect(row).toMatchObject({
-      equity: 0.45,
-      ev: 8,
       strategy: { "Check:0": 0.9, "Bet:7": 0.1 },
     });
   });
@@ -197,8 +198,10 @@ describe("averageRow", () => {
       "ip"
     );
     const avg = averageRow(rows);
-    expect(avg.equity).toBeCloseTo((0.55 * 3 + 0.5) / 4);
-    expect(avg.ev).toBeCloseTo((12 * 3 + 4) / 4);
+    expect(avg.equity[1]).toBeCloseTo((0.55 * 3 + 0.5) / 4);
+    expect(avg.ev[1]).toBeCloseTo((12 * 3 + 4) / 4);
+    // The EQR of the averages, not the average of the EQRs.
+    expect(avg.eqr[1]).toBeCloseTo(avg.ev[1] / (20 * avg.equity[1]));
     expect(avg.strategy!["Check:0"]).toBeCloseTo((0.4 * 3 + 1) / 4);
     expect(avg.strategy!["Bet:7"]).toBeCloseTo((0.6 * 3) / 4);
     expect(avg.strategy!["Allin:100"]).toBeCloseTo(0);
@@ -238,10 +241,10 @@ describe("reportCsv", () => {
     );
     const csv = reportCsv(rows, reportActions(rows)).split("\n");
     expect(csv[0]).toBe(
-      "Flop,Texture,Weight,Check %,Bet 7 %,Equity %,EV,Nut advantage,Best hands advantage"
+      "Flop,Texture,Weight,Check %,Bet 7 %,EV OOP,EV IP,Equity OOP %,Equity IP %,EQR OOP %,EQR IP %,Nut advantage,Best hands advantage"
     );
     expect(csv[1]).toBe(
-      'AsKd7c,"A high, rainbow",24,40.0,60.0,55.0,12.00,IP +10.0,IP +10.0'
+      'AsKd7c,"A high, rainbow",24,40.0,60.0,8.00,12.00,45.0,55.0,88.9,109.1,IP +10.0,IP +10.0'
     );
   });
 });
@@ -278,7 +281,7 @@ describe("sortReportRows", () => {
   });
 
   test("by equity; by flop, highest cards first", () => {
-    expect(sortReportRows(rows, "equity", true).map((r) => r.name)).toEqual([
+    expect(sortReportRows(rows, "eq1", true).map((r) => r.name)).toEqual([
       "b",
       "a",
       "c",
@@ -341,7 +344,7 @@ describe("review follow-ups", () => {
       "ip"
     );
     expect(rows.map((r) => r.inAverage)).toEqual([true, false]);
-    expect(averageRow(rows).equity).toBeCloseTo(0.55);
+    expect(averageRow(rows).equity[1]).toBeCloseTo(0.55);
   });
 
   test("without batch flops, every row is in the average", () => {

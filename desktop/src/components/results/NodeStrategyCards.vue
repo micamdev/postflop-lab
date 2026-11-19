@@ -22,7 +22,10 @@
           <div class="text-lg font-semibold leading-tight">
             {{ (item.frequency * 100).toFixed(1) }}%
           </div>
-          <div class="text-[11px] whitespace-nowrap truncate opacity-75">
+          <div
+            v-if="item.combos !== undefined"
+            class="text-[11px] whitespace-nowrap truncate opacity-75"
+          >
             {{ item.combos.toFixed(1) }} combos
           </div>
         </div>
