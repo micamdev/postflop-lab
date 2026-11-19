@@ -12,3 +12,6 @@ Thumbs.db
 
 # Tauri 2 generated files
 /desktop/src-tauri/gen/schemas/
+
+# Local agent workspace (plans in progress, screenshots, scratch scripts)
+/.superpowers/
