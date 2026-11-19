@@ -8,6 +8,7 @@ import * as invokes from "./invokes";
 import { choose } from "./library";
 import { useSolverSession } from "./solver-session";
 import { useBatch } from "./use-batch";
+import { solverBusyReason } from "./solver-busy";
 import { validateSolveSettings } from "./solve-settings";
 
 type Line = { history: number[]; label: string };
@@ -26,13 +27,13 @@ export const useLockResolve = defineStore("lockResolve", () => {
   /** Why a re-solve with locks cannot start now, or "" (shared by both buttons). */
   const disabledReason = computed(() => {
     if (isCapturing.value) return "A lock is being saved.";
-    if (store.isLibraryBusy && !isBusy.value) return "The library is busy.";
+    // The solver-busy rule shared with Solve and the batch; the re-solve's own prepare
+    // holds the library, which does not count.
+    const busy = solverBusyReason({ ignoreLibrary: isBusy.value });
+    if (busy) return busy;
     if (store.isBunchingEnabled && store.bunchingFlop.length > 0) {
       return "Locks are not available with the bunching effect.";
     }
-    if (store.isSolveStarting) return "A solve is starting.";
-    if (store.isBunchingRunning)
-      return "The bunching effect is being precomputed.";
     if (useBatch().isRunning) return "A batch is solving flops.";
     const settingsError = validateSolveSettings(useSolverSession().settings);
     if (settingsError) {

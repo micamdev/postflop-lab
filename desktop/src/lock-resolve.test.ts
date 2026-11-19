@@ -6,6 +6,7 @@ vi.mock("./library", () => ({ choose: vi.fn() }));
 const runLockedSolve = vi.fn();
 const session = {
   runLockedSolve,
+  isBuilding: false,
   saveDisabledReason: "",
   settings: {
     threads: 8,
