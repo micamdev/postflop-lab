@@ -4,8 +4,9 @@
       'flex flex-col min-w-0 gap-2 rounded-lg border bg-panel px-3 py-2.5',
       isDropTarget ? 'border-accent' : 'border-line',
     ]"
+    @dragenter="onDragOver"
     @dragover="onDragOver"
-    @dragleave="isDropTarget = false"
+    @dragleave="onDragLeave"
     @drop="onDrop"
   >
     <header class="flex items-center gap-2 min-w-0">
@@ -201,11 +202,20 @@ const cells = Array.from({ length: 13 * 13 }, (_, index) => {
 
 const RANGE_TYPE = "application/x-postflop-range";
 
+/** Accepts a saved range (on enter too: else each new element shows "forbidden"). */
 const onDragOver = (e: DragEvent) => {
   if (!e.dataTransfer?.types.includes(RANGE_TYPE)) return;
   e.preventDefault();
   e.dataTransfer.dropEffect = "copy";
   isDropTarget.value = true;
+};
+
+/** Leaving for another element inside the panel (a cell, a gap) is not leaving it. */
+const onDragLeave = (e: DragEvent) => {
+  const panel = e.currentTarget as HTMLElement;
+  const to = e.relatedTarget as Node | null;
+  if (to && panel.contains(to)) return;
+  isDropTarget.value = false;
 };
 
 const onDrop = async (e: DragEvent) => {
