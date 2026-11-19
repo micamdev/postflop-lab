@@ -426,3 +426,36 @@ export const chartScale = (metric: ChartMetric, values: number[]): number => {
   const max = Math.max(0, ...values.filter(isFinite));
   return max > 0 ? max : 1;
 };
+
+/** The chart's range: from the lowest value (0 when none is negative) to the highest. */
+const chartRange = (metric: ChartMetric, values: number[]) => {
+  if (metric === "strategy" || metric === "eq") return { low: 0, span: 1 };
+  const finite = values.filter(isFinite);
+  const low = Math.min(0, ...finite);
+  const high = Math.max(0, ...finite);
+  return { low, span: high - low || 1 };
+};
+
+/**
+ * Where a bar sits, as fractions of the chart's height: from the zero line up for a
+ * positive value, down from it for a negative one (EV can be negative).
+ */
+export const chartBar = (
+  metric: ChartMetric,
+  value: number,
+  values: number[]
+): { bottom: number; height: number } => {
+  if (!isFinite(value)) return { bottom: 0, height: 0 };
+  const { low, span } = chartRange(metric, values);
+  const zero = low < 0 ? -low / span : 0;
+  const size = Math.min(Math.abs(value) / span, 1);
+  return value >= 0
+    ? { bottom: zero, height: Math.min(size, 1 - zero) }
+    : { bottom: Math.max(zero - size, 0), height: Math.min(size, zero) };
+};
+
+/** Height of the zero line when some value is negative, else null. */
+export const chartZero = (metric: ChartMetric, values: number[]) => {
+  const { low, span } = chartRange(metric, values);
+  return low < 0 ? -low / span : null;
+};

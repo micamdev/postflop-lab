@@ -3,8 +3,18 @@
     class="fixed inset-0 z-50 flex items-center justify-center bg-black/50"
     @click.self="emit('close')"
   >
-    <div class="w-[28rem] p-5 rounded-lg border border-line bg-panel shadow-xl">
-      <h2 class="mb-1 font-semibold">Solve a flop subset</h2>
+    <div
+      ref="dialog"
+      role="dialog"
+      aria-modal="true"
+      aria-labelledby="batch-dialog-title"
+      tabindex="-1"
+      class="w-[28rem] p-5 rounded-lg border border-line bg-panel shadow-xl outline-none"
+      @keydown.esc="emit('close')"
+    >
+      <h2 id="batch-dialog-title" class="mb-1 font-semibold">
+        Solve a flop subset
+      </h2>
       <p class="mb-4 text-sm text-muted">
         The spot of the Setup (ranges, tree, threads, precision) solved on a set
         of flops that stands for all of them, each saved in the library. Its
@@ -91,7 +101,7 @@
 </template>
 
 <script setup lang="ts">
-import { computed, ref, watch } from "vue";
+import { computed, onMounted, ref, watch } from "vue";
 import { useBatch, BatchPreview } from "../../use-batch";
 import { SUBSET_SIZES } from "../../flop-subsets";
 import { BATCH_TARGETS, DEFAULT_BATCH_TARGET } from "../../solve-settings";
@@ -106,6 +116,10 @@ const props = defineProps<{
 }>();
 
 const emit = defineEmits<{ (event: "close"): void }>();
+
+// Focus inside on open: Escape closes, Tab starts from the dialog.
+const dialog = ref<HTMLElement | null>(null);
+onMounted(() => dialog.value?.focus());
 
 const batch = useBatch();
 const size = ref(49);

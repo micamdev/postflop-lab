@@ -165,20 +165,33 @@
             <th
               v-for="column in columns"
               :key="column.key"
+              scope="col"
+              :aria-sort="
+                sortKey === column.key
+                  ? descending
+                    ? 'descending'
+                    : 'ascending'
+                  : undefined
+              "
               :class="[
                 'px-3 py-2 font-semibold whitespace-nowrap select-none',
-                column.key === 'strategy'
-                  ? ''
-                  : 'cursor-pointer hover:text-ink',
                 column.numeric ? 'text-right' : '',
               ]"
               :title="column.title"
-              @click="column.key !== 'strategy' && sortBy(column.key)"
             >
-              {{ column.label }}
-              <span v-if="sortKey === column.key">{{
-                descending ? "▼" : "▲"
-              }}</span>
+              <span v-if="column.key === 'strategy'">{{ column.label }}</span>
+              <!-- A button: sortable with the keyboard too. -->
+              <button
+                v-else
+                type="button"
+                class="font-semibold hover:text-ink"
+                @click="sortBy(column.key)"
+              >
+                {{ column.label }}
+                <span v-if="sortKey === column.key" aria-hidden="true">{{
+                  descending ? "▼" : "▲"
+                }}</span>
+              </button>
             </th>
           </tr>
         </thead>
@@ -232,7 +245,9 @@
                 : 'cursor-pointer hover:bg-panel2',
             ]"
             :title="store.isLibraryBusy ? '' : `Open “${row.name}”`"
+            :tabindex="store.isLibraryBusy ? -1 : 0"
             @click="emit('open', row.name)"
+            @keydown.enter="emit('open', row.name)"
           >
             <td class="px-3 py-2 whitespace-nowrap">
               <span class="inline-flex gap-0.5">

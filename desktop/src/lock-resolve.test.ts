@@ -96,6 +96,20 @@ describe("useLockResolve", () => {
     expect(store.returnLine).toEqual([0, 1]);
   });
 
+  test("save first: checked again once saved (something may have started meanwhile)", async () => {
+    const store = finished(false);
+    choose.mockResolvedValue("Save first");
+    const resolve = useLockResolve();
+    await resolve.start(line);
+    store.isSolutionSaved = true;
+    store.isSaveDialogOpen = false;
+    // The bunching precomputation started while the save dialog was open.
+    store.isBunchingRunning = true;
+    expect(await resolve.onSaveDialogClosed()).toBe(true);
+    expect(prepare).not.toHaveBeenCalled();
+    expect(resolve.error).toBe("The bunching effect is being precomputed.");
+  });
+
   test("a prepare error keeps the solution and shows the reason", async () => {
     const store = finished(true);
     prepare.mockRejectedValue("Not enough memory");

@@ -102,6 +102,11 @@ export const useLockResolve = defineStore("lockResolve", () => {
     const line = waitingLine;
     waitingLine = null;
     if (!line || !store.isSolutionSaved) return false;
+    // Checked again: something may have started while the save dialog was open.
+    if (disabledReason.value) {
+      error.value = disabledReason.value;
+      return true;
+    }
     await resolve(line);
     return true;
   };
