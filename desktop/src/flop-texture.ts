@@ -67,25 +67,35 @@ const SUIT_PERMUTATIONS = (() => {
   return result;
 })();
 
-/**
- * Number of flops equal to `board` up to the suits (24 for a rainbow flop, 4 for a monotone
- * one...): how often it occurs, relative to the other flops.
- */
-export const flopWeight = (board: number[]): number =>
-  new Set(suitVariants(board)).size;
+const highFirst = (board: number[]) => [...board].sort((a, b) => b - a);
 
-/** The flop with each renaming of the suits, as sorted card lists ("4,21,51"). */
-const suitVariants = (board: number[]) =>
+/**
+ * The flop equal to `board` up to the suits with the smallest cards (highest first): the
+ * same for AsKd7c and AhKc7d.
+ */
+export const canonicalFlop = (board: number[]): number[] =>
   SUIT_PERMUTATIONS.map((perm) =>
-    board
-      .map((card) => (card & ~3) | perm[card & 3])
-      .sort((a, b) => a - b)
-      .join(",")
-  );
+    highFirst(board.map((card) => (card & ~3) | perm[card & 3]))
+  ).reduce((best, b) => {
+    for (let i = 0; i < 3; ++i) {
+      if (b[i] !== best[i]) return b[i] < best[i] ? b : best;
+    }
+    return best;
+  });
 
 /** The same key for flops equal up to the suits (AsKd7c and AhKc7d). */
 export const canonicalFlopKey = (board: number[]): string =>
-  suitVariants(board).sort()[0];
+  canonicalFlop(board).join(",");
+
+/**
+ * Number of flops equal to `board` up to the suits: 24 for a rainbow unpaired flop, 4 for a
+ * monotone one or trips, 12 otherwise (two-tone, or paired): how often it occurs.
+ */
+export const flopWeight = (board: number[]): number => {
+  const t = flopTexture(board);
+  if (t.suits === "monotone" || t.pairing === "trips") return 4;
+  return t.suits === "rainbow" && t.pairing === "unpaired" ? 24 : 12;
+};
 
 /** A texture filter of the report. */
 export type TextureFilter =
