@@ -72,6 +72,14 @@
       {{ busyText || loadingText }}
     </div>
 
+    <div
+      v-if="averageItems"
+      class="mb-3 rounded-lg border border-line bg-panel"
+      title="Average strategy at the c-bet node over the flops shown, weighted by frequency"
+    >
+      <NodeStrategyCards :items="averageItems" :no-hands="false" />
+    </div>
+
     <p v-if="shown.length === 0" class="mt-6 text-muted">
       No flop of this spot matches.
     </p>
@@ -126,16 +134,16 @@
               ></div>
             </td>
             <td
-              v-for="action in actions"
-              :key="action"
-              class="px-3 py-2 text-right"
+              v-for="cell in valueCells(average)"
+              :key="cell.key"
+              :class="[
+                'px-3 py-2 whitespace-nowrap',
+                cell.numeric ? 'text-right' : '',
+              ]"
+              :style="cellStyle(cell)"
             >
-              {{ percent(average.strategy?.[action]) }}
+              {{ cell.text }}
             </td>
-            <td class="px-3 py-2 text-right">{{ percent(average.equity) }}</td>
-            <td class="px-3 py-2 text-right">{{ evText(average.ev) }}</td>
-            <td class="px-3 py-2">{{ advantageText(average.buckets, 1) }}</td>
-            <td class="px-3 py-2">{{ advantageText(average.buckets, 2) }}</td>
           </tr>
           <tr
             v-for="row of shown"
@@ -181,16 +189,16 @@
               <span v-else class="text-muted">—</span>
             </td>
             <td
-              v-for="action in actions"
-              :key="action"
-              class="px-3 py-2 text-right"
+              v-for="cell in valueCells(row)"
+              :key="cell.key"
+              :class="[
+                'px-3 py-2 whitespace-nowrap',
+                cell.numeric ? 'text-right' : '',
+              ]"
+              :style="cellStyle(cell)"
             >
-              {{ row.strategy ? percent(row.strategy[action] ?? 0) : "—" }}
+              {{ cell.text }}
             </td>
-            <td class="px-3 py-2 text-right">{{ percent(row.equity) }}</td>
-            <td class="px-3 py-2 text-right">{{ evText(row.ev) }}</td>
-            <td class="px-3 py-2">{{ advantageText(row.buckets, 1) }}</td>
-            <td class="px-3 py-2">{{ advantageText(row.buckets, 2) }}</td>
           </tr>
         </tbody>
       </table>
@@ -204,8 +212,9 @@ import { save } from "@tauri-apps/plugin-dialog";
 import { writeTextFile } from "@tauri-apps/plugin-fs";
 import { useStore } from "../../store";
 import * as invokes from "../../invokes";
-import { cardText, suitBgClasses } from "../../utils";
+import { cardText, suitBgClasses, toFixed1, toFixed2 } from "../../utils";
 import { stackedGradient } from "../../action-colors";
+import { themeColor } from "../../theme";
 import { toSpotActions } from "../../nav-spots";
 import { matchesTexture, TextureFilter } from "../../flop-texture";
 import {
@@ -222,6 +231,7 @@ import {
 } from "../../flop-report";
 import UiButton from "../ui/UiButton.vue";
 import UiSegmented from "../ui/UiSegmented.vue";
+import NodeStrategyCards from "../results/NodeStrategyCards.vue";
 
 // The flop report of the spot of `source`: every library solution with the same
 // configuration, one row per flop (see flop-report.ts).
@@ -284,7 +294,6 @@ const missingCount = computed(
   () => rows.value.filter((r) => r.isOlderSave).length
 );
 
-const player = computed(() => (cbetBy.value === "ip" ? "IP" : "OOP"));
 type Column = { key: string; label: string; numeric?: boolean; title?: string };
 const columns = computed<Column[]>(() => [
   { key: "flop", label: "Flop" },
@@ -295,18 +304,14 @@ const columns = computed<Column[]>(() => [
     label: actionLabel(a),
     numeric: true,
   })),
-  {
-    key: "equity",
-    label: `EQ ${player.value}`,
-    numeric: true,
-    title: "Equity of the c-bettor at the root",
-  },
-  {
-    key: "ev",
-    label: `EV ${player.value}`,
-    numeric: true,
-    title: "EV of the c-bettor at the root",
-  },
+  ...(["EV", "EQ", "EQR"] as const).flatMap((name) =>
+    (["OOP", "IP"] as const).map((who, p) => ({
+      key: `${name.toLowerCase()}${p}`,
+      label: `${name} ${who}`,
+      numeric: true,
+      title: `${who}'s ${name === "EQ" ? "equity" : name} at the root`,
+    }))
+  ),
   {
     key: "nut",
     label: "Nut adv.",
@@ -318,6 +323,85 @@ const columns = computed<Column[]>(() => [
     title: "Who holds more of the hands with 75%+ equity, by how many points",
   },
 ]);
+
+type Values = Pick<
+  ReturnType<typeof averageRow>,
+  "strategy" | "equity" | "ev" | "eqr" | "buckets"
+>;
+type Cell = {
+  key: string;
+  text: string;
+  numeric?: boolean;
+  /** A bar filling `ratio` of the cell, in `color`. */
+  fill?: { ratio: number; color: string };
+};
+
+/** The cells after the strategy bar: actions, EV, EQ, EQR (OOP then IP), advantages. */
+const valueCells = (v: Values): Cell[] => {
+  const playerColor = (p: number) => themeColor(p === 0 ? "oop" : "ip");
+  return [
+    ...actions.value.map((a) => {
+      const frequency = v.strategy ? (v.strategy[a] ?? 0) : null;
+      return {
+        key: a,
+        text: frequency === null ? "—" : percent(frequency),
+        numeric: true,
+        fill:
+          frequency === null
+            ? undefined
+            : { ratio: frequency, color: colors.value[a] },
+      };
+    }),
+    ...[0, 1].map((p) => ({
+      key: `ev${p}`,
+      text: evText(v.ev[p]),
+      numeric: true,
+    })),
+    ...[0, 1].map((p) => ({
+      key: `eq${p}`,
+      text: percent(v.equity[p]),
+      numeric: true,
+      fill: { ratio: v.equity[p], color: playerColor(p) },
+    })),
+    ...[0, 1].map((p) => ({
+      key: `eqr${p}`,
+      text: percent(v.eqr[p]),
+      numeric: true,
+      // 200% fills the cell.
+      fill: { ratio: v.eqr[p] / 2, color: playerColor(p) },
+    })),
+    { key: "nut", text: advantageText(v.buckets, 1) },
+    { key: "best", text: advantageText(v.buckets, 2) },
+  ];
+};
+
+/** The average strategy as the action cards of the results. */
+const averageItems = computed(() => {
+  const strategy = average.value.strategy;
+  if (!strategy || shown.value.length === 0) return null;
+  return actions.value.map((a) => {
+    const [name, amount] = a.split(":");
+    return {
+      name,
+      amount: amount ?? "0",
+      color: colors.value[a],
+      frequency: strategy[a] ?? 0,
+    };
+  });
+});
+
+const cellStyle = (cell: Cell) => {
+  if (!cell.fill || !isFinite(cell.fill.ratio)) return {};
+  const width = Math.min(Math.max(cell.fill.ratio, 0), 1) * 100;
+  const color = cell.fill.color;
+  // A thin line under the value, its length the value.
+  return {
+    backgroundImage: `linear-gradient(${color}, ${color})`,
+    backgroundSize: `${width}% 3px`,
+    backgroundPosition: "right bottom 4px",
+    backgroundRepeat: "no-repeat",
+  };
+};
 
 /** Same column: reverse; new column: descending, except flop and texture. */
 const sortBy = (column: string) => {
@@ -343,8 +427,8 @@ const bar = (strategy: Record<string, number>) =>
   );
 
 const percent = (value: number | undefined) =>
-  value === undefined || isNaN(value) ? "—" : (value * 100).toFixed(1) + "%";
-const evText = (value: number) => (isNaN(value) ? "—" : value.toFixed(2));
+  value === undefined || isNaN(value) ? "—" : toFixed1(value * 100) + "%";
+const evText = (value: number) => (isNaN(value) ? "—" : toFixed2(value));
 const sortedBoard = (board: number[]) => [...board].sort((a, b) => b - a);
 
 const exportCsv = async () => {

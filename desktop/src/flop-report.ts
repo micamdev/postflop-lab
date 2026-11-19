@@ -3,7 +3,7 @@
 
 import type { LibraryEntry, SolutionMeta } from "./invokes";
 import { canonicalFlopKey, flopWeight, textureLabel } from "./flop-texture";
-import { cardText } from "./utils";
+import { cardText, eqrOf } from "./utils";
 
 /** Whose first decision is the c-bet: IP after OOP checks, or OOP first. */
 export type CbetBy = "ip" | "oop";
@@ -43,9 +43,12 @@ export type ReportRow = {
   texture: string;
   /** How often the flop occurs: its batch subset weight, else its number of suit variants. */
   weight: number;
-  /** Equity and EV of the c-bettor at the root. */
-  equity: number;
-  ev: number;
+  /** OOP and IP equity, EV and EQR at the root. */
+  equity: [number, number];
+  ev: [number, number];
+  eqr: [number, number];
+  /** Pot at the root (for the EQR). */
+  pot: number;
   /** Frequency of each action ("Bet:7") at the c-bet node; null if not saved (older save). */
   strategy: Record<string, number> | null;
   /** OOP and IP equity tranches (>= 90%, 75-90%, 50-75%, < 50%); null if not saved. */
@@ -72,7 +75,7 @@ export const reportRows = (
     const meta = entry.meta;
     if (!meta || meta.board.length !== 3 || configKey(meta) !== key) return [];
     const { summary } = meta;
-    const player = cbetBy === "ip" ? 1 : 0;
+    const pot = Number(meta.tree_config.startingPot) || 0;
     let strategy: Record<string, number> | null = null;
     if (cbetBy === "ip" && summary.ip_after_check) {
       const node = summary.ip_after_check;
@@ -86,8 +89,12 @@ export const reportRows = (
         board: meta.board,
         texture: textureLabel(meta.board),
         weight: meta.flop_weight ?? flopWeight(meta.board),
-        equity: summary.equity[player],
-        ev: summary.ev[player],
+        equity: [summary.equity[0], summary.equity[1]],
+        ev: [summary.ev[0], summary.ev[1]],
+        eqr: [0, 1].map((p) =>
+          eqrOf(summary.ev[p], summary.equity[p], pot)
+        ) as [number, number],
+        pot,
         strategy,
         buckets: summary.equity_buckets ?? null,
         isOlderSave: meta.schema < 3,
@@ -194,10 +201,22 @@ export const averageRow = (allRows: ReportRow[]) => {
       : ([0, 1].map((p) =>
           [0, 1, 2, 3].map((i) => mean((r) => r.buckets?.[p][i] ?? null))
         ) as [number[], number[]]);
+  const equity = [0, 1].map((p) => mean((r) => r.equity[p])) as [
+    number,
+    number,
+  ];
+  const ev = [0, 1].map((p) => mean((r) => r.ev[p])) as [number, number];
+  // The EQR of the averages (as the Total of the results table), not the average EQR.
+  const pot = rows[0]?.pot ?? 0;
+  const eqr = [0, 1].map((p) => eqrOf(ev[p], equity[p], pot)) as [
+    number,
+    number,
+  ];
   return {
     weight: rows.reduce((sum, r) => sum + r.weight, 0),
-    equity: mean((r) => r.equity),
-    ev: mean((r) => r.ev),
+    equity,
+    ev,
+    eqr,
     strategy,
     buckets,
   };
@@ -244,8 +263,12 @@ export const reportCsv = (rows: ReportRow[], actions: string[]): string => {
     "Texture",
     "Weight",
     ...actions.map((a) => `${actionLabel(a)} %`),
-    "Equity %",
-    "EV",
+    "EV OOP",
+    "EV IP",
+    "Equity OOP %",
+    "Equity IP %",
+    "EQR OOP %",
+    "EQR IP %",
     "Nut advantage",
     "Best hands advantage",
   ];
@@ -256,8 +279,9 @@ export const reportCsv = (rows: ReportRow[], actions: string[]): string => {
     ...actions.map((a) =>
       r.strategy ? ((r.strategy[a] ?? 0) * 100).toFixed(1) : ""
     ),
-    (r.equity * 100).toFixed(1),
-    r.ev.toFixed(2),
+    ...r.ev.map((x) => x.toFixed(2)),
+    ...r.equity.map((x) => (x * 100).toFixed(1)),
+    ...r.eqr.map((x) => (isFinite(x) ? (x * 100).toFixed(1) : "")),
     advantageText(r.buckets, 1),
     advantageText(r.buckets, 2),
   ]);
@@ -284,7 +308,8 @@ const flopOrder = (board: number[]) =>
     .reduce((n, rank) => n * 13 + rank, 0);
 
 /**
- * Sorted copy of the rows by a column: "flop", "texture", "weight", "equity", "ev", "nut"
+ * Sorted copy of the rows by a column: "flop", "texture", "weight", "eq0" / "eq1",
+ * "ev0" / "ev1", "eqr0" / "eqr1" (OOP / IP), "nut"
  * (IP minus OOP at 90%+), "best" (75%+), or an action ("Bet:7"). Rows without the value come
  * last; equal values keep their order.
  */
@@ -301,10 +326,15 @@ export const sortReportRows = (
         return r.texture;
       case "weight":
         return r.weight;
-      case "equity":
-        return r.equity;
-      case "ev":
-        return r.ev;
+      case "eq0":
+      case "eq1":
+        return r.equity[Number(key[2])];
+      case "ev0":
+      case "ev1":
+        return r.ev[Number(key[2])];
+      case "eqr0":
+      case "eqr1":
+        return isFinite(r.eqr[Number(key[3])]) ? r.eqr[Number(key[3])] : null;
       case "nut":
         return advantageValue(r.buckets, 1);
       case "best":
