@@ -12,13 +12,10 @@
       <RangePanel :player="1" />
       <div class="flex flex-col row-span-2 gap-3">
         <BoardPanel />
-        <MemoryEstimate />
         <SolvePanel />
+        <MemoryEstimate />
       </div>
-      <div class="flex col-span-2 items-start gap-3">
-        <TreePanel class="w-[440px] shrink-0" />
-        <BetSizesPanel class="flex-1 min-w-0" />
-      </div>
+      <TreePanel class="col-span-2" />
     </div>
 
     <div
@@ -45,7 +42,6 @@ import SavedExplorer from "./SavedExplorer.vue";
 import RangePanel from "./RangePanel.vue";
 import BoardPanel from "./BoardPanel.vue";
 import TreePanel from "./TreePanel.vue";
-import BetSizesPanel from "./BetSizesPanel.vue";
 import MemoryEstimate from "./MemoryEstimate.vue";
 import SolvePanel from "./SolvePanel.vue";
 import TreeConfig from "../TreeConfig.vue";

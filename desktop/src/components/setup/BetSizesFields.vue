@@ -1,6 +1,9 @@
 <template>
-  <UiPanel title="Bet sizes">
-    <template #actions>
+  <section>
+    <header
+      class="flex items-center gap-1.5 mb-2 text-[11px] font-semibold tracking-[0.07em] text-muted"
+    >
+      <span class="mr-auto">BET SIZES</span>
       <button
         type="button"
         class="px-1.5 rounded hover:bg-panel2 hover:text-ink normal-case tracking-normal font-normal disabled:opacity-40"
@@ -45,7 +48,7 @@
           </ul>
         </template>
       </UiTooltip>
-    </template>
+    </header>
 
     <table class="w-full text-xs">
       <thead>
@@ -86,7 +89,7 @@
     <ul v-if="betErrors.length > 0" class="mt-2 text-xs text-red-400">
       <li v-for="error in betErrors" :key="error">{{ error }}</li>
     </ul>
-  </UiPanel>
+  </section>
 </template>
 
 <script setup lang="ts">
@@ -95,7 +98,6 @@ import { useConfigStore } from "../../store";
 import { setupErrors } from "../../setup-validation";
 import { sanitizeBetString } from "../../utils";
 import { hasManualEdits } from "../../tree-config-value";
-import UiPanel from "../ui/UiPanel.vue";
 import UiTooltip from "../ui/UiTooltip.vue";
 
 type BetField =

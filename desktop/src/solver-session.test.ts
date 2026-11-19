@@ -28,7 +28,12 @@ vi.stubGlobal("localStorage", memoryStorage());
 
 import * as invokes from "./invokes";
 import { useConfigStore, useStore } from "./store";
-import { checkConfig, memoryLimit, useSolverSession } from "./solver-session";
+import {
+  checkConfig,
+  memoryLimit,
+  solveBlocker,
+  useSolverSession,
+} from "./solver-session";
 
 const GB = 1024 * 1024 * 1024;
 const mocked = vi.mocked(invokes);
@@ -176,6 +181,24 @@ describe("audit fixes", () => {
     await session.solve();
     expect(useStore().isSolverError).toBe(true);
     expect(session.isBuilding).toBe(false);
+  });
+
+  test("Solve waits for both ranges and a valid setup", () => {
+    const config = useConfigStore();
+    const ranges = useStore().ranges;
+    ranges[0].fill(0);
+    ranges[1].fill(0);
+    ranges[1][0] = 100;
+    expect(solveBlocker(config, ranges)).toBe("The OOP range is empty.");
+    ranges[0][5] = 50;
+    ranges[1].fill(0);
+    expect(solveBlocker(config, ranges)).toBe("The IP range is empty.");
+    ranges[1][0] = 100;
+    expect(solveBlocker(config, ranges)).toBeNull();
+    const board = config.board;
+    config.board = [];
+    expect(solveBlocker(config, ranges)).toContain("Board");
+    config.board = board;
   });
 
   test("empty or out-of-range rake and thresholds are refused", () => {

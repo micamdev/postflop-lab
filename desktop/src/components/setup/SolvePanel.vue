@@ -1,13 +1,12 @@
 <template>
   <UiPanel title="Solve">
-    <!-- Settings: a summary; the fields in a popover; an invalid one is named under it. -->
-    <div class="flex items-start justify-between gap-2 text-xs text-muted">
-      <span class="tabular-nums">{{ summary }}</span>
+    <!-- Settings: a summary; the fields in a popover from Edit; an invalid one is named. -->
+    <template #actions>
       <UiPopover v-model:open="isOpen">
         <template #trigger>
           <button
             type="button"
-            class="shrink-0 text-accent-ink hover:underline"
+            class="normal-case tracking-normal font-semibold text-accent-ink hover:underline"
           >
             Edit
           </button>
@@ -21,7 +20,8 @@
           <SolveSettingsFields />
         </div>
       </UiPopover>
-    </div>
+    </template>
+    <p class="text-xs text-muted tabular-nums">{{ summary }}</p>
     <p v-if="settingsError" class="mt-2 text-xs text-red-400">
       {{ settingsError }}
     </p>
@@ -29,18 +29,19 @@
     <UiButton
       variant="primary"
       class="w-full mt-3"
-      :disabled="!canSolve"
+      :disabled="!canSolve || blocker !== null"
       @click="onSolve"
     >
       ▶ Solve
     </UiButton>
+    <p v-if="blocker" class="mt-2 text-xs text-muted">{{ blocker }}</p>
   </UiPanel>
 </template>
 
 <script setup lang="ts">
 import { computed, ref } from "vue";
-import { useStore } from "../../store";
-import { useSolverSession } from "../../solver-session";
+import { useConfigStore, useStore } from "../../store";
+import { solveBlocker, useSolverSession } from "../../solver-session";
 import { validateSolveSettings } from "../../solve-settings";
 import { useBatch } from "../../use-batch";
 import { ask } from "../../library";
@@ -53,11 +54,14 @@ import UiPopover from "../ui/UiPopover.vue";
 // fields in a popover behind "Edit"; an invalid setting is shown under the summary.
 
 const store = useStore();
+const config = useConfigStore();
 const session = useSolverSession();
 const batch = useBatch();
 
 const isOpen = ref(false);
 const settingsError = computed(() => validateSolveSettings(session.settings));
+/** What the spot still lacks to be solved (board, ranges, tree settings), or null. */
+const blocker = computed(() => solveBlocker(config, store.ranges));
 
 const summary = computed(() => {
   const s = session.settings;
