@@ -40,6 +40,14 @@
     </div>
 
     <div class="flex flex-wrap items-center gap-4 mb-3 text-xs text-muted">
+      <UiSegmented
+        :model-value="view"
+        :options="[
+          { value: 'table', label: 'Table' },
+          { value: 'chart', label: 'Chart' },
+        ]"
+        @update:model-value="view = $event as 'table' | 'chart'"
+      />
       <span class="flex items-center gap-2">
         C-bet by
         <UiSegmented
@@ -80,10 +88,67 @@
       <NodeStrategyCards :items="averageItems" :no-hands="false" />
     </div>
 
+    <div
+      v-if="view === 'chart' && shown.length > 0"
+      class="flex flex-wrap items-center gap-4 mb-3 text-xs text-muted"
+    >
+      <span class="flex items-center gap-2">
+        Show
+        <UiSegmented
+          :model-value="metric"
+          :options="[
+            { value: 'strategy', label: 'Strategy' },
+            { value: 'eq', label: 'EQ' },
+            { value: 'ev', label: 'EV' },
+            { value: 'eqr', label: 'EQR' },
+          ]"
+          @update:model-value="metric = $event as ChartMetric"
+        />
+      </span>
+      <UiSegmented
+        v-if="metric !== 'strategy'"
+        :model-value="String(chartPlayer)"
+        :options="[
+          { value: '0', label: 'OOP' },
+          { value: '1', label: 'IP' },
+        ]"
+        @update:model-value="chartPlayer = Number($event)"
+      />
+      <span class="flex items-center gap-2">
+        Sort by
+        <select v-model="sortKey" class="ui-input h-7 py-0 text-xs">
+          <option
+            v-for="column in sortColumns"
+            :key="column.key"
+            :value="column.key"
+          >
+            {{ column.label }}
+          </option>
+        </select>
+        <button
+          type="button"
+          class="w-6 h-6 rounded hover:bg-panel2 hover:text-ink"
+          :title="descending ? 'Descending' : 'Ascending'"
+          @click="descending = !descending"
+        >
+          {{ descending ? "▼" : "▲" }}
+        </button>
+      </span>
+    </div>
+
     <p v-if="shown.length === 0" class="mt-6 text-muted">
       No flop of this spot matches.
     </p>
 
+    <FlopReportChart
+      v-else-if="view === 'chart'"
+      :rows="shown"
+      :actions="actions"
+      :colors="colors"
+      :metric="metric"
+      :player="chartPlayer"
+      @open="emit('open', $event)"
+    />
     <div
       v-else
       class="flex-1 min-h-0 overflow-auto rounded-lg border border-line bg-panel"
@@ -223,6 +288,7 @@ import {
   advantageText,
   averageRow,
   buildReport,
+  ChartMetric,
   configKey,
   defaultCbetBy,
   reportActions,
@@ -232,6 +298,7 @@ import {
 import UiButton from "../ui/UiButton.vue";
 import UiSegmented from "../ui/UiSegmented.vue";
 import NodeStrategyCards from "../results/NodeStrategyCards.vue";
+import FlopReportChart from "./FlopReportChart.vue";
 
 // The flop report of the spot of `source`: every library solution with the same
 // configuration, one row per flop (see flop-report.ts).
@@ -280,6 +347,9 @@ watch(cbetBy, () => {
   descending.value = true;
 });
 const isUpdating = ref(false);
+const view = ref<"table" | "chart">("table");
+const metric = ref<ChartMetric>("strategy");
+const chartPlayer = ref(cbetBy.value === "ip" ? 1 : 0);
 const filtered = computed(() =>
   rows.value.filter((r) => matchesTexture(r.board, texture.value))
 );
@@ -402,6 +472,11 @@ const cellStyle = (cell: Cell) => {
     backgroundRepeat: "no-repeat",
   };
 };
+
+/** The columns the chart can be sorted by (all sortable ones). */
+const sortColumns = computed(() =>
+  columns.value.filter((c) => c.key !== "strategy")
+);
 
 /** Same column: reverse; new column: descending, except flop and texture. */
 const sortBy = (column: string) => {
