@@ -193,7 +193,7 @@
 
         <!-- No action cards: the strategy is in the navigation spot, a thin bar recalls it. -->
         <div
-          class="flex flex-col w-[240px] shrink-0 bg-panel border-x border-line"
+          class="flex flex-col w-[240px] shrink-0"
         >
           <div
             v-if="strategyItems"
