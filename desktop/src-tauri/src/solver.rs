@@ -923,6 +923,8 @@ pub(crate) mod tests {
         let num_actions = loaded.available_actions().len();
         apply_history_checked(&mut loaded, &[0, 0]).unwrap();
         let reports = chance_reports(&mut loaded, &[-1], num_actions).unwrap();
+        // The game is back where it was.
+        assert_eq!(loaded.history(), &[0, 0]);
         let possible = (0..52).filter(|&c| reports.status[c] != 0).count();
         assert_eq!(possible, 49);
         for card in (0..52).filter(|&c| reports.status[c] != 0) {

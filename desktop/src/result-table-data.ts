@@ -150,12 +150,14 @@ export const chanceRows = (
 export const chanceEmptyNote = (reports: ChanceReports): string | null => {
   const cards = reports.status.flatMap((s, card) => (s === 0 ? [] : [card]));
   if (!cards.some((card) => reports.status[card] === 1)) return null;
-  const absent = [0, 1].find((player) =>
+  const absent = ["OOP", "IP"].filter((_, player) =>
     cards.every((card) => reports.combos[player][card] === 0)
   );
-  if (absent !== undefined) {
-    const name = absent === 0 ? "OOP" : "IP";
-    return `${name}'s range is empty after this line (it is never played): no equity or EV.`;
+  if (absent.length === 2) {
+    return "Neither player reaches this line: no equity or EV.";
+  }
+  if (absent.length === 1) {
+    return `${absent[0]} never reaches this line: no equity or EV.`;
   }
   return "A range is empty after the cards showing “-”: no equity or EV there.";
 };

@@ -123,11 +123,18 @@ describe("chanceEmptyNote", () => {
     // IP always bets: no IP combo after this line, on every card (#57).
     const r = reports(pad([1, 0, 1]), [pad([16, 0, 16]), pad([0, 0, 0])]);
     expect(chanceEmptyNote(r)).toBe(
-      "IP's range is empty after this line (it is never played): no equity or EV."
+      "IP never reaches this line: no equity or EV."
     );
     const oop = reports(pad([1, 1]), [pad([0, 0]), pad([5, 5])]);
     expect(chanceEmptyNote(oop)).toBe(
-      "OOP's range is empty after this line (it is never played): no equity or EV."
+      "OOP never reaches this line: no equity or EV."
+    );
+  });
+
+  test("neither player", () => {
+    const r = reports(pad([1, 1]), [pad([0, 0]), pad([0, 0])]);
+    expect(chanceEmptyNote(r)).toBe(
+      "Neither player reaches this line: no equity or EV."
     );
   });
 
