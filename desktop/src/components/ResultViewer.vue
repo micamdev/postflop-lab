@@ -478,10 +478,10 @@ const strategyItems = computed(() => {
   );
 });
 
-/** The strategy as text, for the thin bar of Compare: "Check 0.2%, Bet 30 · 50% 99.8%". */
+/** The strategy as text, for the thin bar of Compare: "Check: 0.2%, Bet 30 · 50%: 99.8%". */
 const strategyTitle = computed(() =>
   (strategyItems.value ?? [])
-    .map((item) => `${actionText(item)} ${toFixed1(item.frequency * 100)}%`)
+    .map((item) => `${actionText(item)}: ${toFixed1(item.frequency * 100)}%`)
     .join(", ")
 );
 
