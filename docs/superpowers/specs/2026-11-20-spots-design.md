@@ -95,7 +95,7 @@ Same envelope as the ranges export, so the explorer's import/export code is shar
       "value": {
         "oopRange": "AA,KK,…",
         "ipRange": "QQ:0.5,…",
-        "startingPot": 280,
+        "startingPot": 275,
         "effectiveStack": 865,
         "rakePercent": 5,
         "rakeCap": 150,
@@ -140,8 +140,11 @@ remaining players put in (equal for both). The rake is the NL10 structure (5%, c
   components (explorer rows, tags, menus).
 - Saved data in IndexedDB (Dexie): a new `spots` table needs a schema version bump that keeps
   the `ranges` and `configurations` tables untouched.
-- The solution file's metadata (`SolutionMeta`, Rust) gains an optional field with
-  `#[serde(default)]`, readable by older code paths and absent in older files.
+- The solution's spot is saved in the metadata's free-form `tree_config` JSON, under a
+  `spot` key that is not a Setup field: no Rust change, batch saves carry it like the rest of
+  the setup, older files simply lack it, and the flop report's spot key (`configKey`, Setup
+  fields only) and the library load (Setup fields only) ignore it. (Planning call: the first
+  draft added a field to the Rust `SolutionMeta`; same behavior, less plumbing.)
 - Tests for the pure parts (spot value validation, the tree-load rule with a spot, the
   modified marks); local checks then green CI; one PR to `dev`, reviewed before merge.
 
