@@ -20,10 +20,12 @@ const createRangeEditing = (player: number) => {
   const numCombos = ref(0);
   let paintMode: PaintMode = "none";
 
-  /** The OOP or IP range no longer matches the saved one it came from. */
+  /** The OOP or IP range no longer matches the saved one (or the spot) it came from. */
   const markModified = () => {
-    const source = player < 2 ? store.rangeSources[player] : null;
+    if (player >= 2) return;
+    const source = store.rangeSources[player];
     if (source) source.modified = true;
+    if (store.spot) store.spot.rangesEdited = true;
   };
 
   const refresh = async () => {
@@ -78,6 +80,8 @@ const createRangeEditing = (player: number) => {
       store.rangeSources[player] = source
         ? { path: source, modified: false }
         : null;
+      // A saved range replaces one of the spot's.
+      if (source && store.spot) store.spot.rangesEdited = true;
     }
     return true;
   };

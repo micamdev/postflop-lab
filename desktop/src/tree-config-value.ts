@@ -50,9 +50,17 @@ export const configToValue = (c: TreeConfigState): ConfigValue => ({
   removedLines: c.removedLines,
 });
 
-/** Loads a saved value into `c`; bet sizes are sanitized when valid, else kept as saved. */
-export const applyConfigValue = (c: TreeConfigState, value: unknown): void => {
+/**
+ * Loads a saved value into `c`; bet sizes are sanitized when valid, else kept as saved. The
+ * fields in `keep` stay as they are (a spot's pot, stack and rake under a loaded tree).
+ */
+export const applyConfigValue = (
+  c: TreeConfigState,
+  value: unknown,
+  keep: readonly (keyof TreeConfigState)[] = []
+): void => {
   const v = value as ConfigValue;
+  const kept = Object.fromEntries(keep.map((field) => [field, c[field]]));
   c.startingPot = Number(v.startingPot);
   c.effectiveStack = Number(v.effectiveStack);
   c.rakePercent = Number(v.rakePercent);
@@ -70,6 +78,7 @@ export const applyConfigValue = (c: TreeConfigState, value: unknown): void => {
     const sanitized = sanitizeBetString(str, isRaiseField(field));
     c[field] = sanitized.valid ? sanitized.s : str;
   }
+  Object.assign(c, kept);
 };
 
 /**

@@ -1,4 +1,5 @@
 import { describe, expect, test } from "vitest";
+import { SPOT_FIELDS } from "./spot";
 import {
   TreeConfigState,
   applyConfigValue,
@@ -74,4 +75,30 @@ describe("hasManualEdits", () => {
     expect(hasManualEdits(state({ addedLines: "B30" }))).toBe(true);
     expect(hasManualEdits(state({ removedLines: "X-B30" }))).toBe(true);
   });
+});
+
+test("a tree loaded over a spot leaves the spot's fields alone", () => {
+  const target = state({
+    startingPot: 280,
+    effectiveStack: 865,
+    rakePercent: 5,
+    rakeCap: 150,
+  });
+  applyConfigValue(
+    target,
+    {
+      ...configToValue(state()),
+      startingPot: 55,
+      effectiveStack: 975,
+      rakePercent: 0,
+      rakeCap: 0,
+      oopFlopBet: "50",
+    },
+    SPOT_FIELDS
+  );
+  expect(target.startingPot).toBe(280);
+  expect(target.effectiveStack).toBe(865);
+  expect(target.rakePercent).toBe(5);
+  expect(target.rakeCap).toBe(150);
+  expect(target.oopFlopBet).toBe("50");
 });
