@@ -30,9 +30,12 @@
     v-else
     ref="root"
     :class="[
-      'flex flex-col shrink-0 w-[250px] h-full bg-panel border-r border-line',
-      isNarrow ? 'absolute left-0 top-0 z-30 shadow-2xl shadow-black/50' : '',
+      'flex flex-col shrink-0 h-full bg-panel border-r border-line',
+      isNarrow
+        ? 'absolute left-0 top-0 z-30 shadow-2xl shadow-black/50'
+        : 'relative',
     ]"
+    :style="{ width: `${panelWidth}px` }"
   >
     <header class="flex items-center gap-2 px-2.5 pt-2.5">
       <UiSegmented
@@ -195,6 +198,27 @@
         </UiMenu>
       </div>
     </footer>
+
+    <!-- Its right edge: drag to resize, double-click for the default width. -->
+    <div
+      role="separator"
+      aria-orientation="vertical"
+      aria-label="Resize the explorer"
+      :aria-valuenow="panelWidth"
+      :aria-valuemin="EXPLORER_WIDTH.min"
+      :aria-valuemax="EXPLORER_WIDTH.max"
+      tabindex="0"
+      title="Drag to resize · double-click to reset"
+      :class="[
+        'absolute top-0 -right-1 z-10 w-2 h-full cursor-col-resize',
+        'hover:bg-accent/40 focus-visible:bg-accent/40 focus-visible:outline-none',
+        resizing ? 'bg-accent/40' : '',
+      ]"
+      @pointerdown="startResize"
+      @dblclick="setPanelWidth(EXPLORER_WIDTH.default)"
+      @keydown.left.prevent="setPanelWidth(panelWidth - 16)"
+      @keydown.right.prevent="setPanelWidth(panelWidth + 16)"
+    />
   </aside>
 </template>
 
@@ -227,6 +251,12 @@ import { leaveTreeEdit } from "../../tree-edit-guard";
 import { RANGE_DRAG_TYPE, useRangeEditing } from "../../use-range-editing";
 import { setTreeSource } from "../../tree-source";
 import { useWindowWidth } from "../../use-window-width";
+import {
+  EXPLORER_WIDTH,
+  clampExplorerWidth,
+  loadExplorerWidth,
+  saveExplorerWidth,
+} from "../../explorer-width";
 import * as invokes from "../../invokes";
 import { ask } from "../../library";
 import UiButton from "../ui/UiButton.vue";
@@ -261,6 +291,42 @@ const keyOf = (path: string[]) => JSON.stringify(path);
 
 /* Narrow window: the explorer folds into a rail. */
 const width = useWindowWidth();
+
+/* Its width: drag its right edge; kept for the next session. */
+const savedWidth = ref(loadExplorerWidth(localStorage));
+const panelWidth = computed(() =>
+  clampExplorerWidth(savedWidth.value, width.value)
+);
+const resizing = ref(false);
+const setPanelWidth = (value: number) => {
+  savedWidth.value = clampExplorerWidth(value, width.value);
+  saveExplorerWidth(localStorage, savedWidth.value);
+};
+const startResize = (e: PointerEvent) => {
+  if (e.button !== 0) return;
+  e.preventDefault();
+  const handle = e.currentTarget as HTMLElement;
+  handle.setPointerCapture(e.pointerId);
+  const startX = e.clientX;
+  const startWidth = panelWidth.value;
+  resizing.value = true;
+  const move = (m: PointerEvent) => {
+    savedWidth.value = clampExplorerWidth(
+      startWidth + m.clientX - startX,
+      width.value
+    );
+  };
+  const end = () => {
+    resizing.value = false;
+    handle.removeEventListener("pointermove", move);
+    handle.removeEventListener("pointerup", end);
+    handle.removeEventListener("pointercancel", end);
+    saveExplorerWidth(localStorage, savedWidth.value);
+  };
+  handle.addEventListener("pointermove", move);
+  handle.addEventListener("pointerup", end);
+  handle.addEventListener("pointercancel", end);
+};
 const isNarrow = computed(() => width.value < 1500);
 const isExpanded = ref(false);
 const root = ref<HTMLElement | null>(null);
