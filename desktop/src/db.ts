@@ -23,6 +23,7 @@ export type DbGroup = {
 class DesktopPostflopDB extends Dexie {
   public ranges!: Table<DbItem | DbGroup, number>;
   public configurations!: Table<DbItem | DbGroup, number>;
+  public spots!: Table<DbItem | DbGroup, number>;
 
   public constructor() {
     super("DesktopPostflopDB");
@@ -47,6 +48,13 @@ class DesktopPostflopDB extends Dexie {
             }
           });
       });
+
+    // Spots (two ranges, pot, stack, rake and the preflop line).
+    this.version(3).stores({
+      ranges: "++id, [name0+name1+name2+name3+isGroup]",
+      configurations: "++id, [name0+name1+name2+name3+isGroup]",
+      spots: "++id, [name0+name1+name2+name3+isGroup]",
+    });
   }
 }
 

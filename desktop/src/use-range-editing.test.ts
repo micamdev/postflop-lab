@@ -144,3 +144,47 @@ describe("cancel after a solution was loaded", () => {
     expect(store.rangeSources[0]).toBeNull();
   });
 });
+
+describe("with a loaded spot", () => {
+  const loadSpot = () => {
+    const store = useStore();
+    store.spot = {
+      path: ["S"],
+      name: "S",
+      value: {
+        oopRange: "AA",
+        ipRange: "KK",
+        startingPot: 280,
+        effectiveStack: 865,
+        rakePercent: 5,
+        rakeCap: 150,
+        line: "",
+        positions: ["BB", "BTN"],
+      },
+      rangesEdited: false,
+    };
+    return store;
+  };
+
+  test("editing the OOP or IP range marks the spot's ranges edited", async () => {
+    const store = loadSpot();
+    const editing = useRangeEditing(1);
+    editing.text.value = "QQ";
+    await editing.applyText();
+    expect(store.spot?.rangesEdited).toBe(true);
+  });
+
+  test("loading a saved range over it marks it too", async () => {
+    const store = loadSpot();
+    await useRangeEditing(0).loadText("AA", ["R"]);
+    expect(store.spot?.rangesEdited).toBe(true);
+  });
+
+  test("a fold range does not", async () => {
+    const store = loadSpot();
+    const editing = useRangeEditing(2);
+    editing.text.value = "QQ";
+    await editing.applyText();
+    expect(store.spot?.rangesEdited).toBe(false);
+  });
+});

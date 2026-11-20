@@ -11,6 +11,7 @@ vi.mock("./invokes", () => ({
   libraryDelete: vi.fn(),
   libraryRename: vi.fn(),
   libraryImport: vi.fn(),
+  rangeGetWeights: vi.fn(),
   ERR_INTERNAL: "Internal error",
 }));
 
@@ -115,5 +116,65 @@ describe("an internal error while loading", () => {
     await loadSolution("new");
     expect(store.isSolverFinished).toBe(false);
     expect(store.solutionInfo).toBeNull();
+  });
+});
+
+describe("a solution's spot", () => {
+  const metaWith = (spot: unknown) => ({
+    schema: 3,
+    app_version: "test",
+    created_at: 0,
+    board: [0, 5, 10],
+    ranges: ["AA", "KK"],
+    tree_config: {
+      board: [0, 5, 10],
+      startingPot: 20,
+      effectiveStack: 90,
+      ...(spot === undefined ? {} : { spot }),
+    },
+    depth: "river",
+    exploitability: 0.1,
+    iterations: 10,
+    precision: "32",
+    locks: [],
+    summary: {},
+  });
+
+  const load = async (spot: unknown) => {
+    vi.mocked(invokes.libraryCheckLoad).mockResolvedValue(undefined);
+    vi.mocked(invokes.libraryLoad).mockResolvedValue(metaWith(spot) as never);
+    vi.mocked(invokes.rangeGetWeights).mockResolvedValue(Array(169).fill(0));
+    await loadSolution("Jh 9d 4c");
+  };
+
+  test("is shown again, and the loaded spot is dropped", async () => {
+    const store = useStore();
+    store.spot = {
+      path: ["S"],
+      name: "S",
+      value: {} as never,
+      rangesEdited: false,
+    };
+    const record = {
+      name: "S",
+      line: "BTN 2.5 · BB call",
+      positions: ["BB", "BTN"],
+      modified: false,
+    };
+    await load(record);
+    expect(store.solvedSpot).toEqual(record);
+    expect(store.spot).toBeNull();
+  });
+
+  test("an older solution has none", async () => {
+    const store = useStore();
+    store.solvedSpot = {
+      name: "old",
+      line: "",
+      positions: ["BB", "BTN"],
+      modified: false,
+    };
+    await load(undefined);
+    expect(store.solvedSpot).toBeNull();
   });
 });

@@ -24,15 +24,28 @@
         T
       </button>
     </UiTooltip>
+    <UiTooltip text="Saved spots">
+      <button
+        type="button"
+        class="w-8 h-8 rounded-md text-xs font-bold text-muted hover:text-ink hover:bg-panel2"
+        aria-label="Saved spots"
+        @click="expand('spots')"
+      >
+        S
+      </button>
+    </UiTooltip>
   </div>
 
   <aside
     v-else
     ref="root"
     :class="[
-      'flex flex-col shrink-0 w-[250px] h-full bg-panel border-r border-line',
-      isNarrow ? 'absolute left-0 top-0 z-30 shadow-2xl shadow-black/50' : '',
+      'flex flex-col shrink-0 h-full bg-panel border-r border-line',
+      isNarrow
+        ? 'absolute left-0 top-0 z-30 shadow-2xl shadow-black/50'
+        : 'relative',
     ]"
+    :style="{ width: `${panelWidth}px` }"
   >
     <header class="flex items-center gap-2 px-2.5 pt-2.5">
       <UiSegmented
@@ -40,6 +53,7 @@
         :options="[
           { value: 'ranges', label: 'Ranges' },
           { value: 'configurations', label: 'Trees' },
+          { value: 'spots', label: 'Spots' },
         ]"
         @update:model-value="(value) => switchTab(value as SavedStore)"
       />
@@ -70,15 +84,14 @@
       <input
         v-model="query"
         type="search"
-        :placeholder="tab === 'ranges' ? 'Search ranges…' : 'Search trees…'"
+        :placeholder="TAB_TEXT[tab].search"
         class="ui-input w-full"
       />
     </div>
 
     <div class="flex-1 min-h-0 overflow-y-auto px-1.5 pb-2 text-sm">
       <p v-if="tree.length === 0" class="px-2 py-3 text-muted">
-        {{ tab === "ranges" ? "No saved ranges yet" : "No saved trees yet" }}
-        — use “Save current”.
+        {{ TAB_TEXT[tab].empty }}
       </p>
       <p v-else-if="shown.length === 0" class="px-2 py-3 text-muted">
         No match
@@ -113,7 +126,9 @@
             @keydown.enter="confirmEditing"
             @keydown.escape="cancelEditing"
           />
-          <span v-else class="flex-1 truncate">{{ node.name }}</span>
+          <span v-else class="flex-1 truncate" :title="node.name">{{
+            node.name
+          }}</span>
           <span
             v-for="tag in tagsOf(node)"
             :key="tag"
@@ -162,6 +177,9 @@
               → Fold
             </UiButton>
           </template>
+          <UiButton v-else-if="tab === 'spots'" size="sm" @click="useSpot(node)"
+            >Load</UiButton
+          >
           <UiButton v-else size="sm" @click="useTree(node)">Load</UiButton>
         </div>
       </template>
@@ -186,13 +204,34 @@
       <p v-if="message" class="mb-2 text-xs text-red-400">{{ message }}</p>
       <div class="flex gap-1.5">
         <UiButton size="sm" @click="startNewFolder">＋ Folder</UiButton>
-        <UiMenu :items="saveMenu">
+        <UiMenu v-if="saveMenu.length > 0" :items="saveMenu">
           <template #trigger>
             <UiButton size="sm">Save current ▾</UiButton>
           </template>
         </UiMenu>
       </div>
     </footer>
+
+    <!-- Its right edge: drag to resize, double-click for the default width. -->
+    <div
+      role="separator"
+      aria-orientation="vertical"
+      aria-label="Resize the explorer"
+      :aria-valuenow="panelWidth"
+      :aria-valuemin="EXPLORER_WIDTH.min"
+      :aria-valuemax="EXPLORER_WIDTH.max"
+      tabindex="0"
+      title="Drag to resize · double-click to reset"
+      :class="[
+        'absolute top-0 -right-1.5 z-10 w-1.5 h-full cursor-col-resize touch-none',
+        'hover:bg-accent/40 focus-visible:bg-accent/40 focus-visible:outline-none',
+        resizing ? 'bg-accent/40' : '',
+      ]"
+      @pointerdown="startResize"
+      @dblclick="setPanelWidth(EXPLORER_WIDTH.default)"
+      @keydown.left.prevent="setPanelWidth(panelWidth - 16)"
+      @keydown.right.prevent="setPanelWidth(panelWidth + 16)"
+    />
   </aside>
 </template>
 
@@ -208,8 +247,10 @@ import {
   buildFolderTree,
   checkJsonItems,
   filterFolderTree,
+  invalidSpots,
   isUnder,
   itemsToAdd,
+  rowPath,
   nameTaken,
   renamedPath,
   rowFor,
@@ -220,13 +261,26 @@ import {
   visibleRows,
 } from "../../saved-items";
 import { RangeSource, useConfigStore, useStore } from "../../store";
-import { applyConfigValue, configToValue } from "../../tree-config-value";
+import {
+  applyConfigValue,
+  configToValue,
+  keepSpotFields,
+  linesConflict,
+} from "../../tree-config-value";
 import { leaveTreeEdit } from "../../tree-edit-guard";
 import { RANGE_DRAG_TYPE, useRangeEditing } from "../../use-range-editing";
 import { setTreeSource } from "../../tree-source";
 import { useWindowWidth } from "../../use-window-width";
+import {
+  EXPLORER_WIDTH,
+  clampExplorerWidth,
+  loadExplorerWidth,
+  saveExplorerWidth,
+} from "../../explorer-width";
 import * as invokes from "../../invokes";
 import { ask } from "../../library";
+import { isSpotModified, type SpotValue } from "../../spot";
+import { loadSpot, loadTreeWithSpot } from "../../spot-load";
 import UiButton from "../ui/UiButton.vue";
 import UiMenu from "../ui/UiMenu.vue";
 import UiSegmented from "../ui/UiSegmented.vue";
@@ -257,8 +311,58 @@ const nameInput = ref("");
 
 const keyOf = (path: string[]) => JSON.stringify(path);
 
+const TAB_TEXT: Record<SavedStore, { search: string; empty: string }> = {
+  ranges: {
+    search: "Search ranges…",
+    empty: "No saved ranges yet — use “Save current”.",
+  },
+  configurations: {
+    search: "Search trees…",
+    empty: "No saved trees yet — use “Save current”.",
+  },
+  spots: {
+    search: "Search spots…",
+    empty: "No saved spots yet — import a spot pack (⋯ › Import JSON…).",
+  },
+};
+
 /* Narrow window: the explorer folds into a rail. */
 const width = useWindowWidth();
+
+/* Its width: drag its right edge; kept for the next session. */
+const savedWidth = ref(loadExplorerWidth(localStorage));
+const panelWidth = computed(() =>
+  clampExplorerWidth(savedWidth.value, width.value)
+);
+const resizing = ref(false);
+const setPanelWidth = (value: number) => {
+  savedWidth.value = clampExplorerWidth(value, width.value);
+  saveExplorerWidth(localStorage, savedWidth.value);
+};
+const startResize = (e: PointerEvent) => {
+  if (e.button !== 0) return;
+  e.preventDefault();
+  const handle = e.currentTarget as HTMLElement;
+  handle.setPointerCapture(e.pointerId);
+  const startX = e.clientX;
+  const startWidth = panelWidth.value;
+  resizing.value = true;
+  const move = (m: PointerEvent) => {
+    savedWidth.value = clampExplorerWidth(
+      startWidth + m.clientX - startX,
+      width.value
+    );
+  };
+  const end = () => {
+    resizing.value = false;
+    handle.removeEventListener("pointermove", move);
+    handle.removeEventListener("lostpointercapture", end);
+    saveExplorerWidth(localStorage, savedWidth.value);
+  };
+  handle.addEventListener("pointermove", move);
+  handle.addEventListener("pointerup", end);
+  handle.addEventListener("pointercancel", end);
+};
 const isNarrow = computed(() => width.value < 1500);
 const isExpanded = ref(false);
 const root = ref<HTMLElement | null>(null);
@@ -342,8 +446,9 @@ const onClick = (node: SavedNode) => {
 };
 
 const onDoubleClick = (node: SavedNode) => {
-  if (node.kind === "item" && tab.value === "configurations")
-    void useTree(node);
+  if (node.kind !== "item") return;
+  if (tab.value === "configurations") void useTree(node);
+  else if (tab.value === "spots") void useSpot(node);
 };
 
 const onDragStart = (e: DragEvent, node: SavedNode) => {
@@ -367,11 +472,25 @@ const useRange = async (node: SavedNode, player: number) => {
 
 const useTree = async (node: SavedNode) => {
   if (node.kind !== "item") return;
+  // A loaded spot keeps its pot, stack and rake.
+  if (store.spot) {
+    if ((await loadTreeWithSpot(node.path, node.value)) && isNarrow.value) {
+      isExpanded.value = false;
+    }
+    return;
+  }
   // The loaded tree replaces an open tree lines edit: discard it first, or keep it.
   if (!(await leaveTreeEdit(undefined, "load"))) return;
   applyConfigValue(config, node.value);
   setTreeSource(node.path, configToValue(config));
   if (isNarrow.value) isExpanded.value = false;
+};
+
+const useSpot = async (node: SavedNode) => {
+  if (node.kind !== "item") return;
+  const error = await loadSpot(node.path, node.value as SpotValue);
+  message.value = error ?? "";
+  if (error === null && store.spot && isNarrow.value) isExpanded.value = false;
 };
 
 const sameSource = (source: RangeSource | null, node: SavedNode) =>
@@ -383,6 +502,14 @@ const tagsOf = (node: SavedNode): string[] => {
   if (node.kind !== "item") return [];
   if (tab.value === "configurations") {
     return sameSource(store.treeSource, node) ? ["TREE"] : [];
+  }
+  if (tab.value === "spots") {
+    const spot = store.spot;
+    return spot &&
+      keyOf(spot.path) === keyOf(node.path) &&
+      !isSpotModified(spot, config)
+      ? ["SPOT"]
+      : [];
   }
   const tags: string[] = [];
   if (sameSource(store.rangeSources[0], node)) tags.push("OOP");
@@ -488,11 +615,33 @@ const confirmEditing = async () => {
       return;
     }
     const path = [...e.folder, name];
-    const value =
+    const taken = nameTaken(tree.value, e.folder, name);
+    let value =
       e.target === "tree"
         ? configToValue(config)
         : await invokes.rangeToString(e.target);
-    const taken = nameTaken(tree.value, e.folder, name);
+    if (e.target === "tree" && taken === "item" && store.spot) {
+      // Over a spot, the saved tree keeps its own pot, stack and rake.
+      const existing = rows.value.find(
+        (row) => row.isGroup === 0 && keyOf(rowPath(row)) === keyOf(path)
+      );
+      if (existing && existing.isGroup === 0) {
+        if (
+          linesConflict(
+            value as ReturnType<typeof configToValue>,
+            existing.value
+          )
+        ) {
+          message.value =
+            "The edited lines were made for the spot's pot and stack, not this tree's: save it as a new tree.";
+          return;
+        }
+        value = keepSpotFields(
+          value as ReturnType<typeof configToValue>,
+          existing.value
+        );
+      }
+    }
     if (taken === "folder") {
       message.value = `A folder is named “${name}” here.`;
       return;
@@ -511,8 +660,9 @@ const confirmEditing = async () => {
       message.value = "It could not be saved.";
       return;
     }
-    if (e.target === "tree") setTreeSource(path, configToValue(config));
-    else {
+    if (e.target === "tree") {
+      setTreeSource(path, value as ReturnType<typeof configToValue>);
+    } else {
       // A range (OOP, IP or fold) may have come from the item just overwritten.
       store.rangeSources = sourcesAfterOverwrite(
         store.rangeSources,
@@ -555,8 +705,13 @@ const followRename = (oldPath: string[], name: string) => {
       update(store.rangeSources[0]),
       update(store.rangeSources[1]),
     ];
-  } else {
+  } else if (tab.value === "configurations") {
     store.treeSource = update(store.treeSource);
+  } else if (store.spot) {
+    const path = renamedPath(store.spot.path, oldPath, name);
+    const renamed = keyOf(path) !== keyOf(store.spot.path);
+    store.spot.path = path;
+    if (renamed && path.length > 0) store.spot.name = path[path.length - 1];
   }
   openFolders.value = new Set(
     [...openFolders.value].map((key) =>
@@ -589,8 +744,11 @@ const remove = async (node: SavedNode) => {
       forget(store.rangeSources[0]),
       forget(store.rangeSources[1]),
     ];
-  } else {
+  } else if (tab.value === "configurations") {
     store.treeSource = forget(store.treeSource);
+  } else if (store.spot && isUnder(store.spot.path, node.path)) {
+    // The loaded spot stays (its values and its line), it is no longer in the explorer.
+    store.spot.path = [];
   }
   if (selected.value && isUnder(JSON.parse(selected.value), node.path)) {
     selected.value = null;
@@ -645,7 +803,23 @@ const importJson = async () => {
     message.value = "Invalid data";
     return;
   }
-  const toAdd = itemsToAdd(obj.data, await Db.getArray(tab.value));
+  let items = obj.data;
+  let skipped = "";
+  if (tab.value === "spots") {
+    const invalid = invalidSpots(items);
+    if (invalid.length > 0) {
+      const bad = new Set(invalid.map((i) => keyOf(i.path)));
+      items = items.filter((item) => !bad.has(keyOf(item.path)));
+      const names = invalid
+        .slice(0, 3)
+        .map((i) => `${i.path[i.path.length - 1]} (${i.reason})`)
+        .join(", ");
+      skipped =
+        `Skipped ${invalid.length} invalid spot${invalid.length > 1 ? "s" : ""}: ${names}` +
+        (invalid.length > 3 ? "…" : ".");
+    }
+  }
+  const toAdd = itemsToAdd(items, await Db.getArray(tab.value));
   if (typeof toAdd === "string") {
     message.value = `Cannot create group "${toAdd}" because the item already exists`;
     return;
@@ -655,6 +829,7 @@ const importJson = async () => {
     return;
   }
   await changed();
+  message.value = skipped;
 };
 
 const exportJson = async () => {
