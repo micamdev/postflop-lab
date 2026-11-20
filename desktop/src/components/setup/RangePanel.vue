@@ -27,6 +27,13 @@
           }}</b>
           <span v-if="source.modified" class="text-ip"> (modified)</span>
         </template>
+        <template v-else-if="store.spot">
+          Spot ›
+          <b class="font-semibold text-ink">{{ store.spot.name }}</b>
+          <span v-if="store.spot.rangesEdited" class="text-ip">
+            (modified)</span
+          >
+        </template>
         <template v-else>Unsaved range</template>
       </span>
       <div class="flex-1" />
@@ -183,7 +190,11 @@ const isDropTarget = ref(false);
 
 const source = computed(() => store.rangeSources[props.player]);
 const originText = computed(() =>
-  source.value ? source.value.path.join(" › ") : "Unsaved range"
+  source.value
+    ? source.value.path.join(" › ")
+    : store.spot
+      ? `Spot › ${store.spot.name}`
+      : "Unsaved range"
 );
 const fillClass = props.player === 0 ? "bg-oop/85" : "bg-ip/85";
 
