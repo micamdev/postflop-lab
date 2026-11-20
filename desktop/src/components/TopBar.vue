@@ -3,7 +3,9 @@
     class="flex shrink-0 items-center gap-3 h-10 px-3 bg-panel border-b border-line"
   >
     <BoardChips v-if="board.length > 0" :board="board" size="md" />
-    <span class="font-semibold truncate max-w-[16rem]">{{ name }}</span>
+    <span class="font-semibold truncate max-w-[16rem]" :title="name">{{
+      name
+    }}</span>
     <span
       :class="[
         'shrink-0 px-2 py-0.5 rounded-full text-[11px] font-semibold',
