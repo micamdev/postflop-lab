@@ -1,9 +1,10 @@
-// Saved ranges and tree configs (IndexedDB rows) as a folder tree, search and JSON
+// Saved ranges, tree configs and spots (IndexedDB rows) as a folder tree, search and JSON
 // import/export. Folders hold up to 3 levels, items up to 4 (`name0..name3`).
 
 import type { DbGroup, DbItem } from "./db";
+import { checkSpotValue } from "./spot";
 
-export type SavedStore = "ranges" | "configurations";
+export type SavedStore = "ranges" | "configurations" | "spots";
 
 export type FolderNode = {
   kind: "folder";
@@ -173,6 +174,16 @@ export const checkJsonItems = (
   return true;
 };
 
+/** The spots of an import that are not valid, with why. */
+export const invalidSpots = (
+  items: JsonItem[]
+): { path: string[]; reason: string }[] =>
+  items.flatMap((item) => {
+    if (item.isGroup) return [];
+    const reason = checkSpotValue(item.value);
+    return reason === null ? [] : [{ path: item.path, reason }];
+  });
+
 /** The database row of a folder or an item at `path`. */
 export const rowFor = (
   path: string[],
@@ -295,7 +306,9 @@ export const saveTargets = (
           ? []
           : [{ label: "Fold range", target: foldPlayer }]),
       ]
-    : [{ label: "Tree config", target: "tree" }];
+    : store === "configurations"
+      ? [{ label: "Tree config", target: "tree" }]
+      : []; // spots come from imported packs
 
 type Source = { path: string[]; modified: boolean } | null;
 
