@@ -210,7 +210,7 @@
       tabindex="0"
       title="Drag to resize · double-click to reset"
       :class="[
-        'absolute top-0 -right-1 z-10 w-2 h-full cursor-col-resize',
+        'absolute top-0 -right-1.5 z-10 w-1.5 h-full cursor-col-resize touch-none',
         'hover:bg-accent/40 focus-visible:bg-accent/40 focus-visible:outline-none',
         resizing ? 'bg-accent/40' : '',
       ]"
@@ -319,8 +319,7 @@ const startResize = (e: PointerEvent) => {
   const end = () => {
     resizing.value = false;
     handle.removeEventListener("pointermove", move);
-    handle.removeEventListener("pointerup", end);
-    handle.removeEventListener("pointercancel", end);
+    handle.removeEventListener("lostpointercapture", end);
     saveExplorerWidth(localStorage, savedWidth.value);
   };
   handle.addEventListener("pointermove", move);
