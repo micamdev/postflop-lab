@@ -9,6 +9,7 @@
       class="grid flex-1 min-w-0 content-start gap-3 p-3 overflow-y-auto"
       style="grid-template-columns: minmax(0, 1fr) minmax(0, 1fr) 280px"
     >
+      <SpotBar class="col-span-3" />
       <RangePanel :player="0" />
       <RangePanel :player="1" />
       <div class="flex flex-col row-span-2 gap-3">
@@ -40,6 +41,7 @@ import { useStore } from "../../store";
 import { leaveTreeEdit } from "../../tree-edit-guard";
 import SavedExplorer from "./SavedExplorer.vue";
 import RangePanel from "./RangePanel.vue";
+import SpotBar from "./SpotBar.vue";
 import BoardPanel from "./BoardPanel.vue";
 import TreePanel from "./TreePanel.vue";
 import MemoryEstimate from "./MemoryEstimate.vue";

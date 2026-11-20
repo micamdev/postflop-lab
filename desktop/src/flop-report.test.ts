@@ -550,3 +550,19 @@ describe("audit follow-ups", () => {
     ]);
   });
 });
+
+test("a solution's spot line does not split a report", () => {
+  const spot = {
+    name: "S",
+    line: "BTN 2.5 · BB call",
+    positions: ["BB", "BTN"],
+    modified: false,
+  };
+  expect(
+    configKey(
+      meta(AK7, {
+        tree_config: { board: AK7, startingPot: 20, oopFlopBet: "33%", spot },
+      })
+    )
+  ).toBe(configKey(meta(AK7)));
+});

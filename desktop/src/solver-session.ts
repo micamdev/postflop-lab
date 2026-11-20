@@ -23,6 +23,7 @@ import { SolveFlags, choosePrecision } from "./solve-status";
 
 export { checkConfig, solveBlocker } from "./setup-validation";
 import { checkConfig } from "./setup-validation";
+import { spotRecord } from "./spot";
 
 /** Memory the solver may use: available memory, or 70% of the total on macOS; unlimited when
  * the system did not report it (0). */
@@ -163,6 +164,8 @@ export const useSolverSession = defineStore("solverSession", () => {
 
     // The setup as it is now: later edits do not change the tree being built.
     const setup = snapshotSetup();
+    // The spot it was solved from (saved with the solution), as it is now.
+    store.solvedSpot = store.spot ? spotRecord(store.spot, setup) : null;
     isBuilding.value = true;
     isTreeBuilt.value = false;
     // The game is about to be replaced: hide the old results (and close the lock editor) so

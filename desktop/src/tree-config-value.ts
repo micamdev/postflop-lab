@@ -1,5 +1,6 @@
 // Tree configs as saved in the library of configurations (IndexedDB `configurations`).
 
+import { SPOT_FIELDS } from "./spot";
 import { sanitizeBetString } from "./utils";
 import {
   BET_FIELDS,
@@ -50,9 +51,17 @@ export const configToValue = (c: TreeConfigState): ConfigValue => ({
   removedLines: c.removedLines,
 });
 
-/** Loads a saved value into `c`; bet sizes are sanitized when valid, else kept as saved. */
-export const applyConfigValue = (c: TreeConfigState, value: unknown): void => {
+/**
+ * Loads a saved value into `c`; bet sizes are sanitized when valid, else kept as saved. The
+ * fields in `keep` stay as they are (a spot's pot, stack and rake under a loaded tree).
+ */
+export const applyConfigValue = (
+  c: TreeConfigState,
+  value: unknown,
+  keep: readonly (keyof TreeConfigState)[] = []
+): void => {
   const v = value as ConfigValue;
+  const kept = Object.fromEntries(keep.map((field) => [field, c[field]]));
   c.startingPot = Number(v.startingPot);
   c.effectiveStack = Number(v.effectiveStack);
   c.rakePercent = Number(v.rakePercent);
@@ -70,6 +79,7 @@ export const applyConfigValue = (c: TreeConfigState, value: unknown): void => {
     const sanitized = sanitizeBetString(str, isRaiseField(field));
     c[field] = sanitized.valid ? sanitized.s : str;
   }
+  Object.assign(c, kept);
 };
 
 /**
@@ -79,3 +89,32 @@ export const applyConfigValue = (c: TreeConfigState, value: unknown): void => {
 export const hasManualEdits = (
   c: Pick<TreeConfigState, "addedLines" | "removedLines">
 ): boolean => c.addedLines !== "" || c.removedLines !== "";
+
+/**
+ * `value` with the pot, stack and rake of `saved` (a saved tree overwritten while a spot is
+ * loaded: the spot's numbers must not leak into it).
+ */
+export const keepSpotFields = (
+  value: ConfigValue,
+  saved: unknown
+): ConfigValue => {
+  const s = saved as Partial<ConfigValue>;
+  const kept = { ...value };
+  for (const field of SPOT_FIELDS) {
+    if (s[field] !== undefined) kept[field] = Number(s[field]);
+  }
+  return kept;
+};
+
+/**
+ * Whether `value`'s hand-edited lines, made for its own pot and stack, would land in the
+ * saved tree `saved` with another pot or stack (overwriting a tree while a spot is loaded).
+ */
+export const linesConflict = (value: ConfigValue, saved: unknown): boolean => {
+  const s = saved as Partial<ConfigValue>;
+  return (
+    hasManualEdits(value) &&
+    (Number(s.startingPot) !== value.startingPot ||
+      Number(s.effectiveStack) !== value.effectiveStack)
+  );
+};

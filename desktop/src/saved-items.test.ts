@@ -5,6 +5,7 @@ import {
   SavedNode,
   buildFolderTree,
   checkJsonItems,
+  invalidSpots,
   isUnder,
   renamedPath,
   rowFor,
@@ -240,4 +241,49 @@ describe("sourcesAfterOverwrite with a fold range", () => {
       null,
     ]);
   });
+});
+
+/* Spots */
+const spotValue = {
+  oopRange: "AA,KK",
+  ipRange: "QQ",
+  startingPot: 275,
+  effectiveStack: 865,
+  rakePercent: 5,
+  rakeCap: 150,
+  line: "BTN 2.5 · BB 13.5 · BTN call",
+  positions: ["BB", "BTN"],
+};
+
+test("a spots export holds objects", () => {
+  expect(
+    checkJsonItems("spots", [
+      { path: ["P"], isGroup: true },
+      { path: ["P", "S"], isGroup: false, value: spotValue },
+    ])
+  ).toBe(true);
+  expect(
+    checkJsonItems("spots", [
+      { path: ["P"], isGroup: true },
+      { path: ["P", "S"], isGroup: false, value: "AA" },
+    ])
+  ).toBe(false);
+});
+
+test("invalid spots are listed with their path", () => {
+  expect(
+    invalidSpots([
+      { path: ["P"], isGroup: true },
+      { path: ["P", "Good"], isGroup: false, value: spotValue },
+      {
+        path: ["P", "Bad"],
+        isGroup: false,
+        value: { ...spotValue, startingPot: 0 },
+      },
+    ])
+  ).toEqual([{ path: ["P", "Bad"], reason: expect.any(String) }]);
+});
+
+test("spots are not saved from the current setup", () => {
+  expect(saveTargets("spots")).toEqual([]);
 });

@@ -144,7 +144,7 @@ const save = async (overwrite: boolean) => {
       selectedDepth.value,
       overwrite,
       {
-        treeConfig: { ...savedConfig.$state },
+        treeConfig: { ...savedConfig.$state, spot: store.solvedSpot },
         iterations: store.solutionInfo?.iterations ?? 0,
         exploitability: store.solutionInfo?.exploitability ?? 0,
       }
