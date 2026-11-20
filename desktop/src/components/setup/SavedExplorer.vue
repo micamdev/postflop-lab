@@ -113,7 +113,9 @@
             @keydown.enter="confirmEditing"
             @keydown.escape="cancelEditing"
           />
-          <span v-else class="flex-1 truncate">{{ node.name }}</span>
+          <span v-else class="flex-1 truncate" :title="node.name">{{
+            node.name
+          }}</span>
           <span
             v-for="tag in tagsOf(node)"
             :key="tag"
