@@ -4,7 +4,8 @@
 import { defineStore } from "pinia";
 import { ref } from "vue";
 import { listen } from "@tauri-apps/api/event";
-import { snapshotSetup, useConfigStore } from "./store";
+import { snapshotSetup, useConfigStore, useStore } from "./store";
+import { spotRecord } from "./spot";
 import { useSolverSession } from "./solver-session";
 import { useSolverBusy } from "./solver-busy";
 import { gameTreeArgs } from "./game-args";
@@ -104,9 +105,13 @@ export const useBatch = defineStore("batch", () => {
     );
     try {
       const setup = snapshotSetup();
+      const store = useStore();
       result.value = await invokes.batchSolve({
         args: gameTreeArgs(setup),
-        treeConfig: { ...setup },
+        treeConfig: {
+          ...setup,
+          spot: store.spot ? spotRecord(store.spot, setup) : null,
+        },
         flops: plan.toSolve,
         subsetSize: plan.size,
         settings: {

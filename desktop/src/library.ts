@@ -13,6 +13,7 @@ import * as invokes from "./invokes";
 import { DAMAGED_FILE } from "./library-list";
 import { weightPercent } from "./utils";
 import { leaveTreeEdit } from "./tree-edit-guard";
+import { readSpotRecord } from "./spot";
 
 /** Asks a yes/no question in a native dialog. */
 export const ask = async (message: string): Promise<boolean> => {
@@ -175,6 +176,9 @@ const replaceWithSolution = async (name: string): Promise<string | null> => {
   // The ranges and the tree now come from the solution, not from the explorer.
   store.rangeSources = [null, null];
   store.treeSource = null;
+  // Its spot is shown, not loaded.
+  store.spot = null;
+  store.solvedSpot = readSpotRecord(meta.tree_config.spot);
   store.isSolverFinished = true;
   store.navView = "results";
   return null;

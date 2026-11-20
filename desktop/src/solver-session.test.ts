@@ -326,3 +326,48 @@ describe("audit review fixes", () => {
     expect(await memoryLimit()).toBe(Number.POSITIVE_INFINITY);
   });
 });
+
+describe("spots", () => {
+  test("the solve records the spot as it is when the tree is built", async () => {
+    const store = useStore();
+    const config = useConfigStore();
+    store.spot = {
+      path: ["S"],
+      name: "S",
+      value: {
+        oopRange: "AA",
+        ipRange: "KK",
+        startingPot: 20,
+        effectiveStack: 90,
+        rakePercent: 0,
+        rakeCap: 0,
+        line: "BTN 2.5 · BB call",
+        positions: ["BB", "BTN"],
+      },
+      rangesEdited: false,
+    };
+    // The stack was changed after loading the spot (100 instead of 90).
+    await useSolverSession().solve();
+    expect(store.solvedSpot).toEqual({
+      name: "S",
+      line: "BTN 2.5 · BB call",
+      positions: ["BB", "BTN"],
+      modified: true,
+    });
+    // Later edits of the Setup do not change what the solution was solved with.
+    config.effectiveStack = 90;
+    expect(store.solvedSpot?.modified).toBe(true);
+  });
+
+  test("without a spot, nothing is recorded", async () => {
+    const store = useStore();
+    store.solvedSpot = {
+      name: "old",
+      line: "",
+      positions: ["BB", "BTN"],
+      modified: false,
+    };
+    await useSolverSession().solve();
+    expect(store.solvedSpot).toBeNull();
+  });
+});
