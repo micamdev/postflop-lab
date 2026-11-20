@@ -158,3 +158,27 @@ test("a tree with edited lines over a spot asks first", async () => {
   expect(config.addedLines).toBe("");
   expect(config.startingPot).toBe(275);
 });
+
+test("the tree loaded over a spot is compared with its own saved pot and stack", async () => {
+  const store = useStore();
+  const config = useConfigStore();
+  await loadSpot(path, value);
+  const tree = {
+    ...configToValue(config),
+    startingPot: 55,
+    effectiveStack: 975,
+    oopFlopBet: "50",
+  };
+  await loadTreeWithSpot(["T"], tree);
+  const recorded = JSON.parse(store.treeSourceValue ?? "{}");
+  expect(recorded.startingPot).toBe(55);
+  expect(recorded.effectiveStack).toBe(975);
+  expect(recorded.oopFlopBet).toBe("50");
+});
+
+test("loading a spot counts, so an open range edit ends", async () => {
+  const store = useStore();
+  const before = store.spotLoadCount;
+  await loadSpot(path, value);
+  expect(store.spotLoadCount).toBe(before + 1);
+});

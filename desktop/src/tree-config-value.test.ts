@@ -4,6 +4,7 @@ import {
   TreeConfigState,
   applyConfigValue,
   keepSpotFields,
+  linesConflict,
   hasManualEdits,
   configToValue,
 } from "./tree-config-value";
@@ -126,4 +127,25 @@ test("a tree saved over a spot keeps its own pot, stack and rake", () => {
   expect(kept.rakePercent).toBe(0);
   expect(kept.rakeCap).toBe(0);
   expect(kept.oopFlopBet).toBe("50");
+});
+
+test("edited lines made for a spot's pot cannot go into a tree with another pot", () => {
+  const saved = {
+    ...configToValue(state()),
+    startingPot: 55,
+    effectiveStack: 975,
+  };
+  const current = {
+    ...configToValue(state()),
+    startingPot: 275,
+    effectiveStack: 865,
+  };
+  expect(linesConflict({ ...current, addedLines: "R40" }, saved)).toBe(true);
+  expect(linesConflict(current, saved)).toBe(false);
+  expect(
+    linesConflict(
+      { ...current, addedLines: "R40" },
+      { ...saved, startingPot: 275, effectiveStack: 865 }
+    )
+  ).toBe(false);
 });

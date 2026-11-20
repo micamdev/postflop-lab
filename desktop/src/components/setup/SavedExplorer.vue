@@ -265,6 +265,7 @@ import {
   applyConfigValue,
   configToValue,
   keepSpotFields,
+  linesConflict,
 } from "../../tree-config-value";
 import { leaveTreeEdit } from "../../tree-edit-guard";
 import { RANGE_DRAG_TYPE, useRangeEditing } from "../../use-range-editing";
@@ -625,6 +626,16 @@ const confirmEditing = async () => {
         (row) => row.isGroup === 0 && keyOf(rowPath(row)) === keyOf(path)
       );
       if (existing && existing.isGroup === 0) {
+        if (
+          linesConflict(
+            value as ReturnType<typeof configToValue>,
+            existing.value
+          )
+        ) {
+          message.value =
+            "The edited lines were made for the spot's pot and stack, not this tree's: save it as a new tree.";
+          return;
+        }
         value = keepSpotFields(
           value as ReturnType<typeof configToValue>,
           existing.value

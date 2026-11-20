@@ -81,6 +81,8 @@ export const loadSpot = async (
     rangesEdited: false,
   };
   store.rangeSources = [null, null];
+  // An open range edit (its Cancel point) belongs to the ranges before the spot.
+  store.spotLoadCount++;
   return null;
 };
 
@@ -113,6 +115,10 @@ export const loadTreeWithSpot = async (
     config.addedLines = "";
     config.removedLines = "";
   }
-  setTreeSource(path, configToValue(config));
+  // The tree as saved (its own pot, stack, rake and lines): what "modified" compares with
+  // once the spot is forgotten.
+  const saved = { ...config.$state };
+  applyConfigValue(saved, value);
+  setTreeSource(path, configToValue(saved));
   return true;
 };

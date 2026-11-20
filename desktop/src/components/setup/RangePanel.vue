@@ -172,9 +172,9 @@ const startEdit = async () => {
   isEditing.value = true;
 };
 
-// A loaded solution replaces the ranges: the edit (and its Cancel) no longer applies.
+// A loaded solution or spot replaces the ranges: the edit (and its Cancel) no longer applies.
 watch(
-  () => store.solutionLoadCount,
+  () => [store.solutionLoadCount, store.spotLoadCount],
   () => {
     beforeEdit = null;
     isEditing.value = false;

@@ -105,3 +105,16 @@ export const keepSpotFields = (
   }
   return kept;
 };
+
+/**
+ * Whether `value`'s hand-edited lines, made for its own pot and stack, would land in the
+ * saved tree `saved` with another pot or stack (overwriting a tree while a spot is loaded).
+ */
+export const linesConflict = (value: ConfigValue, saved: unknown): boolean => {
+  const s = saved as Partial<ConfigValue>;
+  return (
+    hasManualEdits(value) &&
+    (Number(s.startingPot) !== value.startingPot ||
+      Number(s.effectiveStack) !== value.effectiveStack)
+  );
+};

@@ -106,6 +106,8 @@ export const useStore = defineStore("app", {
     rangeSources: [null, null] as [RangeSource | null, RangeSource | null],
     /** The spot loaded from the explorer (it owns the pot, the stack and the rake). */
     spot: null as LoadedSpot | null,
+    /** Incremented when a spot is loaded: open range edits end. */
+    spotLoadCount: 0,
     /** The spot of the solution in memory, as saved with it (null if none). */
     solvedSpot: null as SpotRecord | null,
     /** Where the tree config comes from (explorer path), null if typed or loaded. */
