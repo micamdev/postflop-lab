@@ -1,5 +1,6 @@
 // Tree configs as saved in the library of configurations (IndexedDB `configurations`).
 
+import { SPOT_FIELDS } from "./spot";
 import { sanitizeBetString } from "./utils";
 import {
   BET_FIELDS,
@@ -88,3 +89,19 @@ export const applyConfigValue = (
 export const hasManualEdits = (
   c: Pick<TreeConfigState, "addedLines" | "removedLines">
 ): boolean => c.addedLines !== "" || c.removedLines !== "";
+
+/**
+ * `value` with the pot, stack and rake of `saved` (a saved tree overwritten while a spot is
+ * loaded: the spot's numbers must not leak into it).
+ */
+export const keepSpotFields = (
+  value: ConfigValue,
+  saved: unknown
+): ConfigValue => {
+  const s = saved as Partial<ConfigValue>;
+  const kept = { ...value };
+  for (const field of SPOT_FIELDS) {
+    if (s[field] !== undefined) kept[field] = Number(s[field]);
+  }
+  return kept;
+};

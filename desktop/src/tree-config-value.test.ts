@@ -3,6 +3,7 @@ import { SPOT_FIELDS } from "./spot";
 import {
   TreeConfigState,
   applyConfigValue,
+  keepSpotFields,
   hasManualEdits,
   configToValue,
 } from "./tree-config-value";
@@ -101,4 +102,28 @@ test("a tree loaded over a spot leaves the spot's fields alone", () => {
   expect(target.rakePercent).toBe(5);
   expect(target.rakeCap).toBe(150);
   expect(target.oopFlopBet).toBe("50");
+});
+
+test("a tree saved over a spot keeps its own pot, stack and rake", () => {
+  const saved = {
+    ...configToValue(state()),
+    startingPot: 55,
+    effectiveStack: 975,
+    rakePercent: 0,
+    rakeCap: 0,
+  };
+  const current = {
+    ...configToValue(state()),
+    startingPot: 275,
+    effectiveStack: 865,
+    rakePercent: 5,
+    rakeCap: 150,
+    oopFlopBet: "50",
+  };
+  const kept = keepSpotFields(current, saved);
+  expect(kept.startingPot).toBe(55);
+  expect(kept.effectiveStack).toBe(975);
+  expect(kept.rakePercent).toBe(0);
+  expect(kept.rakeCap).toBe(0);
+  expect(kept.oopFlopBet).toBe("50");
 });
