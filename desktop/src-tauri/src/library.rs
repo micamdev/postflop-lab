@@ -20,8 +20,9 @@ pub const ERR_EXISTS: &str = "exists";
 /// Version of the [`SolutionMeta`] schema.
 pub const META_SCHEMA: u32 = 3;
 
-/// Largest metadata JSON a file can hold (the engine reads header fields up to 1 MiB).
-pub const MAX_MEMO_BYTES: usize = 1_000_000;
+/// Largest metadata JSON a file can hold (the engine reads header fields up to 64 MiB; the
+/// node locks take most of it).
+pub const MAX_MEMO_BYTES: usize = 60_000_000;
 
 /// zstd level used for saved solutions (fast, good ratio on solver data).
 const COMPRESSION_LEVEL: i32 = 3;
@@ -56,6 +57,9 @@ pub struct SolutionMeta {
     /// hand): a report averages the flops of one subset.
     #[serde(default)]
     pub batch_size: Option<u32>,
+    /// Set by the library list only, instead of `locks` (see [`locks_key`]); never saved.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub locks_key: Option<String>,
 }
 
 /// Root summary, computed at save time so that aggregate reports never need to load the data.
@@ -174,11 +178,43 @@ fn write_atomically(
         let _ = fs::remove_file(&tmp);
         return Err(e);
     }
-    fs::rename(&tmp, &dest).map_err(|e| {
+    // On disk before it replaces `dest`: a power cut must not leave an empty file.
+    let synced = fs::OpenOptions::new()
+        .write(true)
+        .open(&tmp)
+        .and_then(|file| file.sync_all());
+    if let Err(e) = synced {
+        let _ = fs::remove_file(&tmp);
+        return Err(format!("Failed to finish writing the file: {e}"));
+    }
+    // An antivirus or a sync client (Defender, OneDrive) may hold the new file a moment.
+    retry(RENAME_ATTEMPTS, RENAME_DELAY, || fs::rename(&tmp, &dest)).map_err(|e| {
         let _ = fs::remove_file(&tmp);
         format!("Failed to finish writing the file: {e}")
     })?;
     Ok(dest)
+}
+
+const RENAME_ATTEMPTS: u32 = 5;
+const RENAME_DELAY: std::time::Duration = std::time::Duration::from_millis(200);
+
+/// Runs `op` up to `attempts` times, `delay` apart, until it succeeds.
+fn retry<T, E>(
+    attempts: u32,
+    delay: std::time::Duration,
+    mut op: impl FnMut() -> Result<T, E>,
+) -> Result<T, E> {
+    let mut left = attempts.max(1);
+    loop {
+        match op() {
+            Ok(value) => return Ok(value),
+            Err(e) if left <= 1 => return Err(e),
+            Err(_) => {
+                left -= 1;
+                std::thread::sleep(delay);
+            }
+        }
+    }
 }
 
 /// Counts the bytes written through it and reports the running total.
@@ -273,10 +309,8 @@ fn write_solution(
     if serde_json::from_str::<SolutionMeta>(&memo).is_err() {
         return Err("Cannot save: the metadata has undefined values".to_string());
     }
-    if memo.len() > MAX_MEMO_BYTES {
-        return Err(
-            "The tree configuration is too large to save (over 1 MB of metadata)".to_string(),
-        );
+    if let Some(err) = memo_size_error(meta, memo.len(), MAX_MEMO_BYTES) {
+        return Err(err);
     }
     write_atomically(dir, &name, |tmp| {
         let file = File::create(tmp).map_err(|e| format!("Failed to create file: {e}"))?;
@@ -291,6 +325,57 @@ fn write_solution(
             .map_err(|e| format!("Failed to write file: {e}"))
     })?;
     Ok(name)
+}
+
+/// Why metadata of `len` bytes cannot be saved (over `max`), naming the locks when they are the
+/// cause; None if it fits.
+fn memo_size_error(meta: &SolutionMeta, len: usize, max: usize) -> Option<String> {
+    if len <= max {
+        return None;
+    }
+    let mb = |bytes: usize| bytes as f64 / 1e6;
+    Some(if meta.locks.is_empty() {
+        format!(
+            "The tree configuration is too large to save ({:.0} MB of metadata, at most {:.0} MB)",
+            mb(len),
+            mb(max)
+        )
+    } else {
+        format!(
+            "Too many node locks to save: {} locks take {:.0} MB of metadata (at most {:.0} MB)",
+            meta.locks.len(),
+            mb(len),
+            mb(max)
+        )
+    })
+}
+
+/// A short key of `locks` (their labels, display text, aside): "" without locks. Two solutions
+/// with the same locks have the same key, which the flop report groups by.
+pub fn locks_key(locks: &[crate::locks::NodeLock]) -> String {
+    if locks.is_empty() {
+        return String::new();
+    }
+    let unlabelled: Vec<_> = locks
+        .iter()
+        .map(|lock| crate::locks::NodeLock {
+            label: String::new(),
+            ..lock.clone()
+        })
+        .collect();
+    let json = serde_json::to_string(&unlabelled).unwrap_or_default();
+    // FNV-1a, 64 bits: stable across runs and versions.
+    let hash = json.bytes().fold(0xcbf2_9ce4_8422_2325u64, |h, b| {
+        (h ^ b as u64).wrapping_mul(0x0100_0000_01b3)
+    });
+    format!("{:016x}-{}", hash, locks.len())
+}
+
+/// The metadata the list sends: the locks (up to megabytes) replaced by their key.
+fn listed_meta(mut meta: SolutionMeta) -> SolutionMeta {
+    meta.locks_key = Some(locks_key(&meta.locks));
+    meta.locks = Vec::new();
+    meta
 }
 
 fn read_meta(path: &Path) -> Result<SolutionMeta, String> {
@@ -318,7 +403,7 @@ pub fn list(dir: &Path) -> Vec<LibraryEntry> {
                 Ok(meta) => LibraryEntry {
                     name,
                     file_size,
-                    meta: Some(meta),
+                    meta: Some(listed_meta(meta)),
                     error: None,
                 },
                 Err(e) => LibraryEntry {
@@ -523,6 +608,7 @@ pub(crate) mod tests {
             locks: Vec::new(),
             flop_weight: None,
             batch_size: None,
+            locks_key: None,
         }
     }
 
@@ -541,7 +627,7 @@ pub(crate) mod tests {
         let entries = list(dir.path());
         assert_eq!(entries.len(), 1);
         assert_eq!(entries[0].name, "spot");
-        assert_eq!(entries[0].meta.as_ref(), Some(&meta(10)));
+        assert_eq!(entries[0].meta.as_ref(), Some(&listed_meta(meta(10))));
         assert!(entries[0].file_size > 0);
 
         let (mut loaded, loaded_meta) = load(dir.path(), "spot", u64::MAX).unwrap();
@@ -570,7 +656,10 @@ pub(crate) mod tests {
             ..old
         };
         assert_eq!(refreshed, expected);
-        assert_eq!(list(dir.path())[0].meta.as_ref(), Some(&expected));
+        assert_eq!(
+            list(dir.path())[0].meta.as_ref(),
+            Some(&listed_meta(expected.clone()))
+        );
         let (mut loaded, _) = load(dir.path(), "spot", u64::MAX).unwrap();
         assert_eq!(root_strategy(&mut loaded), root_strategy(&mut game));
     }
@@ -608,7 +697,10 @@ pub(crate) mod tests {
         save(dir.path(), "spot", &small_game(true), &meta(10), false).unwrap();
         let err = refresh_summary(dir.path(), "spot", 1, |_| SolutionSummary::default());
         assert!(err.unwrap_err().starts_with("Not enough memory"));
-        assert_eq!(list(dir.path())[0].meta.as_ref(), Some(&meta(10)));
+        assert_eq!(
+            list(dir.path())[0].meta.as_ref(),
+            Some(&listed_meta(meta(10)))
+        );
     }
 
     #[test]
@@ -824,6 +916,65 @@ mod followup_tests {
         remove_stale_tmp(&dir.path().join("missing"), Duration::ZERO);
     }
 
+    /// A lock on every combo of a node with three actions (as large as locks get).
+    fn full_lock(i: usize) -> crate::locks::NodeLock {
+        let combos: Vec<String> = (0..52u8)
+            .flat_map(|a| (a + 1..52).map(move |b| (a, b)))
+            .map(|(a, b)| card_to_string(a).unwrap() + &card_to_string(b).unwrap())
+            .collect();
+        crate::locks::NodeLock {
+            history: vec![0, i],
+            key: vec![0, i],
+            player: "ip".to_string(),
+            actions: vec!["Check:0".into(), "Bet:30".into(), "Bet:60".into()],
+            hands: combos
+                .iter()
+                .map(|c| (c.clone(), vec![0.123_457, 0.234_568, 0.641_975]))
+                .collect(),
+            edited: combos,
+            label: format!("Lock {i}"),
+        }
+    }
+
+    #[test]
+    fn a_solution_with_many_node_locks_saves_loads_and_lists_lightly() {
+        let dir = tempfile::tempdir().unwrap();
+        let mut locked = meta(1);
+        locked.locks = (0..40).map(full_lock).collect();
+        save(dir.path(), "locked", &small_game(true), &locked, false).unwrap();
+        // Loading gives every lock back.
+        let (_, loaded) = load(dir.path(), "locked", u64::MAX).unwrap();
+        assert_eq!(loaded.locks.len(), 40);
+        // The list carries a key of the locks, not the locks (megabytes per file).
+        let entries = list(dir.path());
+        let listed = entries[0].meta.as_ref().unwrap();
+        assert!(listed.locks.is_empty());
+        assert_eq!(
+            listed.locks_key.as_deref(),
+            Some(locks_key(&locked.locks).as_str())
+        );
+    }
+
+    #[test]
+    fn the_locks_key_ignores_labels_and_is_empty_without_locks() {
+        assert_eq!(locks_key(&[]), "");
+        let mut relabelled = full_lock(1);
+        relabelled.label = "OOP Check, IP Bet 3".to_string();
+        assert_eq!(locks_key(&[full_lock(1)]), locks_key(&[relabelled]));
+        assert_ne!(locks_key(&[full_lock(1)]), locks_key(&[full_lock(2)]));
+    }
+
+    #[test]
+    fn too_many_locks_say_so() {
+        let mut locked = meta(1);
+        locked.locks = vec![full_lock(0)];
+        let err = memo_size_error(&locked, 2_000_000, 1_000_000).unwrap();
+        assert!(err.contains("node locks"), "{err}");
+        let err = memo_size_error(&meta(1), 2_000_000, 1_000_000).unwrap();
+        assert!(err.contains("tree configuration"), "{err}");
+        assert!(memo_size_error(&locked, 10, 1_000_000).is_none());
+    }
+
     #[test]
     fn too_large_metadata_is_refused_before_writing() {
         let dir = tempfile::tempdir().unwrap();
@@ -882,5 +1033,25 @@ mod review_tests {
         save(dir.path(), "Spot", &small_game(true), &meta(2), false).unwrap();
         assert_eq!(rename(dir.path(), "spot", "Spot").unwrap_err(), ERR_EXISTS);
         assert_eq!(list(dir.path()).len(), 2);
+    }
+
+    #[test]
+    fn a_file_held_a_moment_is_renamed_on_a_later_try() {
+        let mut calls = 0;
+        let held_twice = super::retry(5, std::time::Duration::ZERO, || {
+            calls += 1;
+            if calls < 3 {
+                Err("held")
+            } else {
+                Ok(calls)
+            }
+        });
+        assert_eq!(held_twice, Ok(3));
+        let mut calls = 0;
+        let always: Result<(), _> = super::retry(5, std::time::Duration::ZERO, || {
+            calls += 1;
+            Err("held")
+        });
+        assert_eq!((always, calls), (Err("held"), 5));
     }
 }

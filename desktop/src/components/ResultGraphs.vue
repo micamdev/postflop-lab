@@ -59,6 +59,7 @@
 </template>
 
 <script setup lang="ts">
+import { evBb } from "../units";
 import { resolvedThemeColor } from "../theme";
 import { stackedGradient } from "../action-colors";
 import { computed, ref } from "vue";
@@ -149,7 +150,8 @@ const tupleData = computed(() => {
     if (content === "eq") {
       values = results.equity[player];
     } else if (content === "ev") {
-      values = results.ev[player];
+      // In big blinds.
+      values = results.ev[player].map(evBb);
     } else {
       // Undefined EQRs are already NaN (invokes).
       values = results.eqr[player];

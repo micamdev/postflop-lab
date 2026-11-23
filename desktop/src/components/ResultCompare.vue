@@ -77,6 +77,7 @@
 </template>
 
 <script setup lang="ts">
+import { evBb } from "../units";
 import { themeColor } from "../theme";
 import { computed, h } from "vue";
 import {
@@ -118,7 +119,8 @@ const Percentage = (props: { value: number; class: object }) => {
 
 const Ev = (props: { value: number; digits: number; class: object }) => {
   if (isNaN(props.value)) return h("div", { class: "px-1" }, "-");
-  const str = toFixed[props.digits - 1](props.value);
+  // In big blinds.
+  const str = toFixed[props.digits - 1](evBb(props.value));
   return h("span", { class: props.class }, [
     h("span", {}, str.slice(0, -props.digits)),
     h("span", { class: "text-xs" }, str.slice(-props.digits)),
@@ -222,7 +224,7 @@ const bucketLeads = (i: number, player: 0 | 1) =>
 const evDigits = computed(() => {
   const results = props.results;
   if (results.isEmpty) return 3;
-  return evDigitsFor(ev.value);
+  return evDigitsFor(ev.value.map(evBb));
 });
 
 type StatRow = {

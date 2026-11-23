@@ -89,7 +89,12 @@
       />
     </div>
 
-    <div class="flex-1 min-h-0 overflow-y-auto px-1.5 pb-2 text-sm">
+    <div
+      ref="list"
+      role="tree"
+      :aria-label="TAB_TEXT[tab].tree"
+      class="flex-1 min-h-0 overflow-y-auto px-1.5 pb-2 text-sm"
+    >
       <p v-if="tree.length === 0" class="px-2 py-3 text-muted">
         {{ TAB_TEXT[tab].empty }}
       </p>
@@ -97,10 +102,22 @@
         No match
       </p>
 
-      <template v-for="{ node, depth } in shown" :key="keyOf(node.path)">
+      <template
+        v-for="({ node, depth }, index) in shown"
+        :key="keyOf(node.path)"
+      >
         <div
+          role="treeitem"
+          :data-row="keyOf(node.path)"
+          :tabindex="keyOf(node.path) === focusKey ? 0 : -1"
+          :aria-selected="keyOf(node.path) === selected"
+          :aria-level="depth + 1"
+          :aria-label="node.name"
+          :aria-expanded="
+            node.kind === 'folder' ? isOpen(node.path) : undefined
+          "
           :class="[
-            'group flex items-center gap-1.5 h-7 pr-1 rounded-md cursor-pointer select-none',
+            'group flex items-center gap-1.5 h-7 pr-1 rounded-md cursor-pointer select-none outline-none focus-visible:ring-1 focus-visible:ring-accent',
             keyOf(node.path) === selected
               ? 'bg-accent/15 text-ink'
               : 'hover:bg-panel2',
@@ -110,6 +127,7 @@
           :draggable="node.kind === 'item' && tab === 'ranges'"
           @click="onClick(node)"
           @dblclick="onDoubleClick(node)"
+          @keydown="onRowKey($event, node, index)"
           @dragstart="(e) => onDragStart(e, node)"
         >
           <span class="w-3 text-[10px] text-muted">
@@ -147,8 +165,9 @@
             <template #trigger>
               <button
                 type="button"
-                class="w-6 h-6 rounded text-muted opacity-0 group-hover:opacity-100 hover:text-ink hover:bg-panel2"
+                class="w-6 h-6 rounded text-muted opacity-0 group-hover:opacity-100 group-focus-within:opacity-100 focus:opacity-100 hover:text-ink hover:bg-panel2"
                 aria-label="More"
+                tabindex="-1"
                 @click.stop
               >
                 ⋯
@@ -159,6 +178,8 @@
 
         <div
           v-if="node.kind === 'item' && keyOf(node.path) === selected"
+          role="group"
+          :aria-label="node.name"
           class="flex gap-1.5 py-1"
           :style="{ paddingLeft: `${26 + depth * 14}px` }"
         >
@@ -236,7 +257,8 @@
 </template>
 
 <script setup lang="ts">
-import { computed, onMounted, onUnmounted, ref, watch } from "vue";
+import { treeKey } from "../../keyboard-nav";
+import { computed, nextTick, onMounted, onUnmounted, ref, watch } from "vue";
 import { open, save } from "@tauri-apps/plugin-dialog";
 import { readTextFile, writeTextFile } from "@tauri-apps/plugin-fs";
 import * as Db from "../../db";
@@ -281,6 +303,7 @@ import * as invokes from "../../invokes";
 import { ask } from "../../library";
 import { isSpotModified, type SpotValue } from "../../spot";
 import { loadSpot, loadTreeWithSpot } from "../../spot-load";
+import { seedDefaultTrees } from "../../default-trees";
 import UiButton from "../ui/UiButton.vue";
 import UiMenu from "../ui/UiMenu.vue";
 import UiSegmented from "../ui/UiSegmented.vue";
@@ -311,16 +334,22 @@ const nameInput = ref("");
 
 const keyOf = (path: string[]) => JSON.stringify(path);
 
-const TAB_TEXT: Record<SavedStore, { search: string; empty: string }> = {
+const TAB_TEXT: Record<
+  SavedStore,
+  { search: string; empty: string; tree: string }
+> = {
   ranges: {
+    tree: "Saved ranges",
     search: "Search ranges…",
     empty: "No saved ranges yet — use “Save current”.",
   },
   configurations: {
+    tree: "Saved trees",
     search: "Search trees…",
     empty: "No saved trees yet — use “Save current”.",
   },
   spots: {
+    tree: "Saved spots",
     search: "Search spots…",
     empty: "No saved spots yet — import a spot pack (⋯ › Import JSON…).",
   },
@@ -405,6 +434,8 @@ const switchTab = async (value: SavedStore) => {
 
 onMounted(async () => {
   document.addEventListener("mousedown", onOutsideClick);
+  // The "Default" trees, added once to the library (a failure is retried next start).
+  await seedDefaultTrees(localStorage).catch(() => undefined);
   await reload();
 });
 onUnmounted(() => {
@@ -442,6 +473,67 @@ const onClick = (node: SavedNode) => {
     if (next.has(key)) next.delete(key);
     else next.add(key);
     openFolders.value = next;
+  }
+};
+
+/** The row reached with Tab: the selected one if shown, else the first. */
+const focusKey = computed(() => {
+  const keys = shown.value.map(({ node }) => keyOf(node.path));
+  return selected.value !== null && keys.includes(selected.value)
+    ? selected.value
+    : (keys[0] ?? null);
+});
+
+const list = ref<HTMLElement | null>(null);
+
+const rowElement = (key: string) =>
+  list.value?.querySelector<HTMLElement>(`[data-row="${CSS.escape(key)}"]`);
+
+/** Back on a row when the focus fell to the page (a rename ended, a row was deleted). */
+const restoreRowFocus = () =>
+  void nextTick(() => {
+    const active = document.activeElement;
+    if (active && active !== document.body) return;
+    if (focusKey.value !== null) rowElement(focusKey.value)?.focus();
+  });
+watch(editing, (edit) => edit === null && restoreRowFocus());
+
+/** Arrows, Home and End move; right / left open / close a folder; Enter and Space use the
+ * row (a folder opens or closes, a tree or spot loads, a range shows its buttons). */
+const onRowKey = (event: KeyboardEvent, node: SavedNode, index: number) => {
+  if (event.target !== event.currentTarget) return; // typing in the rename field
+  // The row's menu (its ⋯ button is out of the Tab order): the context menu key or Shift+F10.
+  if (event.key === "ContextMenu" || (event.shiftKey && event.key === "F10")) {
+    event.preventDefault();
+    const more = (
+      event.currentTarget as HTMLElement
+    ).querySelector<HTMLElement>('button[aria-label="More"]');
+    more?.focus();
+    more?.dispatchEvent(
+      new KeyboardEvent("keydown", { key: "Enter", bubbles: true })
+    );
+    return;
+  }
+  const action = treeKey(
+    event.key,
+    index,
+    shown.value.length,
+    node.kind === "folder",
+    node.kind === "folder" && isOpen(node.path)
+  );
+  if (!action) return;
+  event.preventDefault();
+  if ("move" in action) {
+    const key = keyOf(shown.value[action.move].node.path);
+    selected.value = key;
+    void nextTick(() => rowElement(key)?.focus());
+  } else if ("toggle" in action) {
+    onClick(node);
+  } else if (node.kind === "folder" || tab.value === "ranges") {
+    onClick(node);
+  } else {
+    selected.value = keyOf(node.path);
+    onDoubleClick(node);
   }
 };
 
@@ -736,6 +828,7 @@ const remove = async (node: SavedNode) => {
     message.value = "It could not be deleted.";
     return;
   }
+  restoreRowFocus();
   // The loaded ranges or tree stay, but they no longer come from a saved item.
   const forget = (source: RangeSource | null) =>
     source && isUnder(source.path, node.path) ? null : source;

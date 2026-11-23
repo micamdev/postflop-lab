@@ -4,6 +4,8 @@ import { createPinia, setActivePinia } from "pinia";
 // The Tauri boundary: every game command the session calls.
 vi.mock("./invokes", () => ({
   gameInit: vi.fn(),
+  gameSolveEstimate: vi.fn(),
+  gameSolveLimit: vi.fn(),
   gameMemoryUsage: vi.fn(),
   gameMemoryUsageBunching: vi.fn(),
   memory: vi.fn(),
@@ -52,6 +54,12 @@ beforeEach(() => {
   setActivePinia(createPinia());
   vi.resetAllMocks();
   mocked.gameInit.mockResolvedValue("");
+  mocked.gameSolveEstimate.mockResolvedValue({
+    need32: GB,
+    need16: GB / 2,
+    bunching: 0,
+    limit: 8 * GB,
+  });
   mocked.gameMemoryUsage.mockResolvedValue([GB, GB / 2]);
   mocked.gameMemoryUsageBunching.mockResolvedValue(0);
   mocked.memory.mockResolvedValue([8 * GB, 16 * GB]);
@@ -164,13 +172,19 @@ describe("messages", () => {
   test("the fallback message keeps the bunching warning", async () => {
     const store = useStore();
     store.isBunchingEnabled = true; // data not ready: solving without it
-    mocked.gameMemoryUsage.mockResolvedValue([10 * GB, 2 * GB]);
+    mocked.gameSolveEstimate.mockResolvedValue({
+      need32: 10 * GB,
+      need16: 2 * GB,
+      bunching: 0,
+      limit: 8 * GB,
+    });
     const session = useSolverSession();
 
     await session.solve();
 
     expect(session.message).toContain("Bunching effect is on");
     expect(session.message).toContain("16-bit");
+    expect(mocked.gameAllocateMemory).toHaveBeenCalledWith(true);
   });
 });
 
@@ -218,6 +232,19 @@ describe("audit fixes", () => {
       (config as unknown as Record<string, unknown>)[field] = saved;
     }
     expect(checkConfig(config)).toBeNull();
+  });
+
+  test("amount errors speak big blinds", () => {
+    const config = useConfigStore();
+    config.startingPot = 30001;
+    expect(checkConfig(config)).toBe("Starting pot must not exceed 3000bb");
+    config.startingPot = 55.5;
+    expect(checkConfig(config)).toBe(
+      "Starting pot must be a multiple of 0.1bb"
+    );
+    config.startingPot = 20;
+    config.rakeCap = 90001;
+    expect(checkConfig(config)).toBe("Rake cap must not exceed 9000bb");
   });
 
   test("the stop target uses the solved pot, not an edited Setup pot", async () => {
@@ -322,8 +349,14 @@ describe("audit review fixes", () => {
   });
 
   test("an unknown memory size counts as unlimited", async () => {
-    mocked.memory.mockResolvedValue([0, 0]);
+    mocked.gameSolveLimit.mockResolvedValue(2 ** 64); // u64::MAX
     expect(await memoryLimit()).toBe(Number.POSITIVE_INFINITY);
+  });
+
+  test("the Setup estimate uses the limit Solve uses (what the open solution frees)", async () => {
+    mocked.memory.mockResolvedValue([GB, 16 * GB]);
+    mocked.gameSolveLimit.mockResolvedValue(9 * GB);
+    expect(await memoryLimit()).toBe(9 * GB);
   });
 });
 
@@ -369,5 +402,109 @@ describe("spots", () => {
     };
     await useSolverSession().solve();
     expect(store.solvedSpot).toBeNull();
+  });
+});
+
+describe("memory, checked before the open solution is replaced", () => {
+  test("not enough memory: refused, the open solution stays", async () => {
+    const store = withLoadedPartialSolution();
+    store.isSolutionSaved = false;
+    mocked.gameSolveEstimate.mockResolvedValue({
+      need32: 10 * GB,
+      need16: 9 * GB,
+      bunching: 0,
+      limit: 8 * GB,
+    });
+    const session = useSolverSession();
+
+    await session.solve();
+
+    expect(mocked.gameInit).not.toHaveBeenCalled();
+    expect(session.message).toContain("Not enough memory");
+    expect(store.isSolverFinished).toBe(true);
+    expect(store.solutionInfo?.name).toBe("Jh 9d 4c");
+  });
+
+  test("a tree too large to build: refused with the reason, the open solution stays", async () => {
+    const store = withLoadedPartialSolution();
+    mocked.gameSolveEstimate.mockRejectedValue(
+      "Not enough memory: this tree has 900.0 million nodes"
+    );
+    const session = useSolverSession();
+
+    await session.solve();
+
+    expect(mocked.gameInit).not.toHaveBeenCalled();
+    expect(session.message).toContain("900.0 million nodes");
+    expect(store.isSolverFinished).toBe(true);
+    expect(store.isSolverError).toBe(false);
+  });
+
+  test("the limit comes from the engine (it counts what the open solution frees)", async () => {
+    mocked.memory.mockResolvedValue([GB, 16 * GB]);
+    mocked.gameSolveEstimate.mockResolvedValue({
+      need32: 3 * GB,
+      need16: 2 * GB,
+      bunching: 0,
+      limit: 4 * GB,
+    });
+    const session = useSolverSession();
+
+    await session.solve();
+
+    expect(mocked.gameSolveEstimate).toHaveBeenCalledWith(
+      expect.objectContaining({ startingPot: 20 }),
+      false
+    );
+    expect(mocked.gameAllocateMemory).toHaveBeenCalledWith(false);
+  });
+
+  test("the bunching tables count when bunching is used", async () => {
+    const store = useStore();
+    store.isBunchingEnabled = true;
+    store.bunchingFlop = [0, 5, 10];
+    mocked.gameSolveEstimate.mockResolvedValue({
+      need32: 3 * GB,
+      need16: 2 * GB,
+      bunching: 3 * GB,
+      limit: 4 * GB,
+    });
+    const session = useSolverSession();
+
+    await session.solve();
+
+    expect(mocked.gameInit).not.toHaveBeenCalled();
+    expect(session.message).toContain("Not enough memory");
+  });
+
+  test("with the limit lifted, a solve over it starts", async () => {
+    mocked.gameSolveEstimate.mockResolvedValue({
+      need32: 30 * GB,
+      need16: 20 * GB,
+      bunching: 0,
+      limit: 2 ** 64,
+    });
+    const session = useSolverSession();
+    session.ignoreMemoryLimit = true;
+
+    await session.solve();
+
+    expect(mocked.gameSolveEstimate).toHaveBeenCalledWith(
+      expect.anything(),
+      true
+    );
+    expect(mocked.gameAllocateMemory).toHaveBeenCalledWith(false);
+  });
+
+  test("a refused solve keeps the spot recorded with the open solution", async () => {
+    const store = withLoadedPartialSolution();
+    const spot = { line: "BTN 2.5 · BB call" };
+    store.solvedSpot = spot as never;
+    mocked.gameSolveEstimate.mockRejectedValue("Not enough memory");
+
+    await useSolverSession().solve();
+
+    expect(store.solvedSpot).toEqual(spot);
+    expect(store.solutionInfo?.name).toBe("Jh 9d 4c");
   });
 });

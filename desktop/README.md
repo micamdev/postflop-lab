@@ -54,10 +54,7 @@ See the [WASM Postflop repository] for more detailed comparisons, including some
     - We do not distribute macOS builds because we are not enrolled in the Apple Developer Program and cannot sign the app (please see the "Build" section below and build it yourself).
   - Linux: glibc 2.31 and later (e.g., Ubuntu 20.04 and later)
 - CPU
-  - x86-64: must support AVX2 instructions
-    - Intel: Haswell (2013) and later
-    - AMD: Zen (1st gen; 2017) and later
-    - If you have a CPU without AVX2 support, you can modify `src-tauri/.cargo/config.toml` and build it yourself.
+  - x86-64: any 64-bit CPU. The solver uses AVX2 when the CPU has it (Intel Haswell 2013 and later, AMD Zen 2017 and later): about 25% faster with compressed memory, same results.
   - Apple silicon: M1 and later
 
 ## Download

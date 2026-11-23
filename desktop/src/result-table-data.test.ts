@@ -44,7 +44,7 @@ describe("tableColumns", () => {
       "EQ",
       "EV",
       "EQR",
-      "B 30",
+      "B 3",
       "Check",
     ]);
     expect(columns.slice(6).map(columnIndex)).toEqual([
@@ -189,8 +189,8 @@ describe("summaryCsv", () => {
     const rows = handRows(results, [AA, TWOS, KK], 0, 2, null);
     const csv = summaryCsv("basics", "Hand", rows, actions, false).split("\n");
     expect(csv[0]).toBe(
-      "Hand,Weight,Equity,EV,EQR,Bet 30 %,Bet 30 EV,Check %,Check EV"
+      "Hand,Weight,Equity,EV,EQR,Bet 3 %,Bet 3 EV,Check %,Check EV"
     );
-    expect(csv[1]).toBe("AsAh,1,0.8,90,1.125,0.75,95,0.25,80");
+    expect(csv[1]).toBe("AsAh,1,0.8,9,1.125,0.75,9.5,0.25,8");
   });
 });
