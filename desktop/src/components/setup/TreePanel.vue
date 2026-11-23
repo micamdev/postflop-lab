@@ -44,6 +44,7 @@
           <UiField label="Pot" suffix="bb">
             <input
               v-model.number="potBb"
+              @change="showStored($event, potBb)"
               type="number"
               min="0.1"
               step="0.1"
@@ -55,6 +56,7 @@
           <UiField label="Stack" suffix="bb">
             <input
               v-model.number="stackBb"
+              @change="showStored($event, stackBb)"
               type="number"
               min="0.1"
               step="0.1"
@@ -84,6 +86,7 @@
             </template>
             <input
               v-model.number="rakeCapBb"
+              @change="showStored($event, rakeCapBb)"
               type="number"
               min="0"
               step="0.1"
@@ -177,7 +180,7 @@
 import { computed } from "vue";
 import { emptySetup, useConfigStore, useStore } from "../../store";
 import { MAX_AMOUNT } from "../../utils";
-import { fromBb, toBb } from "../../units";
+import { fromBb, showStored, toBb } from "../../units";
 import { setupErrors } from "../../setup-validation";
 import { hasManualEdits } from "../../tree-config-value";
 import UiField from "../ui/UiField.vue";

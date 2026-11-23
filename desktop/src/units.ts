@@ -24,3 +24,14 @@ export const exploitabilityText = (exploitability: number, pot: number) => {
   if (!(pot > 0)) return bb;
   return `${bb} (${((exploitability * 100) / pot).toFixed(2)}%)`;
 };
+
+/**
+ * After an edit (change event), shows in the field the value actually kept: a typed "2.04"
+ * is stored as 2bb, and the field must not keep saying 2.04.
+ */
+export const showStored = (event: Event, stored: unknown) => {
+  const input = event.target as HTMLInputElement;
+  if (typeof stored === "number" && Number.isFinite(stored)) {
+    input.value = String(stored);
+  }
+};

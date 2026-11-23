@@ -1,5 +1,12 @@
 import { describe, expect, test } from "vitest";
-import { bbText, evBb, exploitabilityText, fromBb, toBb } from "./units";
+import {
+  bbText,
+  evBb,
+  exploitabilityText,
+  fromBb,
+  showStored,
+  toBb,
+} from "./units";
 
 // The engine and the saved files count in tenths of a big blind; the user sees big blinds.
 describe("big blinds", () => {
@@ -41,5 +48,17 @@ describe("exploitability", () => {
 
   test("without a pot: the amount only", () => {
     expect(exploitabilityText(0.52, 0)).toBe("0.052bb");
+  });
+});
+
+describe("showStored", () => {
+  test("after an edit the field shows the value kept, not the one typed", () => {
+    const input = { value: "2.04" };
+    showStored({ target: input } as unknown as Event, 2);
+    expect(input.value).toBe("2");
+    // A cleared field stays cleared (the error says it).
+    const cleared = { value: "" };
+    showStored({ target: cleared } as unknown as Event, "");
+    expect(cleared.value).toBe("");
   });
 });

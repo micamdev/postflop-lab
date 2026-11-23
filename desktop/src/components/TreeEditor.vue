@@ -84,6 +84,7 @@
         <span class="text-muted">Bet</span>
         <input
           v-model.number="betAmountBb"
+          @change="showStored($event, betAmountBb)"
           type="number"
           step="0.1"
           :class="[
@@ -185,7 +186,7 @@
 </template>
 
 <script setup lang="ts">
-import { bbText, fromBb, toBb } from "../units";
+import { bbText, fromBb, showStored, toBb } from "../units";
 import { actionCode, readableLines } from "../tree-lines";
 import { actionText, streetBets, toSpotActions } from "../nav-spots";
 import UiButton from "./ui/UiButton.vue";
