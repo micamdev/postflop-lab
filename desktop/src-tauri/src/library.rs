@@ -850,7 +850,7 @@ mod followup_tests {
             actions: vec!["Check:0".into(), "Bet:30".into(), "Bet:60".into()],
             hands: combos
                 .iter()
-                .map(|c| (c.clone(), vec![0.123_456_79, 0.234_567_89, 0.641_975_3]))
+                .map(|c| (c.clone(), vec![0.123_457, 0.234_568, 0.641_975]))
                 .collect(),
             edited: combos,
             label: format!("Lock {i}"),
