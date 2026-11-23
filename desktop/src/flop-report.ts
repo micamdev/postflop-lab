@@ -41,7 +41,10 @@ export const configKey = (meta: SolutionMeta): string => {
         return [field, typeof value === "string" ? value.trim() : value];
       })
   );
-  return stableJson({ ranges: meta.ranges, tree, locks: meta.locks ?? [] });
+  // A listed solution has a key of its locks (the list leaves the locks out); a spot built
+  // in the app has its locks ("" without any, as the list's key).
+  const locks = meta.locks_key ?? (meta.locks?.length ? meta.locks : "");
+  return stableJson({ ranges: meta.ranges, tree, locks });
 };
 
 /** IP after check when OOP acts first and can check (the usual case), else OOP. */

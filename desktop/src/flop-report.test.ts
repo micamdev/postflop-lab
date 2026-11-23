@@ -79,6 +79,19 @@ describe("configKey", () => {
     expect(configKey(meta(AK7, { precision: "16", depth: "river" }))).toBe(key);
   });
 
+  test("a listed solution (a key of its locks, no locks) matches the same spot built in the app", () => {
+    const built = configKey(meta(AK7, { locks: [] }));
+    expect(configKey(meta(AK7, { locks: [], locks_key: "" }))).toBe(built);
+    const lockedA = configKey(meta(AK7, { locks: [], locks_key: "ab12-1" }));
+    expect(lockedA).not.toBe(built);
+    expect(configKey(meta(EIGHT76, { locks: [], locks_key: "ab12-1" }))).toBe(
+      lockedA
+    );
+    expect(configKey(meta(AK7, { locks: [], locks_key: "cd34-1" }))).not.toBe(
+      lockedA
+    );
+  });
+
   test("key order in the tree config does not matter", () => {
     const a = meta(AK7, {
       tree_config: { startingPot: 20, oopFlopBet: "33%" },

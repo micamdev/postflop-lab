@@ -163,6 +163,7 @@ pub fn solution_meta(
         locks,
         flop_weight: None,
         batch_size: None,
+        locks_key: None,
     }
 }
 
@@ -213,13 +214,16 @@ pub fn library_check_load(
     cache_state: tauri::State<Mutex<SubgameCache>>,
     name: String,
 ) -> Result<(), String> {
-    let dir = library_dir(&app)?;
-    let game = crate::guard::lock_or_reset(&game_state);
-    check_load(
-        &dir,
-        &name,
-        max_load_memory(&game, &crate::guard::lock(&cache_state)),
-    )
+    crate::guard::guard(move || {
+        let dir = library_dir(&app)?;
+        // The locks are released before the file is read (its metadata can be large).
+        let max_memory = {
+            let game = crate::guard::lock_or_reset(&game_state);
+            let cache = crate::guard::lock(&cache_state);
+            max_load_memory(&game, &cache)
+        };
+        check_load(&dir, &name, max_memory)
+    })
 }
 
 #[tauri::command(async)]
