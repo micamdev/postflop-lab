@@ -56,7 +56,7 @@ pub fn solve_flop(
         ..args.clone()
     };
     let (card_config, action_tree) = build_game_inputs(ranges, &args)?;
-    let mut game = PostFlopGame::with_config(card_config, action_tree)?;
+    let mut game = crate::solver::build_game_checked(card_config, action_tree, available_memory)?;
 
     let (uncompressed, compressed) = game.memory_usage();
     let compression = if settings.precision != "16" && uncompressed <= available_memory {

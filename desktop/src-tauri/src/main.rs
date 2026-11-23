@@ -90,6 +90,8 @@ fn main() {
             bunching_progress,
             game_init,
             game_memory_estimate,
+            game_solve_estimate,
+            game_solve_limit,
             game_private_cards,
             game_memory_usage,
             game_memory_usage_bunching,

@@ -10,6 +10,7 @@ import {
   snapshotSetup,
   setSavedSetup,
   setSolutionLocks,
+  type SetupState,
 } from "./store";
 import * as invokes from "./invokes";
 import { gameTreeArgs } from "./game-args";
@@ -25,12 +26,12 @@ export { checkConfig, solveBlocker } from "./setup-validation";
 import { checkConfig } from "./setup-validation";
 import { spotRecord } from "./spot";
 
-/** Memory the solver may use: available memory, or 70% of the total on macOS; unlimited when
- * the system did not report it (0). */
+/** Memory a new solve may use, as Solve counts it: what is available plus what the open
+ * solution frees (70% of the total on macOS); unlimited when the system did not report it. */
 export const memoryLimit = async () => {
-  const [available, total] = await invokes.memory();
-  const limit = (await invokes.osName()) === "macos" ? total * 0.7 : available;
-  return limit > 0 ? limit : Number.POSITIVE_INFINITY;
+  const limit = await invokes.gameSolveLimit();
+  // u64::MAX from the engine: no limit.
+  return limit >= 2 ** 63 ? Number.POSITIVE_INFINITY : limit;
 };
 
 export const useSolverSession = defineStore("solverSession", () => {
@@ -154,16 +155,8 @@ export const useSolverSession = defineStore("solverSession", () => {
     );
   };
 
-  /** Builds the tree from the setup; returns false (with `message`) if it cannot. */
-  const buildTree = async (): Promise<boolean> => {
-    const configError = checkConfig(config);
-    if (configError !== null) {
-      message.value = configError;
-      return false;
-    }
-
-    // The setup as it is now: later edits do not change the tree being built.
-    const setup = snapshotSetup();
+  /** Builds the tree from `setup`; returns false (with `message`) if it cannot. */
+  const buildTree = async (setup: SetupState): Promise<boolean> => {
     // The spot it was solved from (saved with the solution), as it is now.
     store.solvedSpot = store.spot ? spotRecord(store.spot, setup) : null;
     isBuilding.value = true;
@@ -244,20 +237,39 @@ export const useSolverSession = defineStore("solverSession", () => {
       message.value = "The flop and the bunching data do not match.";
       return false;
     }
-    if (!(await buildTree())) return false;
+    const configError = checkConfig(config);
+    if (configError !== null) {
+      message.value = configError;
+      return false;
+    }
+    // The setup as it is now: later edits do not change the tree being built.
+    const setup = snapshotSetup();
 
-    const extra = isBunchingActive() ? memoryBunching.value : 0;
+    // Memory is checked on a separate game first: a refused solve keeps the open solution.
+    let estimate;
+    try {
+      estimate = await invokes.gameSolveEstimate(
+        gameTreeArgs(setup),
+        ignoreMemoryLimit.value
+      );
+    } catch (e) {
+      message.value = String(e);
+      return false;
+    }
+    const extra = isBunchingActive() ? estimate.bunching : 0;
     const choice = choosePrecision(
       settings.value.precision,
-      memoryNeed32.value + extra,
-      memoryNeed16.value + extra,
-      await memoryLimit(),
+      estimate.need32 + extra,
+      estimate.need16 + extra,
+      estimate.limit,
       ignoreMemoryLimit.value
     );
     if (!choice.ok) {
       message.value = `Not enough memory: ${choice.message}.`;
       return false;
     }
+
+    if (!(await buildTree(setup))) return false;
     if (choice.fellBack) {
       // Added to an earlier warning (bunching data not ready), not replacing it.
       message.value = [
