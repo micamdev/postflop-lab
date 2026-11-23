@@ -25,11 +25,16 @@ pub fn library_dir(app: &AppHandle) -> Result<PathBuf, String> {
             return Ok(PathBuf::from(dir));
         }
     }
-    let documents = app
-        .path()
-        .document_dir()
-        .map_err(|e| format!("Documents folder not found: {e}"))?;
+    let documents = library_root(app.path().document_dir().ok(), app.path().home_dir().ok())?;
     Ok(library::library_dir_in(&documents))
+}
+
+/// The folder the library goes in: the Documents folder, or `~/Documents` when the system
+/// does not name one (Linux without XDG user folders).
+fn library_root(documents: Option<PathBuf>, home: Option<PathBuf>) -> Result<PathBuf, String> {
+    documents
+        .or_else(|| home.map(|home| home.join("Documents")))
+        .ok_or_else(|| "Neither a Documents folder nor a home folder was found".to_string())
 }
 
 /// Front-end fields saved in the metadata.
@@ -46,9 +51,10 @@ struct SaveProgress {
     written: u64,
 }
 
-#[tauri::command]
+/// Reads every file's header: off the UI thread (a batch can leave thousands of files).
+#[tauri::command(async)]
 pub fn library_list(app: AppHandle) -> Result<Vec<LibraryEntry>, String> {
-    Ok(library::list(&library_dir(&app)?))
+    crate::guard::guard(move || Ok(library::list(&library_dir(&app)?)))
 }
 
 /// For each depth the tree allows, the memory needed to reload a save at that depth.
@@ -200,7 +206,7 @@ fn check_load(dir: &std::path::Path, name: &str, max_memory: u64) -> Result<(), 
 }
 
 /// Checks that a solution can be loaded, so the front end can keep the current results if not.
-#[tauri::command]
+#[tauri::command(async)]
 pub fn library_check_load(
     app: AppHandle,
     game_state: tauri::State<Mutex<PostFlopGame>>,
@@ -285,6 +291,23 @@ pub fn library_open_folder(app: AppHandle) -> Result<(), String> {
 
 #[cfg(test)]
 mod tests {
+    use std::path::PathBuf;
+
+    #[test]
+    fn without_a_documents_folder_the_library_goes_to_home_documents() {
+        let home = PathBuf::from("/home/me");
+        let docs = PathBuf::from("/home/me/Docs");
+        assert_eq!(
+            super::library_root(Some(docs.clone()), Some(home.clone())).unwrap(),
+            docs
+        );
+        assert_eq!(
+            super::library_root(None, Some(home)).unwrap(),
+            PathBuf::from("/home/me").join("Documents")
+        );
+        assert!(super::library_root(None, None).is_err());
+    }
+
     use super::*;
     use crate::library::tests::small_game;
 

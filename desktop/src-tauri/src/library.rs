@@ -20,8 +20,9 @@ pub const ERR_EXISTS: &str = "exists";
 /// Version of the [`SolutionMeta`] schema.
 pub const META_SCHEMA: u32 = 3;
 
-/// Largest metadata JSON a file can hold (the engine reads header fields up to 1 MiB).
-pub const MAX_MEMO_BYTES: usize = 1_000_000;
+/// Largest metadata JSON a file can hold (the engine reads header fields up to 64 MiB; the
+/// node locks take most of it).
+pub const MAX_MEMO_BYTES: usize = 60_000_000;
 
 /// zstd level used for saved solutions (fast, good ratio on solver data).
 const COMPRESSION_LEVEL: i32 = 3;
@@ -274,9 +275,21 @@ fn write_solution(
         return Err("Cannot save: the metadata has undefined values".to_string());
     }
     if memo.len() > MAX_MEMO_BYTES {
-        return Err(
-            "The tree configuration is too large to save (over 1 MB of metadata)".to_string(),
-        );
+        let mb = |bytes: usize| bytes as f64 / 1e6;
+        return Err(if meta.locks.is_empty() {
+            format!(
+                "The tree configuration is too large to save ({:.0} MB of metadata, at most {:.0} MB)",
+                mb(memo.len()),
+                mb(MAX_MEMO_BYTES)
+            )
+        } else {
+            format!(
+                "Too many node locks to save: {} locks take {:.0} MB of metadata (at most {:.0} MB)",
+                meta.locks.len(),
+                mb(memo.len()),
+                mb(MAX_MEMO_BYTES)
+            )
+        });
     }
     write_atomically(dir, &name, |tmp| {
         let file = File::create(tmp).map_err(|e| format!("Failed to create file: {e}"))?;
@@ -822,6 +835,49 @@ mod followup_tests {
         assert!(!dir.path().join("old.plab.tmp").exists());
         assert!(dir.path().join("notes.txt").exists());
         remove_stale_tmp(&dir.path().join("missing"), Duration::ZERO);
+    }
+
+    /// A lock on every combo of a node with three actions (as large as locks get).
+    fn full_lock(i: usize) -> crate::locks::NodeLock {
+        let combos: Vec<String> = (0..52u8)
+            .flat_map(|a| (a + 1..52).map(move |b| (a, b)))
+            .map(|(a, b)| card_to_string(a).unwrap() + &card_to_string(b).unwrap())
+            .collect();
+        crate::locks::NodeLock {
+            history: vec![0, i],
+            key: vec![0, i],
+            player: "ip".to_string(),
+            actions: vec!["Check:0".into(), "Bet:30".into(), "Bet:60".into()],
+            hands: combos
+                .iter()
+                .map(|c| (c.clone(), vec![0.123_456_79, 0.234_567_89, 0.641_975_3]))
+                .collect(),
+            edited: combos,
+            label: format!("Lock {i}"),
+        }
+    }
+
+    #[test]
+    fn a_solution_with_many_node_locks_saves_and_lists() {
+        let dir = tempfile::tempdir().unwrap();
+        let mut locked = meta(1);
+        locked.locks = (0..40).map(full_lock).collect();
+        save(dir.path(), "locked", &small_game(true), &locked, false).unwrap();
+        let entries = list(dir.path());
+        assert_eq!(entries.len(), 1);
+        assert_eq!(entries[0].meta.as_ref().unwrap().locks.len(), 40);
+    }
+
+    #[test]
+    fn too_many_locks_say_so() {
+        let dir = tempfile::tempdir().unwrap();
+        let mut locked = meta(1);
+        let lock_bytes = serde_json::to_string(&full_lock(0)).unwrap().len();
+        locked.locks = (0..MAX_MEMO_BYTES / lock_bytes + 1)
+            .map(full_lock)
+            .collect();
+        let err = save(dir.path(), "locked", &small_game(true), &locked, false).unwrap_err();
+        assert!(err.contains("node locks"), "{err}");
     }
 
     #[test]

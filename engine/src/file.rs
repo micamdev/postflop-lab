@@ -148,8 +148,9 @@ fn decode_from_std_read<D: Decode<()>, R: Read>(
 }
 
 /// Maximum size of a header field, the memo included. A corrupt or foreign file cannot make the
-/// header decoder allocate more than this.
-const HEADER_FIELD_LIMIT: usize = 1 << 20;
+/// header decoder allocate more than this. (The app's memo holds the node locks: about 100 KB
+/// each.)
+pub const HEADER_FIELD_LIMIT: usize = 64 << 20;
 
 fn decode_header_field<D: Decode<()>, R: Read>(reader: &mut R, err_msg: &str) -> Result<D, String> {
     let config = bincode::config::standard().with_limit::<HEADER_FIELD_LIMIT>();
