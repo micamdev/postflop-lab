@@ -17,6 +17,10 @@ pub(crate) static PORTABLE_ONLY: AtomicBool = AtomicBool::new(false);
 pub(crate) static AVX2_CALLS: AtomicUsize = AtomicUsize::new(0);
 
 /// Whether the AVX2 copies may run on this CPU.
+#[cfg_attr(
+    not(any(target_arch = "x86", target_arch = "x86_64")),
+    allow(dead_code)
+)]
 #[inline]
 pub(crate) fn has_avx2() -> bool {
     #[cfg(test)]
@@ -34,6 +38,10 @@ pub(crate) fn has_avx2() -> bool {
 }
 
 /// Counts an entry into an AVX2 copy (tests only).
+#[cfg_attr(
+    not(any(target_arch = "x86", target_arch = "x86_64")),
+    allow(dead_code)
+)]
 #[inline(always)]
 pub(crate) fn note_avx2_call() {
     #[cfg(test)]
