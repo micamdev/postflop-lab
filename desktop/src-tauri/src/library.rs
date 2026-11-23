@@ -174,11 +174,43 @@ fn write_atomically(
         let _ = fs::remove_file(&tmp);
         return Err(e);
     }
-    fs::rename(&tmp, &dest).map_err(|e| {
+    // On disk before it replaces `dest`: a power cut must not leave an empty file.
+    let synced = fs::OpenOptions::new()
+        .write(true)
+        .open(&tmp)
+        .and_then(|file| file.sync_all());
+    if let Err(e) = synced {
+        let _ = fs::remove_file(&tmp);
+        return Err(format!("Failed to finish writing the file: {e}"));
+    }
+    // An antivirus or a sync client (Defender, OneDrive) may hold the new file a moment.
+    retry(RENAME_ATTEMPTS, RENAME_DELAY, || fs::rename(&tmp, &dest)).map_err(|e| {
         let _ = fs::remove_file(&tmp);
         format!("Failed to finish writing the file: {e}")
     })?;
     Ok(dest)
+}
+
+const RENAME_ATTEMPTS: u32 = 5;
+const RENAME_DELAY: std::time::Duration = std::time::Duration::from_millis(200);
+
+/// Runs `op` up to `attempts` times, `delay` apart, until it succeeds.
+fn retry<T, E>(
+    attempts: u32,
+    delay: std::time::Duration,
+    mut op: impl FnMut() -> Result<T, E>,
+) -> Result<T, E> {
+    let mut left = attempts.max(1);
+    loop {
+        match op() {
+            Ok(value) => return Ok(value),
+            Err(e) if left <= 1 => return Err(e),
+            Err(_) => {
+                left -= 1;
+                std::thread::sleep(delay);
+            }
+        }
+    }
 }
 
 /// Counts the bytes written through it and reports the running total.
@@ -882,5 +914,25 @@ mod review_tests {
         save(dir.path(), "Spot", &small_game(true), &meta(2), false).unwrap();
         assert_eq!(rename(dir.path(), "spot", "Spot").unwrap_err(), ERR_EXISTS);
         assert_eq!(list(dir.path()).len(), 2);
+    }
+
+    #[test]
+    fn a_file_held_a_moment_is_renamed_on_a_later_try() {
+        let mut calls = 0;
+        let held_twice = super::retry(5, std::time::Duration::ZERO, || {
+            calls += 1;
+            if calls < 3 {
+                Err("held")
+            } else {
+                Ok(calls)
+            }
+        });
+        assert_eq!(held_twice, Ok(3));
+        let mut calls = 0;
+        let always: Result<(), _> = super::retry(5, std::time::Duration::ZERO, || {
+            calls += 1;
+            Err("held")
+        });
+        assert_eq!((always, calls), (Err("held"), 5));
     }
 }

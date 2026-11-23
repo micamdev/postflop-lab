@@ -370,8 +370,15 @@ const exploitabilityText = (meta: invokes.SolutionMeta) => {
 const load = async (entry: invokes.LibraryEntry) => {
   errorText.value = "";
   busyText.value = `Loading “${entry.name}”…`;
-  const error = await loadSolution(entry.name);
-  busyText.value = "";
+  let error: string | null;
+  try {
+    error = await loadSolution(entry.name);
+  } catch (e) {
+    // An unexpected failure must not leave "Loading…" on screen.
+    error = String(e);
+  } finally {
+    busyText.value = "";
+  }
   noteLoad(failedLoads, entry, error);
   if (error) errorText.value = error;
 };
