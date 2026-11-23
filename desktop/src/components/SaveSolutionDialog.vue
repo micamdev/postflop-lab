@@ -8,7 +8,8 @@
       role="dialog"
       aria-modal="true"
       aria-labelledby="save-solution-title"
-      class="w-[34rem] p-6 bg-panel border border-line rounded-lg shadow-2xl shadow-black/50"
+      tabindex="-1"
+      class="outline-none w-[34rem] p-6 bg-panel border border-line rounded-lg shadow-2xl shadow-black/50"
       @keydown.esc="!isSaving && emit('close')"
       @keydown.tab="trapTab($event, dialog)"
     >
@@ -80,7 +81,7 @@
 
 <script setup lang="ts">
 import UiButton from "./ui/UiButton.vue";
-import { onMounted, onUnmounted, ref } from "vue";
+import { nextTick, onMounted, onUnmounted, ref } from "vue";
 import { trapTab } from "../modal-focus";
 import { listen, UnlistenFn } from "@tauri-apps/api/event";
 import { useStore, useSavedConfigStore, SolutionDepth } from "../store";
@@ -154,6 +155,8 @@ const save = async (overwrite: boolean) => {
     return;
   }
   isSaving.value = true;
+  // Its controls are disabled while writing: keep the focus (Escape, Tab) in the dialog.
+  dialog.value?.focus();
   written.value = 0;
   errorText.value = "";
   let savedName = "";
@@ -170,6 +173,7 @@ const save = async (overwrite: boolean) => {
     );
   } catch (e) {
     isSaving.value = false;
+    void nextTick(() => nameInput.value?.focus());
     if (String(e) === invokes.ERR_EXISTS) {
       if (await ask(`"${name.value}" already exists. Replace it?`)) {
         await save(true);
