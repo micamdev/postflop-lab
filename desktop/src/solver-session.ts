@@ -26,12 +26,12 @@ export { checkConfig, solveBlocker } from "./setup-validation";
 import { checkConfig } from "./setup-validation";
 import { spotRecord } from "./spot";
 
-/** Memory the solver may use: available memory, or 70% of the total on macOS; unlimited when
- * the system did not report it (0). */
+/** Memory a new solve may use, as Solve counts it: what is available plus what the open
+ * solution frees (70% of the total on macOS); unlimited when the system did not report it. */
 export const memoryLimit = async () => {
-  const [available, total] = await invokes.memory();
-  const limit = (await invokes.osName()) === "macos" ? total * 0.7 : available;
-  return limit > 0 ? limit : Number.POSITIVE_INFINITY;
+  const limit = await invokes.gameSolveLimit();
+  // u64::MAX from the engine: no limit.
+  return limit >= 2 ** 63 ? Number.POSITIVE_INFINITY : limit;
 };
 
 export const useSolverSession = defineStore("solverSession", () => {

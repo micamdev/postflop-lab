@@ -279,14 +279,46 @@ pub fn solve_limit(available: u64, total: u64, freed: u64, macos: bool) -> u64 {
     }
 }
 
-/// [`SolveEstimate`] of the setup, refusing a tree whose nodes alone exceed `limit`.
+/// Memory the nodes of a tree may take while it is built: the open solution still holds its
+/// memory then, so only what is free now (70% of the total on macOS). When the user lifted the
+/// memory limit, still never more than the whole memory: such a build would close the app.
+pub fn arena_limit(available: u64, total: u64, ignore_limit: bool, macos: bool) -> u64 {
+    if ignore_limit {
+        return if total == 0 { u64::MAX } else { total };
+    }
+    crate::memory_limit::limit_from(available, total, || 0, macos)
+}
+
+/// The limit of a new solve on this machine (see [`solve_limit`]).
+fn machine_solve_limit(game_state: &Mutex<PostFlopGame>, cache_state: &Mutex<SubgameCache>) -> u64 {
+    let (available, total) = crate::memory();
+    let macos = cfg!(target_os = "macos");
+    let freed = if macos {
+        0
+    } else {
+        crate::library_commands::loaded_memory(game_state, cache_state)
+    };
+    solve_limit(available, total, freed, macos)
+}
+
+/// Memory a new solve may use, as Solve counts it (for the Setup's memory estimate).
+#[tauri::command(async)]
+pub fn game_solve_limit(
+    game_state: tauri::State<Mutex<PostFlopGame>>,
+    cache_state: tauri::State<Mutex<SubgameCache>>,
+) -> Result<u64, String> {
+    crate::guard::guard(move || Ok(machine_solve_limit(&game_state, &cache_state)))
+}
+
+/// [`SolveEstimate`] of the setup, refusing a tree whose nodes alone exceed `arena_cap`.
 fn solve_estimate(
     ranges: &[Range; 2],
     args: &GameTreeArgs,
+    arena_cap: u64,
     limit: u64,
 ) -> Result<SolveEstimate, String> {
     let (card_config, action_tree) = build_game_inputs(ranges, args)?;
-    let game = build_game_checked(card_config, action_tree, limit)?;
+    let game = build_game_checked(card_config, action_tree, arena_cap)?;
     let (need32, need16) = game.memory_usage();
     Ok(SolveEstimate {
         need32,
@@ -311,16 +343,11 @@ pub fn game_solve_estimate(
         let limit = if ignore_limit {
             u64::MAX
         } else {
-            let (available, total) = crate::memory();
-            let macos = cfg!(target_os = "macos");
-            let freed = if macos {
-                0
-            } else {
-                crate::library_commands::loaded_memory(&game_state, &cache_state)
-            };
-            solve_limit(available, total, freed, macos)
+            machine_solve_limit(&game_state, &cache_state)
         };
-        solve_estimate(&ranges, &args, limit)
+        let (available, total) = crate::memory();
+        let arena_cap = arena_limit(available, total, ignore_limit, cfg!(target_os = "macos"));
+        solve_estimate(&ranges, &args, arena_cap, limit)
     })
 }
 
@@ -1227,13 +1254,15 @@ pub(crate) mod tests {
     fn the_solve_estimate_matches_the_built_game() {
         let ranges = setup_ranges("AA,KK", "QQ,JJ");
         let args = setup_args("Td9d6h", "50%");
-        let estimate = solve_estimate(&ranges, &args, u64::MAX).unwrap();
+        let estimate = solve_estimate(&ranges, &args, u64::MAX, u64::MAX).unwrap();
         let (card_config, tree) = build_game_inputs(&ranges, &args).unwrap();
         let game = PostFlopGame::with_config(card_config, tree).unwrap();
         let (need32, need16) = game.memory_usage();
         assert_eq!((estimate.need32, estimate.need16), (need32, need16));
         assert_eq!(estimate.limit, u64::MAX);
-        assert!(solve_estimate(&ranges, &args, 1).is_err());
+        // The nodes are checked against the arena cap, not the solve's limit.
+        assert!(solve_estimate(&ranges, &args, 1, u64::MAX).is_err());
+        assert!(solve_estimate(&ranges, &args, u64::MAX, 1).is_ok());
     }
 
     #[test]
@@ -1246,5 +1275,16 @@ pub(crate) mod tests {
         // Unknown sizes: no limit.
         assert_eq!(solve_limit(0, 0, GB, false), u64::MAX);
         assert_eq!(solve_limit(0, 16 * GB, GB, false), u64::MAX);
+    }
+
+    #[test]
+    fn the_nodes_never_exceed_the_memory_that_is_really_free() {
+        const GB: u64 = 1 << 30;
+        // The open solution still holds its memory while the tree is built: available only.
+        assert_eq!(arena_limit(4 * GB, 16 * GB, false, false), 4 * GB);
+        assert_eq!(arena_limit(GB, 10 * GB, false, true), 7 * GB);
+        // Limit lifted by the user: still never more than the whole memory.
+        assert_eq!(arena_limit(4 * GB, 16 * GB, true, false), 16 * GB);
+        assert_eq!(arena_limit(0, 0, true, false), u64::MAX);
     }
 }

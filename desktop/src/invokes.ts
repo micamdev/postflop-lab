@@ -187,6 +187,11 @@ export const gameSolveEstimate = async (
   return await invoke("game_solve_estimate", { args, ignoreLimit });
 };
 
+/** Memory a new solve may use (u64::MAX: no limit), as `gameSolveEstimate` counts it. */
+export const gameSolveLimit = async (): Promise<number> => {
+  return await invoke("game_solve_limit");
+};
+
 export const gamePrivateCards = async (): Promise<number[][]> => {
   return await invoke("game_private_cards");
 };

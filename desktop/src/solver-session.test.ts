@@ -5,6 +5,7 @@ import { createPinia, setActivePinia } from "pinia";
 vi.mock("./invokes", () => ({
   gameInit: vi.fn(),
   gameSolveEstimate: vi.fn(),
+  gameSolveLimit: vi.fn(),
   gameMemoryUsage: vi.fn(),
   gameMemoryUsageBunching: vi.fn(),
   memory: vi.fn(),
@@ -183,6 +184,7 @@ describe("messages", () => {
 
     expect(session.message).toContain("Bunching effect is on");
     expect(session.message).toContain("16-bit");
+    expect(mocked.gameAllocateMemory).toHaveBeenCalledWith(true);
   });
 });
 
@@ -334,8 +336,14 @@ describe("audit review fixes", () => {
   });
 
   test("an unknown memory size counts as unlimited", async () => {
-    mocked.memory.mockResolvedValue([0, 0]);
+    mocked.gameSolveLimit.mockResolvedValue(2 ** 64); // u64::MAX
     expect(await memoryLimit()).toBe(Number.POSITIVE_INFINITY);
+  });
+
+  test("the Setup estimate uses the limit Solve uses (what the open solution frees)", async () => {
+    mocked.memory.mockResolvedValue([GB, 16 * GB]);
+    mocked.gameSolveLimit.mockResolvedValue(9 * GB);
+    expect(await memoryLimit()).toBe(9 * GB);
   });
 });
 
@@ -454,5 +462,36 @@ describe("memory, checked before the open solution is replaced", () => {
 
     expect(mocked.gameInit).not.toHaveBeenCalled();
     expect(session.message).toContain("Not enough memory");
+  });
+
+  test("with the limit lifted, a solve over it starts", async () => {
+    mocked.gameSolveEstimate.mockResolvedValue({
+      need32: 30 * GB,
+      need16: 20 * GB,
+      bunching: 0,
+      limit: 2 ** 64,
+    });
+    const session = useSolverSession();
+    session.ignoreMemoryLimit = true;
+
+    await session.solve();
+
+    expect(mocked.gameSolveEstimate).toHaveBeenCalledWith(
+      expect.anything(),
+      true
+    );
+    expect(mocked.gameAllocateMemory).toHaveBeenCalledWith(false);
+  });
+
+  test("a refused solve keeps the spot recorded with the open solution", async () => {
+    const store = withLoadedPartialSolution();
+    const spot = { line: "BTN 2.5 · BB call" };
+    store.solvedSpot = spot as never;
+    mocked.gameSolveEstimate.mockRejectedValue("Not enough memory");
+
+    await useSolverSession().solve();
+
+    expect(store.solvedSpot).toEqual(spot);
+    expect(store.solutionInfo?.name).toBe("Jh 9d 4c");
   });
 });
