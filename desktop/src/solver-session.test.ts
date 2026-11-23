@@ -4,6 +4,7 @@ import { createPinia, setActivePinia } from "pinia";
 // The Tauri boundary: every game command the session calls.
 vi.mock("./invokes", () => ({
   gameInit: vi.fn(),
+  gameSolveEstimate: vi.fn(),
   gameMemoryUsage: vi.fn(),
   gameMemoryUsageBunching: vi.fn(),
   memory: vi.fn(),
@@ -52,6 +53,12 @@ beforeEach(() => {
   setActivePinia(createPinia());
   vi.resetAllMocks();
   mocked.gameInit.mockResolvedValue("");
+  mocked.gameSolveEstimate.mockResolvedValue({
+    need32: GB,
+    need16: GB / 2,
+    bunching: 0,
+    limit: 8 * GB,
+  });
   mocked.gameMemoryUsage.mockResolvedValue([GB, GB / 2]);
   mocked.gameMemoryUsageBunching.mockResolvedValue(0);
   mocked.memory.mockResolvedValue([8 * GB, 16 * GB]);
@@ -164,7 +171,12 @@ describe("messages", () => {
   test("the fallback message keeps the bunching warning", async () => {
     const store = useStore();
     store.isBunchingEnabled = true; // data not ready: solving without it
-    mocked.gameMemoryUsage.mockResolvedValue([10 * GB, 2 * GB]);
+    mocked.gameSolveEstimate.mockResolvedValue({
+      need32: 10 * GB,
+      need16: 2 * GB,
+      bunching: 0,
+      limit: 8 * GB,
+    });
     const session = useSolverSession();
 
     await session.solve();
@@ -369,5 +381,78 @@ describe("spots", () => {
     };
     await useSolverSession().solve();
     expect(store.solvedSpot).toBeNull();
+  });
+});
+
+describe("memory, checked before the open solution is replaced", () => {
+  test("not enough memory: refused, the open solution stays", async () => {
+    const store = withLoadedPartialSolution();
+    store.isSolutionSaved = false;
+    mocked.gameSolveEstimate.mockResolvedValue({
+      need32: 10 * GB,
+      need16: 9 * GB,
+      bunching: 0,
+      limit: 8 * GB,
+    });
+    const session = useSolverSession();
+
+    await session.solve();
+
+    expect(mocked.gameInit).not.toHaveBeenCalled();
+    expect(session.message).toContain("Not enough memory");
+    expect(store.isSolverFinished).toBe(true);
+    expect(store.solutionInfo?.name).toBe("Jh 9d 4c");
+  });
+
+  test("a tree too large to build: refused with the reason, the open solution stays", async () => {
+    const store = withLoadedPartialSolution();
+    mocked.gameSolveEstimate.mockRejectedValue(
+      "Not enough memory: this tree has 900.0 million nodes"
+    );
+    const session = useSolverSession();
+
+    await session.solve();
+
+    expect(mocked.gameInit).not.toHaveBeenCalled();
+    expect(session.message).toContain("900.0 million nodes");
+    expect(store.isSolverFinished).toBe(true);
+    expect(store.isSolverError).toBe(false);
+  });
+
+  test("the limit comes from the engine (it counts what the open solution frees)", async () => {
+    mocked.memory.mockResolvedValue([GB, 16 * GB]);
+    mocked.gameSolveEstimate.mockResolvedValue({
+      need32: 3 * GB,
+      need16: 2 * GB,
+      bunching: 0,
+      limit: 4 * GB,
+    });
+    const session = useSolverSession();
+
+    await session.solve();
+
+    expect(mocked.gameSolveEstimate).toHaveBeenCalledWith(
+      expect.objectContaining({ startingPot: 20 }),
+      false
+    );
+    expect(mocked.gameAllocateMemory).toHaveBeenCalledWith(false);
+  });
+
+  test("the bunching tables count when bunching is used", async () => {
+    const store = useStore();
+    store.isBunchingEnabled = true;
+    store.bunchingFlop = [0, 5, 10];
+    mocked.gameSolveEstimate.mockResolvedValue({
+      need32: 3 * GB,
+      need16: 2 * GB,
+      bunching: 3 * GB,
+      limit: 4 * GB,
+    });
+    const session = useSolverSession();
+
+    await session.solve();
+
+    expect(mocked.gameInit).not.toHaveBeenCalled();
+    expect(session.message).toContain("Not enough memory");
   });
 });

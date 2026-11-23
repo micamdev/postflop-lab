@@ -172,6 +172,21 @@ export const gameMemoryEstimate = async (
   return await invoke("game_memory_estimate", { args });
 };
 
+/** What starting a solve needs, checked on a separate game (the open one is untouched):
+ * bytes in 32-bit and 16-bit, added by the bunching effect, and the limit (it counts what the
+ * open solution frees). Rejects with the reason, e.g. a tree too large to build. */
+export const gameSolveEstimate = async (
+  args: GameTreeArgs,
+  ignoreLimit: boolean
+): Promise<{
+  need32: number;
+  need16: number;
+  bunching: number;
+  limit: number;
+}> => {
+  return await invoke("game_solve_estimate", { args, ignoreLimit });
+};
+
 export const gamePrivateCards = async (): Promise<number[][]> => {
   return await invoke("game_private_cards");
 };

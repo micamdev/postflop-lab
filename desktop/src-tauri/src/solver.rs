@@ -227,6 +227,103 @@ fn estimate_memory_capped(
     Ok((raw, compressed, game.memory_usage_bunching()))
 }
 
+/// Bytes each node of a tree takes once it is built: the node arena is allocated with the
+/// tree, before the memory of the solve itself can be checked.
+pub fn node_bytes() -> u64 {
+    std::mem::size_of::<MutexLike<PostFlopNode>>() as u64
+}
+
+/// Builds the game, refusing (before allocating anything) a tree whose nodes alone would take
+/// more than `max_memory`: building it could exhaust the memory and close the app.
+pub fn build_game_checked(
+    card_config: CardConfig,
+    action_tree: ActionTree,
+    max_memory: u64,
+) -> Result<PostFlopGame, String> {
+    let mut game = PostFlopGame::new();
+    game.update_config_checked(card_config, action_tree, |nodes| {
+        let needed = nodes.saturating_mul(node_bytes());
+        if needed > max_memory {
+            return Err(format!(
+                "Not enough memory: this tree has {:.1} million nodes, which alone take {} ({} available). Use fewer bet sizes",
+                nodes as f64 / 1e6,
+                crate::gb(needed),
+                crate::gb(max_memory)
+            ));
+        }
+        Ok(())
+    })?;
+    Ok(game)
+}
+
+/// What starting a solve needs, checked on a separate game before the open one is replaced.
+#[derive(Serialize, Debug)]
+#[serde(rename_all = "camelCase")]
+pub struct SolveEstimate {
+    pub need32: u64,
+    pub need16: u64,
+    /// Added by the bunching effect's tables when it is used.
+    pub bunching: u64,
+    /// Memory the solve may use (`u64::MAX`: no limit).
+    pub limit: u64,
+}
+
+/// Memory a new solve may use: what is available plus what the open solution and its river
+/// cache free when it replaces them (`freed`); on macOS 70% of the total, as before. No limit
+/// if the memory cannot be read.
+pub fn solve_limit(available: u64, total: u64, freed: u64, macos: bool) -> u64 {
+    match crate::memory_limit::limit_from(available, total, || 0, macos) {
+        u64::MAX => u64::MAX,
+        limit if macos => limit,
+        limit => limit.saturating_add(freed),
+    }
+}
+
+/// [`SolveEstimate`] of the setup, refusing a tree whose nodes alone exceed `limit`.
+fn solve_estimate(
+    ranges: &[Range; 2],
+    args: &GameTreeArgs,
+    limit: u64,
+) -> Result<SolveEstimate, String> {
+    let (card_config, action_tree) = build_game_inputs(ranges, args)?;
+    let game = build_game_checked(card_config, action_tree, limit)?;
+    let (need32, need16) = game.memory_usage();
+    Ok(SolveEstimate {
+        need32,
+        need16,
+        bunching: game.memory_usage_bunching(),
+        limit,
+    })
+}
+
+/// The memory a solve of the setup needs and may use, without touching the open game: a
+/// refused solve keeps the open solution. `ignore_limit`: the user lifted the memory limit.
+#[tauri::command(async)]
+pub fn game_solve_estimate(
+    range_state: tauri::State<Mutex<RangeManager>>,
+    game_state: tauri::State<Mutex<PostFlopGame>>,
+    cache_state: tauri::State<Mutex<SubgameCache>>,
+    args: GameTreeArgs,
+    ignore_limit: bool,
+) -> Result<SolveEstimate, String> {
+    crate::guard::guard(move || {
+        let ranges: [Range; 2] = crate::guard::lock(&range_state).0[..2].try_into().unwrap();
+        let limit = if ignore_limit {
+            u64::MAX
+        } else {
+            let (available, total) = crate::memory();
+            let macos = cfg!(target_os = "macos");
+            let freed = if macos {
+                0
+            } else {
+                crate::library_commands::loaded_memory(&game_state, &cache_state)
+            };
+            solve_limit(available, total, freed, macos)
+        };
+        solve_estimate(&ranges, &args, limit)
+    })
+}
+
 #[tauri::command(async)]
 pub fn game_init(
     range_state: tauri::State<Mutex<RangeManager>>,
@@ -1099,5 +1196,55 @@ pub(crate) mod tests {
         assert!(estimate_memory_capped(&ranges, &args, nodes).is_ok());
         let err = estimate_memory_capped(&ranges, &args, nodes - 1).unwrap_err();
         assert!(err.contains("too large"), "{err}");
+    }
+
+    #[test]
+    fn a_tree_whose_nodes_exceed_the_memory_is_refused_before_it_is_built() {
+        let ranges = setup_ranges("AA,KK", "QQ,JJ");
+        let args = setup_args("Td9d6h", "50%");
+        let inputs = || build_game_inputs(&ranges, &args).unwrap();
+        let mut nodes = 0;
+        let (card_config, tree) = inputs();
+        PostFlopGame::new()
+            .update_config_checked(card_config, tree, |n| {
+                nodes = n;
+                Ok(())
+            })
+            .unwrap();
+        let arena = nodes * node_bytes();
+
+        let (card_config, tree) = inputs();
+        assert!(build_game_checked(card_config, tree, arena).is_ok());
+        let (card_config, tree) = inputs();
+        let Err(err) = build_game_checked(card_config, tree, arena - 1) else {
+            panic!("accepted")
+        };
+        assert!(err.starts_with("Not enough memory"), "{err}");
+        assert!(err.contains("fewer bet sizes"), "{err}");
+    }
+
+    #[test]
+    fn the_solve_estimate_matches_the_built_game() {
+        let ranges = setup_ranges("AA,KK", "QQ,JJ");
+        let args = setup_args("Td9d6h", "50%");
+        let estimate = solve_estimate(&ranges, &args, u64::MAX).unwrap();
+        let (card_config, tree) = build_game_inputs(&ranges, &args).unwrap();
+        let game = PostFlopGame::with_config(card_config, tree).unwrap();
+        let (need32, need16) = game.memory_usage();
+        assert_eq!((estimate.need32, estimate.need16), (need32, need16));
+        assert_eq!(estimate.limit, u64::MAX);
+        assert!(solve_estimate(&ranges, &args, 1).is_err());
+    }
+
+    #[test]
+    fn a_solve_may_use_what_the_replaced_solution_frees() {
+        const GB: u64 = 1 << 30;
+        // Windows / Linux: available memory plus the open solution and its river cache.
+        assert_eq!(solve_limit(4 * GB, 16 * GB, 3 * GB, false), 7 * GB);
+        // macOS: 70% of the total, whatever is in use (as before).
+        assert_eq!(solve_limit(GB, 10 * GB, 3 * GB, true), 7 * GB);
+        // Unknown sizes: no limit.
+        assert_eq!(solve_limit(0, 0, GB, false), u64::MAX);
+        assert_eq!(solve_limit(0, 16 * GB, GB, false), u64::MAX);
     }
 }
