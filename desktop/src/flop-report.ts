@@ -2,6 +2,7 @@
 // from the library metadata only (no solution is loaded).
 
 import type { LibraryEntry, SolutionMeta } from "./invokes";
+import { bbText, evBb } from "./units";
 import {
   canonicalFlopKey,
   flopTexture,
@@ -41,7 +42,11 @@ export const configKey = (meta: SolutionMeta): string => {
         return [field, typeof value === "string" ? value.trim() : value];
       })
   );
-  return stableJson({ ranges: meta.ranges, tree, locks: meta.locks ?? [] });
+  // A lock's label is display text (its wording changed across versions): not the spot.
+  const locks = (meta.locks ?? []).map((lock) =>
+    Object.fromEntries(Object.entries(lock).filter(([key]) => key !== "label"))
+  );
+  return stableJson({ ranges: meta.ranges, tree, locks });
 };
 
 /** IP after check when OOP acts first and can check (the usual case), else OOP. */
@@ -300,10 +305,12 @@ export const advantageText = (
   return `${edge > 0 ? "IP" : "OOP"} +${gap.toFixed(1)}`;
 };
 
-/** "Bet 7", "Check": the name of an action for a column. */
+/** "Bet 0.7", "Check": the name of an action for a column (amount in big blinds). */
 export const actionLabel = (action: string) => {
   const [name, amount] = action.split(":");
-  return amount === "0" || amount === undefined ? name : `${name} ${amount}`;
+  return amount === "0" || amount === undefined
+    ? name
+    : `${name} ${bbText(Number(amount))}`;
 };
 
 /** Board text, highest card first: "AsKd7c". */
@@ -338,7 +345,7 @@ export const reportCsv = (rows: ReportRow[], actions: string[]): string => {
     ...actions.map((a) =>
       r.strategy ? ((r.strategy[a] ?? 0) * 100).toFixed(1) : ""
     ),
-    ...r.ev.map((x) => toFixed2(x)),
+    ...r.ev.map((x) => toFixed2(evBb(x))),
     ...r.equity.map((x) => toFixed1(x * 100)),
     ...r.eqr.map((x) => (isFinite(x) ? toFixed1(x * 100) : "")),
     advantageText(r.buckets, 1),

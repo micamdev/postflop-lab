@@ -15,4 +15,10 @@ describe("tree lines", () => {
     expect(readableLines("")).toEqual([]);
     expect(readableLines("X-B30,X-X")).toHaveLength(2);
   });
+
+  test("amounts read in big blinds; the codes stay in app units", () => {
+    expect(readableLines("X-B30-R95|X")).toEqual([
+      "Check - Bet 3 - Raise 9.5, Check",
+    ]);
+  });
 });

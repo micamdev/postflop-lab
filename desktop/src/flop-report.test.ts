@@ -63,6 +63,21 @@ describe("configKey", () => {
     expect(configKey(meta(AK7))).toBe(configKey(meta(EIGHT76)));
   });
 
+  test("a lock's label (display text, worded differently by older versions) is not the spot", () => {
+    const lock = (label: string) => ({
+      history: [0],
+      key: [0],
+      player: "ip" as const,
+      actions: ["Check:0", "Bet:30"],
+      hands: { AsAh: [0, 1] },
+      edited: ["AsAh"],
+      label,
+    });
+    expect(configKey(meta(AK7, { locks: [lock("OOP Check")] }))).toBe(
+      configKey(meta(AK7, { locks: [lock("OOP Check · 3bb")] }))
+    );
+  });
+
   test("ranges, tree and locks make another spot; precision and depth do not", () => {
     const key = configKey(meta(AK7));
     expect(configKey(meta(AK7, { ranges: ["AA", "QQ-99"] }))).not.toBe(key);
@@ -244,10 +259,10 @@ describe("reportCsv", () => {
     );
     const csv = reportCsv(rows, reportActions(rows)).split("\n");
     expect(csv[0]).toBe(
-      "Flop,Texture,Weight,Check %,Bet 7 %,EV OOP,EV IP,Equity OOP %,Equity IP %,EQR OOP %,EQR IP %,Nut advantage,Best hands advantage"
+      "Flop,Texture,Weight,Check %,Bet 0.7 %,EV OOP,EV IP,Equity OOP %,Equity IP %,EQR OOP %,EQR IP %,Nut advantage,Best hands advantage"
     );
     expect(csv[1]).toBe(
-      'AsKd7c,"A high, rainbow",24,40.0,60.0,8.00,12.00,45.0,55.0,88.9,109.1,IP +10.0,IP +10.0'
+      'AsKd7c,"A high, rainbow",24,40.0,60.0,0.80,1.20,45.0,55.0,88.9,109.1,IP +10.0,IP +10.0'
     );
   });
 });

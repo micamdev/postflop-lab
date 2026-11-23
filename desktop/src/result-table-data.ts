@@ -7,6 +7,7 @@ import type {
   SpotPlayer,
   TableMode,
 } from "./result-types";
+import { bbText, evBb } from "./units";
 import { cardPairOrder, capitalize, eqrOf, ranks, suitLetters } from "./utils";
 
 /**
@@ -54,7 +55,9 @@ export const columnIndex = (column: Column) => {
 
 /** Column label of an action: "Check", "B 30". */
 const shortLabel = (action: { name: string; amount: string }) =>
-  action.amount === "0" ? action.name : `${action.name[0]} ${action.amount}`;
+  action.amount === "0"
+    ? action.name
+    : `${action.name[0]} ${bbText(Number(action.amount))}`;
 
 /**
  * Columns of the table. `actions` are those of the player shown (empty when it does not act
@@ -218,26 +221,38 @@ export const summaryCsv = (
     : ["Hand", "Weight", ...(isEmpty ? [] : ["Equity", "EV", "EQR"])];
   for (const action of [...actions].reverse()) {
     const name =
-      action.name + (action.amount === "0" ? "" : ` ${action.amount}`);
+      action.name +
+      (action.amount === "0" ? "" : ` ${bbText(Number(action.amount))}`);
     header.push(`${name} %`);
     if (!isChance) header.push(`${name} EV`);
   }
 
   const dash = (value: number) => (isNaN(value) ? "-" : value);
+  // EVs in big blinds; strategy, equity and weights as they are.
+  const ev = (value: number) => dash(evBb(value));
   const lines = rows.map((row) => {
     if (isChance) {
       return [
         cardStr(row[0] & 0xff),
         row[INDEX.WEIGHT],
         dash(row[INDEX.EQUITY]),
-        dash(row[INDEX.EV]),
+        ev(row[INDEX.EV]),
         dash(row[INDEX.EQR]),
         ...row.slice(INDEX.STRATEGY_BASE).filter((_, i) => i % 2 === 0),
       ];
     }
     const hand = cardStr(row[0] >>> 8) + cardStr(row[0] & 0xff);
     const start = isEmpty ? INDEX.STRATEGY_BASE : INDEX.EQUITY;
-    return [hand, row[INDEX.WEIGHT], ...row.slice(start)];
+    // After the strategy base: each action's frequency, then its EV.
+    const values = row
+      .map((value, i) =>
+        i === INDEX.EV ||
+        (i >= INDEX.STRATEGY_BASE && (i - INDEX.STRATEGY_BASE) % 2 === 1)
+          ? ev(value)
+          : value
+      )
+      .slice(start);
+    return [hand, row[INDEX.WEIGHT], ...values];
   });
   return [header, ...lines].map((line) => line.join(",")).join("\n");
 };

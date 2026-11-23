@@ -70,6 +70,7 @@
 </template>
 
 <script setup lang="ts">
+import { evBb } from "../units";
 import { themeColor } from "../theme";
 import { stackedGradient } from "../action-colors";
 import { computed, ref, toRefs, onUnmounted, watch } from "vue";
@@ -165,7 +166,7 @@ const evDigits = computed(() => {
   const results = props.results;
   if (results.isEmpty) return 3;
   const playerIndex = props.displayPlayer === "oop" ? 0 : 1;
-  return evDigitsFor(results.ev[playerIndex]);
+  return evDigitsFor(results.ev[playerIndex].map(evBb));
 });
 
 const toFixedEv = computed(() => {
@@ -436,9 +437,9 @@ const cellValueText = computed(() => {
     if (displayOptions.contentBasics !== "default" && props.results.isEmpty) {
       return "-";
     } else if (displayOptions.contentBasics === "ev") {
-      return Math.abs(value) >= 999.95
-        ? value.toFixed(0)
-        : toFixedEv.value(value);
+      // In big blinds.
+      const bb = evBb(value);
+      return Math.abs(bb) >= 999.95 ? bb.toFixed(0) : toFixedEv.value(bb);
     } else {
       return toFixed1(value * 100);
     }

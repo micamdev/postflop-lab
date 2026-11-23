@@ -31,8 +31,8 @@
           v-if="spot.type === 'root' || spot.type === 'chance'"
           class="flex flex-col flex-grow px-2 justify-center text-xs text-muted tabular-nums"
         >
-          <div>Pot {{ spot.pot }}</div>
-          <div>Stack {{ spot.stack }}</div>
+          <div>Pot {{ bbText(spot.pot) }}bb</div>
+          <div>Stack {{ bbText(spot.stack) }}bb</div>
         </div>
 
         <!-- Player -->
@@ -67,7 +67,7 @@
           <div v-if="spot.equityOop === 0 || spot.equityOop === 1">
             {{ ["IP", "OOP"][spot.equityOop] }} wins
           </div>
-          <div class="tabular-nums">Pot {{ spot.pot }}</div>
+          <div class="tabular-nums">Pot {{ bbText(spot.pot) }}bb</div>
         </div>
       </div>
     </div>
@@ -83,20 +83,18 @@
       <div class="flex flex-wrap items-center gap-2 text-sm">
         <span class="text-muted">Bet</span>
         <input
-          v-model="betAmount"
+          v-model.number="betAmountBb"
           type="number"
+          step="0.1"
           :class="[
             'ui-input w-24 text-center',
-            betAmount < minAmount ||
-            betAmount > maxAmount ||
-            betAmount % 1 !== 0
-              ? '!border-red-500'
-              : '',
+            isBetAmountInvalid ? '!border-red-500' : '',
           ]"
-          :min="minAmount"
-          :max="maxAmount"
+          :min="toBb(minAmount)"
+          :max="toBb(maxAmount)"
           @keydown.enter="addBetAction"
         />
+        <span class="text-xs text-muted">bb</span>
         <span
           v-if="!isSelectedTerminal && !isAfterAllin"
           class="text-xs text-muted"
@@ -107,9 +105,7 @@
           :disabled="
             isSelectedTerminal ||
             isAfterAllin ||
-            betAmount < minAmount ||
-            betAmount > maxAmount ||
-            betAmount % 1 !== 0 ||
+            isBetAmountInvalid ||
             existingAmounts.includes(betAmount)
           "
           @click="addBetAction"
@@ -189,6 +185,7 @@
 </template>
 
 <script setup lang="ts">
+import { bbText, fromBb, toBb } from "../units";
 import { actionCode, readableLines } from "../tree-lines";
 import { actionText, streetBets, toSpotActions } from "../nav-spots";
 import UiButton from "./ui/UiButton.vue";
@@ -262,6 +259,22 @@ const minAmount = computed(() => {
   const max = Math.max(...totalBetAmount.value) - betMinus;
   return Math.min(Math.max(2 * max - min, 1), maxAmount.value);
 });
+
+/** The bet typed in big blinds; `betAmount` keeps it in app units (NaN when cleared). */
+const betAmountBb = computed({
+  get: () => toBb(betAmount.value),
+  set: (bb: number | string) => {
+    betAmount.value =
+      typeof bb === "number" && Number.isFinite(bb) ? fromBb(bb) : Number.NaN;
+  },
+});
+
+const isBetAmountInvalid = computed(
+  () =>
+    !Number.isFinite(betAmount.value) ||
+    betAmount.value < minAmount.value ||
+    betAmount.value > maxAmount.value
+);
 
 const amountRate = computed(() => {
   const pot = config.startingPot + 2 * Math.max(...totalBetAmount.value);
@@ -508,6 +521,15 @@ const play = async (spotIndex: number, actionIndex: number) => {
 };
 
 const addBetAction = async () => {
+  // Enter in the field skips the disabled button: the same checks.
+  if (
+    isSelectedTerminal.value ||
+    isAfterAllin.value ||
+    isBetAmountInvalid.value ||
+    existingAmounts.value.includes(betAmount.value)
+  ) {
+    return;
+  }
   const isRaise = totalBetAmount.value[0] !== totalBetAmount.value[1];
   await invokes.treeAddBetAction(betAmount.value, isRaise);
   await selectSpot(selectedSpotIndex.value, false, true, false);

@@ -220,6 +220,19 @@ describe("audit fixes", () => {
     expect(checkConfig(config)).toBeNull();
   });
 
+  test("amount errors speak big blinds", () => {
+    const config = useConfigStore();
+    config.startingPot = 30001;
+    expect(checkConfig(config)).toBe("Starting pot must not exceed 3000bb");
+    config.startingPot = 55.5;
+    expect(checkConfig(config)).toBe(
+      "Starting pot must be a multiple of 0.1bb"
+    );
+    config.startingPot = 20;
+    config.rakeCap = 90001;
+    expect(checkConfig(config)).toBe("Rake cap must not exceed 9000bb");
+  });
+
   test("the stop target uses the solved pot, not an edited Setup pot", async () => {
     mocked.gameExploitability.mockResolvedValue(10); // 50% of the solved pot (20)
     const session = useSolverSession();

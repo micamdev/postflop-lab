@@ -178,7 +178,7 @@
                     v-else-if="column.type === 'ev'"
                     :data-set="
                       strTmp = toFixed[evDigits - 1](
-                        summary[columnIndex(column)]
+                        evBb(summary[columnIndex(column)])
                       )
                     "
                   >
@@ -296,7 +296,9 @@
                       column.type === 'ev' || column.type === 'action-ev'
                     "
                     :data-set="
-                      strTmp = toFixed[evDigits - 1](item[columnIndex(column)])
+                      strTmp = toFixed[evDigits - 1](
+                        evBb(item[columnIndex(column)])
+                      )
                     "
                   >
                     <span>{{ strTmp.slice(0, -evDigits) }}</span>
@@ -352,6 +354,7 @@
 </template>
 
 <script setup lang="ts">
+import { evBb } from "../units";
 import { themeColor } from "../theme";
 import { stackedGradient } from "../action-colors";
 import { computed, reactive, ref, toRefs, watch } from "vue";
@@ -555,11 +558,11 @@ const evDigits = computed(() => {
   if (props.tableMode !== "chance") {
     const results = props.results;
     if (!results || results.isEmpty) return 3;
-    return evDigitsFor(results.ev[playerIndex]);
+    return evDigitsFor(results.ev[playerIndex].map(evBb));
   }
   const reports = props.chanceReports;
   if (!reports || reports.status.every((s) => s <= 1)) return 3;
-  return evDigitsFor(reports.ev[playerIndex]);
+  return evDigitsFor(reports.ev[playerIndex].map(evBb));
 });
 
 const numActions = computed(() => {
