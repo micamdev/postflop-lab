@@ -69,6 +69,7 @@ mod hand_table;
 mod interface;
 mod mutex_like;
 mod range;
+mod simd;
 mod sliceop;
 mod solver;
 mod utility;

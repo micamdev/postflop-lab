@@ -90,6 +90,8 @@ fn main() {
             bunching_progress,
             game_init,
             game_memory_estimate,
+            game_solve_estimate,
+            game_solve_limit,
             game_private_cards,
             game_memory_usage,
             game_memory_usage_bunching,
@@ -187,5 +189,25 @@ fn guarded<R: tauri::Runtime>(
                 true
             },
         )
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    /// The app must start on any x86-64 CPU: the engine picks AVX2 at run time
+    /// (engine/src/simd.rs). A build-wide `target-feature=+avx2` in a Cargo config read by
+    /// `tauri build` would crash it on CPUs without AVX2 before any check could run. (CI's
+    /// RUSTFLAGS override these files, so their content is checked, not the build's flags.)
+    #[test]
+    fn no_cargo_config_requires_avx2() {
+        let manifest = std::path::Path::new(env!("CARGO_MANIFEST_DIR"));
+        for dir in manifest.ancestors().take(3) {
+            for name in ["config.toml", "config"] {
+                let path = dir.join(".cargo").join(name);
+                if let Ok(text) = std::fs::read_to_string(&path) {
+                    assert!(!text.contains("avx2"), "{} forces AVX2", path.display());
+                }
+            }
+        }
     }
 }

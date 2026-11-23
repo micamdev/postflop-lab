@@ -133,6 +133,7 @@
 </template>
 
 <script setup lang="ts">
+import { exploitabilityText } from "../units";
 import BoardChips from "./ui/BoardChips.vue";
 import { computed, onUnmounted, ref } from "vue";
 import { useStore, useConfigStore, useSavedConfigStore } from "../store";
@@ -273,10 +274,6 @@ const progressText = computed(() => {
   if (!Number.isFinite(session.exploitability)) {
     return `it ${session.iteration}`;
   }
-  const percent = (session.exploitability * 100) / pot.value;
-  return (
-    `it ${session.iteration} · ${session.exploitability.toFixed(2)} ` +
-    `(${percent.toFixed(2)}%)`
-  );
+  return `it ${session.iteration} · ${exploitabilityText(session.exploitability, pot.value)}`;
 });
 </script>

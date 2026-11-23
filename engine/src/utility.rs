@@ -364,6 +364,41 @@ fn compute_cfvalue_recursive<T: Game>(
     cfreach: &[f32],
     save_cfvalues: bool,
 ) {
+    #[cfg(any(target_arch = "x86", target_arch = "x86_64"))]
+    if crate::simd::has_avx2() {
+        // SAFETY: the CPU supports AVX2.
+        return unsafe {
+            compute_cfvalue_recursive_avx2(result, game, node, player, cfreach, save_cfvalues)
+        };
+    }
+    compute_cfvalue_node(result, game, node, player, cfreach, save_cfvalues)
+}
+
+/// [`compute_cfvalue_recursive`] compiled with AVX2 (same operations, wider vectors).
+#[cfg(any(target_arch = "x86", target_arch = "x86_64"))]
+#[target_feature(enable = "avx2")]
+fn compute_cfvalue_recursive_avx2<T: Game>(
+    result: &mut [MaybeUninit<f32>],
+    game: &T,
+    node: &mut T::Node,
+    player: usize,
+    cfreach: &[f32],
+    save_cfvalues: bool,
+) {
+    crate::simd::note_avx2_call();
+    compute_cfvalue_node(result, game, node, player, cfreach, save_cfvalues)
+}
+
+/// The work of one node of [`compute_cfvalue_recursive`] (inlined into the portable and AVX2 copies).
+#[inline(always)]
+fn compute_cfvalue_node<T: Game>(
+    result: &mut [MaybeUninit<f32>],
+    game: &T,
+    node: &mut T::Node,
+    player: usize,
+    cfreach: &[f32],
+    save_cfvalues: bool,
+) {
     // terminal node
     if node.is_terminal() {
         game.evaluate(result, node, player, cfreach);
@@ -567,6 +602,37 @@ fn compute_cfvalue_recursive<T: Game>(
 
 /// The recursive helper function for computing the counterfactual values of best response.
 fn compute_best_cfv_recursive<T: Game>(
+    result: &mut [MaybeUninit<f32>],
+    game: &T,
+    node: &T::Node,
+    player: usize,
+    cfreach: &[f32],
+) {
+    #[cfg(any(target_arch = "x86", target_arch = "x86_64"))]
+    if crate::simd::has_avx2() {
+        // SAFETY: the CPU supports AVX2.
+        return unsafe { compute_best_cfv_recursive_avx2(result, game, node, player, cfreach) };
+    }
+    compute_best_cfv_node(result, game, node, player, cfreach)
+}
+
+/// [`compute_best_cfv_recursive`] compiled with AVX2 (same operations, wider vectors).
+#[cfg(any(target_arch = "x86", target_arch = "x86_64"))]
+#[target_feature(enable = "avx2")]
+fn compute_best_cfv_recursive_avx2<T: Game>(
+    result: &mut [MaybeUninit<f32>],
+    game: &T,
+    node: &T::Node,
+    player: usize,
+    cfreach: &[f32],
+) {
+    crate::simd::note_avx2_call();
+    compute_best_cfv_node(result, game, node, player, cfreach)
+}
+
+/// The work of one node of [`compute_best_cfv_recursive`] (inlined into the portable and AVX2 copies).
+#[inline(always)]
+fn compute_best_cfv_node<T: Game>(
     result: &mut [MaybeUninit<f32>],
     game: &T,
     node: &T::Node,

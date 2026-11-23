@@ -3,6 +3,7 @@
 import { ALL_IN, actionColor } from "./action-colors";
 import type { Spot, SpotChance, SpotPlayer } from "./result-types";
 import { cardText } from "./utils";
+import { bbText } from "./units";
 
 /** Colour of action `i` of `actions` ("Name:amount"), bets ranked by amount. */
 const colorOf = (actions: string[], i: number, numBetActions: number) => {
@@ -46,7 +47,7 @@ export const potPercent = (
   return ((Number(amount) - street.bet) / potAfterCall) * 100;
 };
 
-/** "Bet 18 · 33%": the amount, then the % of the pot when there is one. */
+/** "Bet 1.8 · 33%": the amount in big blinds, then the % of the pot when there is one. */
 export const actionText = (action: {
   name: string;
   amount: string;
@@ -55,7 +56,7 @@ export const actionText = (action: {
   if (action.amount === "0") return action.name;
   const percent =
     action.percent === null ? "" : ` · ${Math.round(action.percent)}%`;
-  return `${action.name} ${action.amount}${percent}`;
+  return `${action.name} ${bbText(Number(action.amount))}${percent}`;
 };
 
 /** The actions of a spot ("Name:amount") with their colours. Fold, check and call (amount 0)
@@ -83,7 +84,7 @@ export const toSpotActions = (
 export const historyOf = (spots: Spot[], end: number, start = 1): number[] =>
   spots.slice(start, end).map((spot) => spot.selectedIndex);
 
-/** History and readable line up to the spot `end` (e.g. "OOP Check, IP Bet 30, T♥"). */
+/** History and readable line up to the spot `end` (e.g. "OOP Check, IP Bet 3, T♥"). */
 export const lineOf = (spots: Spot[], end: number) => {
   const label = spots
     .slice(1, end)
@@ -95,7 +96,10 @@ export const lineOf = (spots: Spot[], end: number) => {
       }
       if (spot.type !== "player") return "";
       const action = spot.actions[spot.selectedIndex];
-      const amount = action?.amount === "0" ? "" : ` ${action?.amount}`;
+      const amount =
+        !action || action.amount === "0"
+          ? ""
+          : ` ${bbText(Number(action.amount))}`;
       return `${spot.player.toUpperCase()} ${action?.name ?? "?"}${amount}`;
     })
     .join(", ");

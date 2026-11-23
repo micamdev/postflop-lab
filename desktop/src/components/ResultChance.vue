@@ -50,6 +50,7 @@
 </template>
 
 <script setup lang="ts">
+import { evBb } from "../units";
 import { actionText } from "../nav-spots";
 import { resolvedThemeColor } from "../theme";
 import { computed, ref, watch } from "vue";
@@ -177,7 +178,7 @@ const chartData = computed((): ChartData<"bar", number[]> | null => {
       options.chartChance === "eq"
         ? reports.equity[playerIndex]
         : options.chartChance === "ev"
-          ? reports.ev[playerIndex]
+          ? reports.ev[playerIndex].map(evBb)
           : reports.eqr[playerIndex];
     datasets = Array.from({ length: 4 }, (_, suit) => ({
       data: Array.from(
@@ -211,7 +212,7 @@ const chartOptions = computed((): ChartOptions<"bar"> => {
       "strategy-combos": "Strategy (Combos)",
       strategy: "Strategy",
       eq: "Equity",
-      ev: "EV",
+      ev: "EV (bb)",
       eqr: "EQR",
     }[option];
 

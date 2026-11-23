@@ -35,14 +35,14 @@
           <ul class="mt-1 pl-4 list-disc">
             <li>
               A share of the pot: "50" or "50%". A raise first calls, then bets
-              that share: pot 100, bet 75, a 50% raise is 75 + (100 + 75 + 75) ×
-              50% = 200.
+              that share: pot 10bb, bet 7.5bb, a 50% raise is 7.5 + (10 + 7.5 +
+              7.5) × 50% = 20bb.
             </li>
             <li>A multiple of the previous bet (raises only): "2.5x".</li>
             <li>All-in: "a".</li>
             <li>
-              A fixed amount: "100c"; for raises, a cap on the number of raises:
-              "20c3r".
+              A fixed amount, in tenths of a big blind: "25c" = 2.5bb; for
+              raises, a cap on the number of raises: "20c3r".
             </li>
             <li>
               Geometric: "3e" splits the remaining stack into 3 equal bets in %
