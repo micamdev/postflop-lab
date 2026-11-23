@@ -147,8 +147,14 @@ export const DEFAULT_TREES: { path: string[]; value: ConfigValue }[] = [
 /** Rows to add to `existing`: the folder if missing, and each tree whose path is free. */
 export const defaultTreeRows = (existing: Row[]): Row[] => {
   const taken = new Set(existing.map((row) => JSON.stringify(rowPath(row))));
+  // A saved tree (not a folder) already named like the folder: the trees would have no
+  // parent and stay invisible, so add nothing.
+  const atFolder = existing.find(
+    (row) => JSON.stringify(rowPath(row)) === JSON.stringify([FOLDER])
+  );
+  if (atFolder && atFolder.isGroup === 0) return [];
   const rows: Row[] = [];
-  if (!taken.has(JSON.stringify([FOLDER]))) rows.push(rowFor([FOLDER], true));
+  if (!atFolder) rows.push(rowFor([FOLDER], true));
   for (const { path, value } of DEFAULT_TREES) {
     if (!taken.has(JSON.stringify(path))) rows.push(rowFor(path, false, value));
   }
@@ -159,9 +165,17 @@ export const defaultTreeRows = (existing: Row[]): Row[] => {
  * Adds the default trees once (per `DEFAULT_TREES_VERSION`): a tree deleted or changed by the
  * user is never touched again. A failed write leaves it to the next start.
  */
-export const seedDefaultTrees = async (
+export const seedDefaultTrees = (
   storage: Pick<Storage, "getItem" | "setItem">
 ): Promise<void> => {
+  // One at a time: two overlapping seeds would both read an empty library and write twice.
+  seeding ??= seed(storage).finally(() => (seeding = null));
+  return seeding;
+};
+
+let seeding: Promise<void> | null = null;
+
+const seed = async (storage: Pick<Storage, "getItem" | "setItem">) => {
   if (Number(storage.getItem(STORAGE_KEY) ?? 0) >= DEFAULT_TREES_VERSION)
     return;
   const rows = defaultTreeRows(await Db.getArray("configurations"));

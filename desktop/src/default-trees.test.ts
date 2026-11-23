@@ -130,3 +130,24 @@ describe("seedDefaultTrees", () => {
     );
   });
 });
+
+describe("review fixes", () => {
+  test("a saved tree named Default (not a folder): nothing is added", () => {
+    expect(defaultTreeRows([item(["Default"], { mine: true })])).toEqual([]);
+  });
+
+  test("two seeds at once write once", async () => {
+    let release!: () => void;
+    mocked.getArray.mockReturnValue(
+      new Promise((r) => (release = () => r([])))
+    );
+    const storage = memoryStorage();
+    const both = Promise.all([
+      seedDefaultTrees(storage),
+      seedDefaultTrees(storage),
+    ]);
+    release();
+    await both;
+    expect(mocked.bulkAdd).toHaveBeenCalledOnce();
+  });
+});
