@@ -4,13 +4,22 @@
     @click.self="!isSaving && emit('close')"
   >
     <div
+      ref="dialog"
+      role="dialog"
+      aria-modal="true"
+      aria-labelledby="save-solution-title"
       class="w-[34rem] p-6 bg-panel border border-line rounded-lg shadow-2xl shadow-black/50"
+      @keydown.esc="!isSaving && emit('close')"
+      @keydown.tab="trapTab($event, dialog)"
     >
-      <div class="mb-4 text-lg font-bold">Save Solution</div>
+      <div id="save-solution-title" class="mb-4 text-lg font-bold">
+        Save Solution
+      </div>
 
       <label class="block font-semibold">
         Name
         <input
+          ref="nameInput"
           v-model="name"
           type="text"
           class="block w-full mt-1 px-2 py-1 rounded-lg"
@@ -72,6 +81,7 @@
 <script setup lang="ts">
 import UiButton from "./ui/UiButton.vue";
 import { onMounted, onUnmounted, ref } from "vue";
+import { trapTab } from "../modal-focus";
 import { listen, UnlistenFn } from "@tauri-apps/api/event";
 import { useStore, useSavedConfigStore, SolutionDepth } from "../store";
 import * as invokes from "../invokes";
@@ -107,7 +117,13 @@ const errorText = ref("");
 let unlisten: UnlistenFn | null = null;
 let isUnmounted = false;
 
+const dialog = ref<HTMLElement | null>(null);
+const nameInput = ref<HTMLInputElement | null>(null);
+
 onMounted(async () => {
+  // The keyboard starts in the dialog, on the name (ready to retype).
+  nameInput.value?.focus();
+  nameInput.value?.select();
   try {
     estimates.value =
       (await invokes.librarySaveEstimate()) as typeof estimates.value;
@@ -133,7 +149,10 @@ onUnmounted(() => {
 });
 
 const save = async (overwrite: boolean) => {
-  if (isSaving.value || !name.value.trim()) return;
+  // Enter in the name works like the button: not before the depths are known.
+  if (isSaving.value || !name.value.trim() || estimates.value.length === 0) {
+    return;
+  }
   isSaving.value = true;
   written.value = 0;
   errorText.value = "";

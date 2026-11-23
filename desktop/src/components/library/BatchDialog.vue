@@ -11,6 +11,7 @@
       tabindex="-1"
       class="w-[28rem] p-5 rounded-lg border border-line bg-panel shadow-xl outline-none"
       @keydown.esc="emit('close')"
+      @keydown.tab="trapTab($event, dialog)"
     >
       <h2 id="batch-dialog-title" class="mb-1 font-semibold">
         Solve a flop subset
@@ -101,6 +102,7 @@
 </template>
 
 <script setup lang="ts">
+import { trapTab } from "../../modal-focus";
 import { computed, onMounted, ref, watch } from "vue";
 import { useBatch, BatchPreview } from "../../use-batch";
 import { SUBSET_SIZES } from "../../flop-subsets";
