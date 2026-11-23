@@ -59,7 +59,7 @@
     </div>
     <div :class="isSelectedChance ? '' : isInactive ? 'opacity-70' : dimmed">
       <div class="text-xs text-muted tabular-nums">
-        Pot {{ spot.pot }} · {{ spot.stack }}
+        Pot {{ bbText(spot.pot) }}bb · {{ bbText(spot.stack) }}bb
       </div>
     </div>
   </div>
@@ -74,6 +74,7 @@
 </template>
 
 <script setup lang="ts">
+import { bbText } from "../../units";
 import { computed } from "vue";
 import {
   XMarkIcon,

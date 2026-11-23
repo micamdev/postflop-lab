@@ -1,3 +1,5 @@
+import { bbText } from "./units";
+
 export const ranks = [
   "2",
   "3",
@@ -382,7 +384,10 @@ export const readableLineString = (s: string): string => {
       case "R":
       case "A": {
         const { amount, indexEnd } = parseBetAmount(s, index + 1);
-        ret += { B: "Bet", R: "Raise", A: "All-in" }[s[index]] + ` ${amount}`;
+        // Shown in big blinds (the line codes are in app units).
+        ret +=
+          { B: "Bet", R: "Raise", A: "All-in" }[s[index]] +
+          ` ${bbText(amount)}`;
         index = indexEnd;
         isOk = !isSeparatorExpected && amount > 0;
         break;

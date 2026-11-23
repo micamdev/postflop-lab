@@ -116,10 +116,10 @@ describe("bet sizes in % of the pot", () => {
 
   test("labels: the amount, then the % of the pot", () => {
     expect(actionText({ name: "Bet", amount: "18", percent: 32.7 })).toBe(
-      "Bet 18 · 33%"
+      "Bet 1.8 · 33%"
     );
     expect(actionText({ name: "Bet", amount: "18", percent: null })).toBe(
-      "Bet 18"
+      "Bet 1.8"
     );
     expect(actionText({ name: "Check", amount: "0", percent: null })).toBe(
       "Check"
@@ -138,7 +138,7 @@ describe("lineOf", () => {
   test("history and readable line up to a spot", () => {
     expect(lineOf(spots, 5)).toEqual({
       history: [0, 1, 1, 34],
-      label: "OOP Check, IP Bet 5, OOP Call, T♥",
+      label: "OOP Check, IP Bet 0.5, OOP Call, T♥",
     });
   });
 
@@ -148,7 +148,7 @@ describe("lineOf", () => {
 
   test("a skipped card reads ?", () => {
     const skipped = [...spots.slice(0, 4), chance(4, -1)];
-    expect(lineOf(skipped, 5).label).toBe("OOP Check, IP Bet 5, OOP Call, ?");
+    expect(lineOf(skipped, 5).label).toBe("OOP Check, IP Bet 0.5, OOP Call, ?");
   });
 });
 

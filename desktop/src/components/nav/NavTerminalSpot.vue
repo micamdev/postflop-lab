@@ -31,11 +31,12 @@
         </span>
       </div>
     </div>
-    <div class="px-3">Pot {{ spot.pot }}</div>
+    <div class="px-3">Pot {{ bbText(spot.pot) }}bb</div>
   </div>
 </template>
 
 <script setup lang="ts">
+import { bbText } from "../../units";
 import type { SpotTerminal } from "../../result-types";
 
 // The end of a line: who wins, or the equity at showdown, and the pot.

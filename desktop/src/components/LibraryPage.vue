@@ -189,6 +189,7 @@
 </template>
 
 <script setup lang="ts">
+import { exploitabilityText as formatExploitability } from "../units";
 import BoardChips from "./ui/BoardChips.vue";
 import { computed, onMounted, reactive, ref, watch } from "vue";
 import { open, save } from "@tauri-apps/plugin-dialog";
@@ -362,9 +363,7 @@ const run = async (action: () => Promise<void>) => {
 
 const exploitabilityText = (meta: invokes.SolutionMeta) => {
   const pot = Number(meta.tree_config.startingPot) || 0;
-  const percent =
-    pot > 0 ? ` (${((meta.exploitability * 100) / pot).toFixed(2)}%)` : "";
-  return meta.exploitability.toFixed(2) + percent;
+  return formatExploitability(meta.exploitability, pot);
 };
 
 const load = async (entry: invokes.LibraryEntry) => {

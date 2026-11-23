@@ -84,7 +84,7 @@
               }}
             </td>
             <td class="px-3 py-1 text-right">
-              {{ toFixed2(row.ev) }}
+              {{ toFixed2(evBb(row.ev)) }}
             </td>
           </tr>
         </tbody>
@@ -94,6 +94,7 @@
 </template>
 
 <script setup lang="ts">
+import { evBb } from "../../units";
 import { computed } from "vue";
 import {
   BreakdownFilter,

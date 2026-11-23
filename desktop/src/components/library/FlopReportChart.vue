@@ -69,6 +69,7 @@
 </template>
 
 <script setup lang="ts">
+import { evBb } from "../../units";
 import { computed } from "vue";
 import { useStore } from "../../store";
 import { cardText, suitTextClasses, toFixed1, toFixed2 } from "../../utils";
@@ -135,7 +136,7 @@ const tooltip = (row: ReportRow) => {
             .join(", ")
         : "no strategy saved"
       : props.metric === "ev"
-        ? `EV ${who} ${toFixed2(value)}`
+        ? `EV ${who} ${toFixed2(evBb(value))}`
         : `${props.metric === "eq" ? "EQ" : "EQR"} ${who} ${toFixed1(value * 100)}%`;
   return `${boardText(row.board)}: ${detail}`;
 };

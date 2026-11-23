@@ -41,22 +41,26 @@
           STACKS &amp; THRESHOLDS
         </div>
         <div class="grid grid-cols-4 gap-x-3 gap-y-2">
-          <UiField label="Pot">
+          <UiField label="Pot" suffix="bb">
             <input
-              v-model.number="config.startingPot"
+              v-model.number="potBb"
+              @change="showStored($event, potBb)"
               type="number"
-              min="1"
-              :max="MAX_AMOUNT"
+              min="0.1"
+              step="0.1"
+              :max="toBb(MAX_AMOUNT)"
               class="ui-input w-full"
               :disabled="locked"
             />
           </UiField>
-          <UiField label="Stack">
+          <UiField label="Stack" suffix="bb">
             <input
-              v-model.number="config.effectiveStack"
+              v-model.number="stackBb"
+              @change="showStored($event, stackBb)"
               type="number"
-              min="1"
-              :max="MAX_AMOUNT"
+              min="0.1"
+              step="0.1"
+              :max="toBb(MAX_AMOUNT)"
               class="ui-input w-full"
               :disabled="locked"
             />
@@ -76,12 +80,17 @@
               :disabled="locked"
             />
           </UiField>
-          <UiField label="Rake cap">
+          <UiField label="Rake cap" suffix="bb">
+            <template #help>
+              The most rake taken from a pot. 0 means no rake.
+            </template>
             <input
-              v-model.number="config.rakeCap"
+              v-model.number="rakeCapBb"
+              @change="showStored($event, rakeCapBb)"
               type="number"
               min="0"
-              :max="3 * MAX_AMOUNT"
+              step="0.1"
+              :max="toBb(3 * MAX_AMOUNT)"
               class="ui-input w-full"
               :disabled="locked"
             />
@@ -171,6 +180,7 @@
 import { computed } from "vue";
 import { emptySetup, useConfigStore, useStore } from "../../store";
 import { MAX_AMOUNT } from "../../utils";
+import { fromBb, showStored, toBb } from "../../units";
 import { setupErrors } from "../../setup-validation";
 import { hasManualEdits } from "../../tree-config-value";
 import UiField from "../ui/UiField.vue";
@@ -190,6 +200,24 @@ const spr = computed(() =>
 );
 
 const locked = computed(() => hasManualEdits(config));
+
+/** A Setup amount typed in big blinds (stored in app units; a cleared field stays ""). */
+const inBb = (field: "startingPot" | "effectiveStack" | "rakeCap") =>
+  computed({
+    get: () => {
+      const value = config[field] as number | string;
+      return typeof value === "number" && Number.isFinite(value)
+        ? toBb(value)
+        : value;
+    },
+    set: (bb: number | string) => {
+      (config[field] as number | string) =
+        typeof bb === "number" && Number.isFinite(bb) ? fromBb(bb) : bb;
+    },
+  });
+const potBb = inBb("startingPot");
+const stackBb = inBb("effectiveStack");
+const rakeCapBb = inBb("rakeCap");
 
 const errors = computed(() => {
   const all = setupErrors(config);

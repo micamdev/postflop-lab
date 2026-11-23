@@ -15,6 +15,7 @@ import {
   readableLineString,
   sanitizeBetString,
 } from "./utils";
+import { bbText } from "./units";
 
 type Config = ReturnType<typeof useConfigStore>;
 
@@ -31,8 +32,11 @@ export const setupErrors = (config: Config) => {
   const amount = (value: unknown, name: string, max: number) => {
     if (!isNumber(value)) basics.push(`${name} must be a number`);
     else if (value <= 0) basics.push(`${name} must be positive`);
-    else if (value > max) basics.push(`${name} must not exceed ${max}`);
-    else if (value % 1 !== 0) basics.push(`${name} must be an integer`);
+    else if (value > max)
+      basics.push(`${name} must not exceed ${bbText(max)}bb`);
+    // Stored in tenths of a big blind (whole numbers).
+    else if (value % 1 !== 0)
+      basics.push(`${name} must be a multiple of 0.1bb`);
   };
   amount(config.startingPot, "Starting pot", MAX_AMOUNT);
   amount(config.effectiveStack, "Effective stack", MAX_AMOUNT);
@@ -42,7 +46,7 @@ export const setupErrors = (config: Config) => {
   if (!isNumber(config.rakeCap)) basics.push("Rake cap must be a number");
   else if (config.rakeCap < 0) basics.push("Rake cap must be non-negative");
   else if (config.rakeCap > 3 * MAX_AMOUNT) {
-    basics.push(`Rake cap must not exceed ${3 * MAX_AMOUNT}`);
+    basics.push(`Rake cap must not exceed ${bbText(3 * MAX_AMOUNT)}bb`);
   }
 
   // Each bet size field of a player, checked (donk sizes only with the donk option).

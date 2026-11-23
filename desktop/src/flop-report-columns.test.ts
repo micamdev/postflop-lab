@@ -23,7 +23,7 @@ describe("flop report columns", () => {
       "eqr0",
       "eqr1",
     ]);
-    expect(columns.find((c) => c.key === "Bet:18")?.label).toBe("Bet 18");
+    expect(columns.find((c) => c.key === "Bet:18")?.label).toBe("Bet 1.8");
     expect(columns.find((c) => c.key === "eq1")?.label).toBe("EQ IP");
   });
 
@@ -45,7 +45,7 @@ describe("flop report columns", () => {
       text: "75.0%",
       fill: { ratio: 0.75, color: "red" },
     });
-    expect(byKey.ev0.text).toBe("20.50");
+    expect(byKey.ev0.text).toBe("2.05");
     expect(byKey.ev1.text).toBe("—");
     expect(byKey.eq1).toMatchObject({
       text: "55.0%",

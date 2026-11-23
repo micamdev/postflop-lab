@@ -2,6 +2,7 @@
 // strategy bar. Pure: the colors are given.
 
 import { actionLabel, type averageRow } from "./flop-report";
+import { evBb } from "./units";
 import { toFixed1, toFixed2 } from "./utils";
 
 export type Column = {
@@ -29,8 +30,9 @@ export type Cell = {
 export const percentText = (value: number | undefined) =>
   value === undefined || isNaN(value) ? "—" : toFixed1(value * 100) + "%";
 
-/** "20.50", or "—" without a value. */
-export const evText = (value: number) => (isNaN(value) ? "—" : toFixed2(value));
+/** An EV in big blinds ("2.05"), or "—" without a value. */
+export const evText = (value: number) =>
+  isNaN(value) ? "—" : toFixed2(evBb(value));
 
 /** Flop, texture, advantages, strategy, each action, then EV, EQ and EQR of each player. */
 export const reportColumns = (actions: string[]): Column[] => [
