@@ -14,11 +14,12 @@ test("any tree edit marks the saved tree modified, undoing it clears the mark", 
   setTreeSource(["X"], configToValue(config));
   expect(store.treeSource?.modified).toBe(false);
 
-  config.rakeCap = 5; // edited on the Tree page
+  const before = config.rakeCap;
+  config.rakeCap = before + 5; // edited on the Tree page
   await nextTick();
   expect(store.treeSource?.modified).toBe(true);
 
-  config.rakeCap = 0;
+  config.rakeCap = before;
   await nextTick();
   expect(store.treeSource?.modified).toBe(false);
 });
