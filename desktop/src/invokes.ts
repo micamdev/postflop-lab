@@ -337,6 +337,8 @@ export type SolutionMeta = {
   flop_weight?: number | null;
   /** Size of the flop subset of the batch that solved it (absent if solved by hand). */
   batch_size?: number | null;
+  /** In a library list, a key of the locks instead of `locks` ("" without locks). */
+  locks_key?: string;
 };
 
 export type LibraryEntry = {

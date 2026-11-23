@@ -42,10 +42,18 @@ export const configKey = (meta: SolutionMeta): string => {
         return [field, typeof value === "string" ? value.trim() : value];
       })
   );
-  // A lock's label is display text (its wording changed across versions): not the spot.
-  const locks = (meta.locks ?? []).map((lock) =>
-    Object.fromEntries(Object.entries(lock).filter(([key]) => key !== "label"))
-  );
+  // A listed solution has a key of its locks (the list leaves the locks out); a spot built
+  // in the app has its locks ("" without any, as the list's key). A lock's label is display
+  // text (its wording changed across versions): not the spot.
+  const locks =
+    meta.locks_key ??
+    (meta.locks?.length
+      ? meta.locks.map((lock) =>
+          Object.fromEntries(
+            Object.entries(lock).filter(([key]) => key !== "label")
+          )
+        )
+      : "");
   return stableJson({ ranges: meta.ranges, tree, locks });
 };
 

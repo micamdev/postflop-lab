@@ -189,6 +189,7 @@
 </template>
 
 <script setup lang="ts">
+import { latestOnly } from "../latest-only";
 import { exploitabilityText as formatExploitability } from "../units";
 import BoardChips from "./ui/BoardChips.vue";
 import { computed, onMounted, reactive, ref, watch } from "vue";
@@ -326,13 +327,15 @@ const rowMenu = (entry: invokes.LibraryEntry) => [
 
 const FILTERS = [{ name: "Postflop Lab solution", extensions: ["plab"] }];
 
-const refresh = async () => {
+// One list read at a time (a batch, a save and a delete can all ask at once): an older
+// answer arriving last would bring back a deleted or renamed file.
+const refresh = latestOnly(async () => {
   try {
     entries.value = await invokes.libraryList();
   } catch (e) {
     errorText.value = String(e);
   }
-};
+});
 
 onMounted(refresh);
 watch(
