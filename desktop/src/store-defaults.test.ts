@@ -2,27 +2,19 @@ import { beforeEach, describe, expect, test } from "vitest";
 import { createPinia, setActivePinia } from "pinia";
 import { emptySetup, useConfigStore } from "./store";
 import { setupErrors } from "./setup-validation";
+import { configToValue } from "./tree-config-value";
+import { SRP_SIMPLIFIED } from "./default-trees";
 
 describe("a new Setup", () => {
   beforeEach(() => setActivePinia(createPinia()));
 
-  test("a real spot: single raised pot at 100bb (x10 units), usual bet sizes", () => {
+  test("a real spot: single raised pot at 100bb (x10 units), the simplified SRP default tree", () => {
     const config = useConfigStore();
     expect(config.startingPot).toBe(55);
     expect(config.effectiveStack).toBe(975);
-    expect([config.oopFlopBet, config.ipFlopBet]).toEqual(["33, 75", "33, 75"]);
-    expect([config.oopTurnBet, config.ipTurnBet]).toEqual(["75", "75"]);
-    expect([config.oopRiverBet, config.ipRiverBet]).toEqual(["75", "75"]);
-    for (const raise of [
-      config.oopFlopRaise,
-      config.ipFlopRaise,
-      config.oopTurnRaise,
-      config.ipTurnRaise,
-      config.oopRiverRaise,
-      config.ipRiverRaise,
-    ]) {
-      expect(raise).toBe("60");
-    }
+    // The Setup starts as the "Default › SRP, opener IP (simplified)" tree, NL50 rake.
+    expect(configToValue(config)).toEqual(SRP_SIMPLIFIED);
+    expect([config.rakePercent, config.rakeCap]).toEqual([5, 60]);
   });
 
   test("the defaults are valid: only the board is missing", () => {

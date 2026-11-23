@@ -281,6 +281,7 @@ import * as invokes from "../../invokes";
 import { ask } from "../../library";
 import { isSpotModified, type SpotValue } from "../../spot";
 import { loadSpot, loadTreeWithSpot } from "../../spot-load";
+import { seedDefaultTrees } from "../../default-trees";
 import UiButton from "../ui/UiButton.vue";
 import UiMenu from "../ui/UiMenu.vue";
 import UiSegmented from "../ui/UiSegmented.vue";
@@ -405,6 +406,8 @@ const switchTab = async (value: SavedStore) => {
 
 onMounted(async () => {
   document.addEventListener("mousedown", onOutsideClick);
+  // The "Default" trees, added once to the library (a failure is retried next start).
+  await seedDefaultTrees(localStorage).catch(() => undefined);
   await reload();
 });
 onUnmounted(() => {
