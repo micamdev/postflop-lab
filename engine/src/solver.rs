@@ -141,6 +141,39 @@ fn solve_recursive<T: Game>(
     cfreach: &[f32],
     params: &DiscountParams,
 ) {
+    #[cfg(any(target_arch = "x86", target_arch = "x86_64"))]
+    if crate::simd::has_avx2() {
+        // SAFETY: the CPU supports AVX2.
+        return unsafe { solve_recursive_avx2(result, game, node, player, cfreach, params) };
+    }
+    solve_node(result, game, node, player, cfreach, params)
+}
+
+/// [`solve_recursive`] compiled with AVX2 (same operations, wider vectors).
+#[cfg(any(target_arch = "x86", target_arch = "x86_64"))]
+#[target_feature(enable = "avx2")]
+fn solve_recursive_avx2<T: Game>(
+    result: &mut [MaybeUninit<f32>],
+    game: &T,
+    node: &mut T::Node,
+    player: usize,
+    cfreach: &[f32],
+    params: &DiscountParams,
+) {
+    crate::simd::note_avx2_call();
+    solve_node(result, game, node, player, cfreach, params)
+}
+
+/// The work of one node of [`solve_recursive`] (inlined into the portable and AVX2 copies).
+#[inline(always)]
+fn solve_node<T: Game>(
+    result: &mut [MaybeUninit<f32>],
+    game: &T,
+    node: &mut T::Node,
+    player: usize,
+    cfreach: &[f32],
+    params: &DiscountParams,
+) {
     // return the counterfactual values when the `node` is terminal
     if node.is_terminal() {
         game.evaluate(result, node, player, cfreach);

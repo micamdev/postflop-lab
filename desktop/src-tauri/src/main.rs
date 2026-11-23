@@ -189,3 +189,14 @@ fn guarded<R: tauri::Runtime>(
         )
     }
 }
+
+#[cfg(test)]
+mod tests {
+    /// The app must start on any x86-64 CPU: the engine picks AVX2 at run time
+    /// (engine/src/simd.rs). A build-wide `target-feature=+avx2` would crash it on CPUs
+    /// without AVX2 before any check could run.
+    #[test]
+    fn the_build_does_not_require_avx2() {
+        assert!(!cfg!(target_feature = "avx2"));
+    }
+}
